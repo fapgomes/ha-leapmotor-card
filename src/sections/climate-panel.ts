@@ -4,7 +4,7 @@ import {
   TARGET_TEMP_DECIMALS, nextStepTemperature, shownLevel,
   type ActionEventDetail, type ActionPayload, type ClimateChange, type SeatLevels,
 } from '../actions'
-import { CAR_TOPVIEW } from '../car-topview'
+import { CABIN_TOPVIEW } from '../cabin-topview'
 import { formatNumber } from '../format'
 import type { LogicalKey, SeatLevelKey } from '../keys'
 import type { TranslateFn } from '../localize'
@@ -15,11 +15,11 @@ const FAN_MIN = 1
 const FAN_MAX = 7
 
 /**
- * Um controlo sobreposto à vista de topo. `left`/`top` são percentagens da
- * caixa da vista, não pixéis: a vista escala com a largura do card e os
- * controlos têm de a acompanhar.
+ * O sítio de um controlo sobreposto à vista da cabina. `left`/`top` são
+ * percentagens da caixa da vista, não pixéis: a vista escala com a largura do
+ * card e os controlos têm de a acompanhar.
  */
-interface Pin { left: string; top: string }
+interface Spot { left: string; top: string }
 
 @customElement('leapmotor-climate-panel')
 export class LeapmotorClimatePanel extends LitElement {
@@ -114,11 +114,11 @@ export class LeapmotorClimatePanel extends LitElement {
     }))
   }
 
-  /** Um interruptor sobreposto à vista: espelhos, volante. */
-  private pinToggle(action: ActionId, key: LogicalKey, icon: string, label: string, on: boolean | undefined, at: Pin) {
+  /** Um interruptor sobreposto à vista, num chip só seu: espelhos, volante. */
+  private chipToggle(action: ActionId, key: LogicalKey, icon: string, label: string, on: boolean | undefined, at: Spot) {
     if (!this.map[key]) return nothing
     return html`<button
-      class="plain pin ${on ? 'on' : ''}"
+      class="plain chip-btn ${on ? 'on' : ''}"
       style="left:${at.left};top:${at.top}"
       @click=${() => this.fire(action)}
       title=${label}
@@ -127,9 +127,29 @@ export class LeapmotorClimatePanel extends LitElement {
     ><ha-icon icon=${icon}></ha-icon></button>`
   }
 
-  /** Um nível de assento sobreposto à vista: cada toque cicla 0 → max → 0. */
-  private pinLevel(key: SeatLevelKey, icon: string, label: string, at: Pin) {
-    if (!this.map[key]) return nothing
+  /**
+   * A pastilha de um banco: aquecer e ventilar lado a lado, como na app. A
+   * pastilha agrupa-os e nada mais — cada metade é um botão seu, comanda a sua
+   * entidade e mostra o seu nível; tocar numa não mexe na outra.
+   *
+   * Uma metade cuja entidade não está no mapa não é desenhada, e a pastilha
+   * estreita para o tamanho de um só controlo em vez de ficar com um buraco.
+   * Sem nenhuma das duas não há pastilha nenhuma.
+   */
+  private seatPill(seat: string, heatKey: SeatLevelKey, ventKey: SeatLevelKey, at: Spot) {
+    const halves = [
+      { key: heatKey, icon: 'mdi:car-seat-heater', label: `${seat} · ${this.t('comfort.heating')}` },
+      { key: ventKey, icon: 'mdi:car-seat-cooler', label: `${seat} · ${this.t('comfort.ventilation')}` },
+    ].filter(half => this.map[half.key])
+    if (halves.length === 0) return nothing
+    return html`<div
+      class="seat-pill ${halves.length === 2 ? 'two' : 'one'}"
+      style="left:${at.left};top:${at.top}"
+    >${halves.map(half => this.seatLevel(half.key, half.icon, half.label))}</div>`
+  }
+
+  /** Metade de uma pastilha: cada toque cicla o nível 0 → max → 0. */
+  private seatLevel(key: SeatLevelKey, icon: string, label: string) {
     // O alvo do ciclo vem do valor mostrado, que já inclui o pedido por
     // confirmar: dois toques seguidos avançam dois níveis em vez de mandarem
     // duas vezes o mesmo, enquanto o Home Assistant não escreve o estado novo.
@@ -144,8 +164,7 @@ export class LeapmotorClimatePanel extends LitElement {
     // Sem `aria-pressed`: isto cicla por vários níveis, não é um interruptor.
     const spoken = `${label} · ${shown}`
     return html`<button
-      class="plain pin ${level ? 'on' : ''} ${pending ? 'pending' : ''}"
-      style="left:${at.left};top:${at.top}"
+      class="plain seat-btn ${level ? 'on' : ''} ${pending ? 'pending' : ''}"
       @click=${() => this.setNumber(key, next)}
       title=${spoken}
       aria-label=${spoken}
@@ -163,20 +182,28 @@ export class LeapmotorClimatePanel extends LitElement {
     </button>`
   }
 
+  /**
+   * Cada controlo sobre a peça que comanda, nas coordenadas do desenho
+   * (`cabin-topview.ts`, viewBox 200 x 228):
+   *   - espelhos: a meio do tablier, 50% / 10,96% (y = 25);
+   *   - volante: sobre a roda, 28,5% / 19,3% (centro 57, 44);
+   *   - pastilhas: sobre o espaldar de cada banco, 28,5% e 71,5% / 44,7%
+   *     (centros 57 e 143, espaldar de y = 78 a y = 126).
+   *
+   * A app mostra DOIS chips de espelhos, um em cada canto de cima. Aqui é um
+   * só, e de propósito: a integração expõe um único `switch` para os dois
+   * espelhos, portanto dois chips a mexer no mesmo interruptor seriam uma
+   * mentira. Fica a meio do tablier, na linha que une os dois espelhos
+   * desenhados, para se ler como sendo dos dois.
+   */
   private topview() {
     const c = this.state.comfort
-    const driver = this.t('comfort.driver_seat')
-    const passenger = this.t('comfort.passenger_seat')
-    const heating = this.t('comfort.heating')
-    const ventilation = this.t('comfort.ventilation')
     return html`<div class="topview">
-      ${CAR_TOPVIEW}
-      ${this.pinToggle('mirrorHeat', 'mirrorHeat', 'mdi:car-side', this.t('comfort.mirrors'), c.mirrorHeat, { left: '50%', top: '31.6%' })}
-      ${this.pinToggle('steeringWheelHeat', 'steeringWheelHeat', 'mdi:steering', this.t('comfort.steering_wheel'), c.steeringWheelHeat, { left: '31%', top: '41.8%' })}
-      ${this.pinLevel('driverSeatHeat', 'mdi:car-seat-heater', `${driver} · ${heating}`, { left: '26%', top: '63.3%' })}
-      ${this.pinLevel('driverSeatVent', 'mdi:car-seat-cooler', `${driver} · ${ventilation}`, { left: '44%', top: '63.3%' })}
-      ${this.pinLevel('passengerSeatHeat', 'mdi:car-seat-heater', `${passenger} · ${heating}`, { left: '59%', top: '63.3%' })}
-      ${this.pinLevel('passengerSeatVent', 'mdi:car-seat-cooler', `${passenger} · ${ventilation}`, { left: '77%', top: '63.3%' })}
+      ${CABIN_TOPVIEW}
+      ${this.chipToggle('mirrorHeat', 'mirrorHeat', 'mdi:car-side', this.t('comfort.mirrors'), c.mirrorHeat, { left: '50%', top: '10.96%' })}
+      ${this.chipToggle('steeringWheelHeat', 'steeringWheelHeat', 'mdi:steering', this.t('comfort.steering_wheel'), c.steeringWheelHeat, { left: '28.5%', top: '19.3%' })}
+      ${this.seatPill(this.t('comfort.driver_seat'), 'driverSeatHeat', 'driverSeatVent', { left: '28.5%', top: '44.7%' })}
+      ${this.seatPill(this.t('comfort.passenger_seat'), 'passengerSeatHeat', 'passengerSeatVent', { left: '71.5%', top: '44.7%' })}
     </div>`
   }
 
@@ -252,19 +279,29 @@ export class LeapmotorClimatePanel extends LitElement {
     .title { font-size: 1.05rem; font-weight: 600; }
     /*
      * A largura da vista não é decoração, é geometria. O SVG tem viewBox
-     * 200x196 e nenhuma dimensão própria, logo a caixa mede W x 0,98W e as
-     * percentagens dos pinos resolvem contra ela. Com pinos de lado L = 12,5%
-     * de W, as folgas são todas proporcionais e nenhuma chega a zero:
-     *   - corredor entre os assentos (44% -> 59%): 0,15W - L = 0,025W;
-     *   - pino dos espelhos ao topo (top: 31,6%): 0,316 x 0,98W - L/2 = 0,247W;
-     *   - espelhos ao volante: separados 19% em x, ou seja 0,19W - L = 0,065W.
-     * A 320px o pino dá exactamente os 40px de alvo de toque. O min() é isso:
-     * 40px enquanto a vista tem 320px, proporcional (e portanto sem
-     * sobreposição) se o card for mais estreito do que isso.
+     * 200x228 e nenhuma dimensão própria, logo a caixa mede W x 1,14W e as
+     * percentagens dos controlos resolvem contra ela. À largura de projeto
+     * (W = 320px, portanto H = 364,8px), com origem no canto superior esquerdo:
+     *   - pastilha de um banco: 88 x 44px, dois alvos de 44 x 44px. Centrada em
+     *     28,5% / 44,7% -> x 47,2..135,2, y 141,1..185,1; e em 71,5% / 44,7%
+     *     -> x 184,8..272,8. Corredor entre as duas: 184,8 - 135,2 = 49,6px.
+     *     Margens: 47,2px à esquerda, 320 - 272,8 = 47,2px à direita,
+     *     364,8 - 185,1 = 179,7px em baixo.
+     *   - chip do volante: 40 x 40px em 28,5% / 19,3% -> x 71,2..111,2,
+     *     y 50,4..90,4. Até ao topo da pastilha do condutor: 141,1 - 90,4 =
+     *     50,7px.
+     *   - chip dos espelhos: 40 x 40px em 50% / 10,96% -> x 140..180,
+     *     y 20..60. Ao chip do volante: 140 - 111,2 = 28,8px de folga em x
+     *     (chega, porque duas caixas separadas em x não se tocam, seja qual for
+     *     o y). Ao topo da caixa: 20px. Às pastilhas: 141,1 - 60 = 81,1px.
+     * Nenhum alvo desce abaixo dos 40px, nenhum toca noutro e nenhum sai da
+     * caixa. Os min() são isso: as medidas em píxeis enquanto a vista tem
+     * 320px, proporcionais — e portanto ainda sem sobreposição — se o card for
+     * mais estreito.
      *
-     * O container-type serve o cqw do conteúdo do pino, abaixo: 1cqw é 1% de W,
+     * O container-type serve o cqw do conteúdo, abaixo: 1cqw é 1% de W,
      * portanto ícone e dígito escalam com a caixa em vez de ficarem em píxeis
-     * fixos, que transbordavam o círculo em cards estreitos.
+     * fixos, que transbordavam o controlo em cards estreitos.
      */
     .topview {
       position: relative; width: 100%; max-width: 320px; margin: 12px auto 4px;
@@ -272,31 +309,65 @@ export class LeapmotorClimatePanel extends LitElement {
     }
     .topview svg { display: block; width: 100%; height: auto; }
     /*
-     * button.plain (theme.ts) faz all: unset a (0,1,1) — perde-se position,
-     * box-sizing, largura, altura, padding, fundo e cantos, ou seja, a caixa
-     * inteira. Um pin sem position: absolute cairia em fluxo por baixo da vista
-     * de topo e nenhum destes controlos ficaria sobre o carro. Por isso a caixa
-     * vive no seletor composto, tal como .step-btn abaixo e button.plain.tile
-     * em tiles.ts. A altura vem do aspect-ratio e não de uma percentagem: uma
-     * percentagem de altura resolveria contra a ALTURA da vista (0,98W), o que
-     * daria um pino oval.
+     * A pastilha é uma <div> e não um <button>: agrupa dois controlos, não os
+     * funde num só. Por isso escapa ao all: unset e um seletor de uma classe
+     * chega-lhe.
+     *
+     * A altura vem do aspect-ratio e não de uma percentagem: uma percentagem
+     * de altura resolveria contra a ALTURA da vista (1,14W) e dava uma caixa
+     * deformada. Com aspect-ratio: 2 e 88px de largura saem exactamente os
+     * 44px de altura, e as duas metades esticam-se a essa altura pelo
+     * align-items: stretch que o flex já traz.
+     *
+     * O border-radius em percentagem resolve contra a PRÓPRIA caixa: 15% de
+     * 88px e 30% de 44px são os mesmos 13,2px, logo o canto é redondo e
+     * acompanha o tamanho da pastilha sem depender da largura do card.
      */
-    button.plain.pin {
+    .seat-pill {
+      position: absolute; box-sizing: border-box;
+      transform: translate(-50%, -50%);
+      display: flex; overflow: hidden;
+      background: var(--card-background-color);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+    .seat-pill.two { width: min(88px, 27.5%); aspect-ratio: 2; border-radius: 15% / 30%; }
+    .seat-pill.one { width: min(44px, 13.75%); aspect-ratio: 1; border-radius: 30%; }
+    /*
+     * button.plain (theme.ts) faz all: unset a (0,1,1) — perde-se box-sizing,
+     * largura, altura, padding, fundo, cantos, position E as propriedades de
+     * flex, que voltam ao inicial 0 1 auto. Sem flex: 1 1 0 as duas metades
+     * encolhiam para o tamanho do conteúdo e deixavam de ser alvos de 44px.
+     * Por isso a caixa vive no seletor composto, tal como button.plain.chip-btn
+     * e button.plain.step-btn abaixo, ou button.plain.tile em tiles.ts.
+     */
+    button.plain.seat-btn {
+      box-sizing: border-box; flex: 1 1 0; min-width: 0;
+      display: grid; place-items: center; gap: 0; padding: 0;
+      background: transparent; color: var(--lm-muted);
+    }
+    button.plain.seat-btn.on { color: var(--primary-color); }
+    button.plain.seat-btn.pending { opacity: 0.6; }
+    /*
+     * O mesmo para os chips de um ícone só (espelhos, volante), com um aviso
+     * extra: sem position: absolute caíam em fluxo por baixo da vista e nenhum
+     * deles ficava sobre a peça que comanda.
+     */
+    button.plain.chip-btn {
       position: absolute; box-sizing: border-box;
       transform: translate(-50%, -50%);
       display: grid; place-items: center; gap: 0;
       width: min(40px, 12.5%); aspect-ratio: 1; padding: 0;
-      border-radius: 50%; background: var(--card-background-color);
+      border-radius: 30%; background: var(--card-background-color);
       color: var(--lm-muted);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     }
-    button.plain.pin.on { color: var(--primary-color); }
-    button.plain.pin.pending { opacity: 0.6; }
+    button.plain.chip-btn.on { color: var(--primary-color); }
     /*
-     * Em píxeis fixos o conteúdo do pino saía do círculo abaixo de uma vista de
-     * ~223px. 5,6cqw e 3,1cqw são exactamente os 18px e os 9,9px de uma vista a
-     * 320px, mas expressos na mesma unidade que a caixa (12,5cqw): 8,7cqw de
-     * conteúdo em 12,5cqw de caixa, relação que não depende da largura.
+     * Em píxeis fixos o conteúdo saía da caixa abaixo de uma vista de ~223px.
+     * 5,6cqw e 3,1cqw são exactamente os 18px e os 9,9px de uma vista a 320px,
+     * mas expressos na mesma unidade que as caixas (12,5cqw o chip, 13,75cqw
+     * cada metade da pastilha): a relação entre conteúdo e caixa deixa de
+     * depender da largura.
      *
      * O recuo tem de ser um @supports e não uma segunda declaração: o valor de
      * uma propriedade PERSONALIZADA é qualquer sequência de tokens, portanto
@@ -306,10 +377,12 @@ export class LeapmotorClimatePanel extends LitElement {
      * com os 18px. Dentro do @supports, quem não tem container queries fica
      * com as declarações em píxeis, que é o que se pretende.
      */
-    button.plain.pin ha-icon { --mdc-icon-size: 18px; }
+    button.plain.seat-btn ha-icon,
+    button.plain.chip-btn ha-icon { --mdc-icon-size: 18px; }
     .level { font-size: 0.62rem; line-height: 1; font-variant-numeric: tabular-nums; }
     @supports (container-type: inline-size) {
-      button.plain.pin ha-icon { --mdc-icon-size: 5.6cqw; }
+      button.plain.seat-btn ha-icon,
+      button.plain.chip-btn ha-icon { --mdc-icon-size: 5.6cqw; }
       .level { font-size: 3.1cqw; }
     }
     .stepper { display: flex; align-items: center; justify-content: center; gap: 20px; margin: 14px 0; }
