@@ -5,12 +5,37 @@ Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [0.3.1] — 2026-08-28
+
+### Alterado
+
+- **O painel de climatização passou a desenhar a cabina, não o carro visto de
+  fora.** A referência é o ecrã da app, e o que ele mostra é o interior visto
+  de cima — bancos, consola, banco traseiro —, sem carroçaria. A 0.3.0 desenhou
+  um carro inteiro porque a descrição escrita dizia «vista de topo do carro» e
+  ninguém tinha aberto a imagem. Corrigir isso resolveu de uma vez os controlos
+  que se sobrepunham e a altura excessiva do painel: são duas pastilhas largas
+  em vez de seis pinos redondos, e uma cabina não é comprida como um carro.
+- Os controlos de cada banco da frente ficam agora **numa pastilha só**, com o
+  aquecimento e a ventilação lado a lado, como na app. Continuam a ser dois
+  controlos independentes; a pastilha agrupa-os, não os funde.
+- O botão dos espelhos passou a ficar junto ao espelho desenhado e a dizer
+  «os dois», porque a integração expõe **um só interruptor** para o par.
+
+### Adicionado
+
+- Anel de foco visível em todos os botões do card, e resposta ao toque nos
+  controlos do painel de climatização.
+- Teste que obriga os catálogos PT e EN a terem exactamente as mesmas chaves,
+  incluindo as aninhadas. Não existia; os catálogos estavam certos por cuidado
+  de quem lá mexia, não por verificação.
+
 ## [0.3.0] — 2026-08-28
 
 ### Adicionado
 
-- Painel de climatização com a vista de topo do carro e os controlos de
-  conforto sobrepostos: espelhos, volante, e aquecimento e ventilação de cada
+- Painel de climatização com os controlos de conforto sobrepostos a um
+  desenho do veículo (substituído na 0.3.1 pelo interior da cabina): espelhos, volante, e aquecimento e ventilação de cada
   banco da frente. Desenho original, em SVG.
 - Controlo da velocidade da ventoinha, de 1 a 7.
 - Indicador e controlo da recirculação do ar. Fica desactivado com a
