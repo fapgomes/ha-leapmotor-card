@@ -5,6 +5,27 @@ Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [0.3.4] — 2026-08-28
+
+### Adicionado
+
+- Opção `map_zoom` para o zoom do mapa embutido, por omissão **16** em vez dos
+  14 do Home Assistant, e disponível no editor visual. Fica limitada a 1–20
+  onde é lida, e não no editor, porque a configuração também se escreve à mão.
+
+### Corrigido
+
+- Mudar o zoom ou o veículo no editor passa a reconstruir o mapa. Antes o mapa
+  era construído uma única vez e a pré-visualização ficava a mostrar o anterior.
+
+### Nota
+
+- O mapa mostra uma marca de água «API KEY REQUIRED» desde que a CARTO passou a
+  exigir chave para os mosaicos que o Home Assistant usa. É um problema do
+  próprio Home Assistant (`home-assistant/core#180277`), não deste card, e o
+  card `map` do HA não permite escolher outro fornecedor. Espera-se a correção
+  a montante.
+
 ## [0.3.3] — 2026-08-28
 
 ### Alterado
