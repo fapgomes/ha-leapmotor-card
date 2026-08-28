@@ -9,14 +9,18 @@ action buttons, then the sections you enable — charging, the interior/openings
 tiles with the expandable climate panel drawn over a top view of the cabin,
 tyres, trip, comfort, charging schedule and the map.
 
-![The Leapmotor Card rendered in the Home Assistant dark theme](images/card-dark.png)
+![The Leapmotor Card on a real dashboard, in the Home Assistant dark theme](images/card-dark.png)
 
-That image is a headless render of the card against this project's test
-fixtures — a synthetic vehicle called `Demo` — in the Home Assistant dark
-theme, with every section enabled except the map. The map section is Home
-Assistant's own `map` card, which the card only borrows and which does not
-exist outside Home Assistant, so it is left out of the shot rather than
-faked.
+That is the card on a real dashboard, in the Home Assistant dark theme, with
+the vehicle's name blurred out. The photograph of the car is not part of this
+card: it comes from the integration's own picture entity, and the card falls
+back to a drawn silhouette when no picture is available.
+
+The second image below is a headless render against this project's test
+fixtures — a synthetic vehicle called `Demo` — with every section enabled
+except the map. The map section is Home Assistant's own `map` card, which this
+card only borrows and which does not exist outside Home Assistant, so it is
+left out of the shot rather than faked.
 
 ![The climate panel expanded over a top view of the cabin, with a comfort pill on each front seat](images/climate-panel-dark.png)
 
