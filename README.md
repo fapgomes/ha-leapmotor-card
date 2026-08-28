@@ -18,6 +18,16 @@ Assistant's own `map` card, which the card only borrows and which does not
 exist outside Home Assistant, so it is left out of the shot rather than
 faked.
 
+![The climate panel expanded over a top view of the cabin, with a comfort pill on each front seat](images/climate-panel-dark.png)
+
+Tapping the interior temperature tile opens the climate panel, above. It is
+drawn over a top view of the cabin: a heating and a ventilation pill on each
+front seat, the steering wheel and the two mirrors each in their own place,
+then the target temperature stepper, the fan speed, recirculation, and the
+four quick climate buttons. Same render, same fixtures, same dark theme as
+the first image — the panel was opened by clicking the tile in the render, so
+this is the state a tap really produces, not markup arranged to look like it.
+
 ## Requirements
 
 - Home Assistant **2026.8** or later (developed and tested against
