@@ -1,0 +1,46 @@
+name: build
+
+on:
+  push:
+    # `tags` é obrigatório: sem ele o workflow não corre num push de tag, e o
+    # job `release`, que depende de `refs/tags/v*`, nunca dispara — deixando o
+    # repositório sem asset e portanto não instalável por HACS.
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  release:
+    # `dist/` está no .gitignore, logo o ficheiro não existe na árvore do repo.
+    # O HACS resolve o `filename` do hacs.json primeiro a partir de um asset de
+    # release e só depois da árvore: sem este job, nenhuma das duas vias tem o
+    # ficheiro e o repositório não é instalável.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/leapmotor-card.js

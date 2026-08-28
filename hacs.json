@@ -1,0 +1,6 @@
+{
+  "name": "Leapmotor Card",
+  "render_readme": true,
+  "filename": "leapmotor-card.js",
+  "homeassistant": "2026.8.0"
+}

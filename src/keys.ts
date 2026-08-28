@@ -1,0 +1,129 @@
+export const ENTITY_KEYS = {
+  // identidade e autonomia
+  battery: { domain: 'sensor', tk: 'battery_percent' },
+  batteryPrecise: { domain: 'sensor', tk: 'battery_percent_precise' },
+  range: { domain: 'sensor', tk: 'remaining_range_km' },
+  rangeLive: { domain: 'sensor', tk: 'live_remaining_range_km' },
+  rangeMax: { domain: 'sensor', tk: 'wltp_max_range_km' },
+  rangeMode: { domain: 'sensor', tk: 'range_mode' },
+  lastVehicleUpdate: { domain: 'sensor', tk: 'last_vehicle_update' },
+  lastCloudRefresh: { domain: 'sensor', tk: 'last_successful_refresh' },
+  vehiclePicture: { domain: 'image', tk: 'vehicle_picture' },
+  location: { domain: 'device_tracker', tk: 'location' },
+
+  // trancas
+  lock: { domain: 'lock', tk: 'vehicle_lock' },
+  lockStateSource: { domain: 'sensor', tk: 'lock_state_source' },
+  lockStateAge: { domain: 'sensor', tk: 'lock_state_age_seconds' },
+
+  // atividade
+  vehicleState: { domain: 'sensor', tk: 'vehicle_state' },
+  gear: { domain: 'sensor', tk: 'gear' },
+  speed: { domain: 'sensor', tk: 'speed_kmh' },
+  isDriving: { domain: 'binary_sensor', tk: 'is_driving' },
+  parkingBrake: { domain: 'binary_sensor', tk: 'parking_brake_active' },
+  vehicleReady: { domain: 'binary_sensor', tk: 'vehicle_ready' },
+
+  // carregamento
+  chargeLimit: { domain: 'sensor', tk: 'charge_limit_percent' },
+  chargeLimitSet: { domain: 'number', tk: 'charge_limit_setting' },
+  isCharging: { domain: 'binary_sensor', tk: 'is_charging' },
+  isPluggedIn: { domain: 'binary_sensor', tk: 'is_plugged_in' },
+  dcCableConnected: { domain: 'binary_sensor', tk: 'dc_cable_connected' },
+  fullyCharged: { domain: 'binary_sensor', tk: 'fully_charged' },
+  chargingConnection: { domain: 'sensor', tk: 'charging_connection_state' },
+  chargingPower: { domain: 'sensor', tk: 'charging_power_kw' },
+  chargingVoltage: { domain: 'sensor', tk: 'charging_voltage_v' },
+  chargingCurrent: { domain: 'sensor', tk: 'charging_current_a' },
+  remainingChargeMinutes: { domain: 'sensor', tk: 'remaining_charge_minutes' },
+  chargingFinishTime: { domain: 'sensor', tk: 'charging_finish_time' },
+  schedulePlanned: { domain: 'binary_sensor', tk: 'charging_planned_enabled' },
+  unlockCharger: { domain: 'button', tk: 'unlock_charger' },
+
+  // aberturas
+  doorDriver: { domain: 'binary_sensor', tk: 'driver_door_open' },
+  doorPassenger: { domain: 'binary_sensor', tk: 'passenger_door_open' },
+  doorRearLeft: { domain: 'binary_sensor', tk: 'rear_left_door_open' },
+  doorRearRight: { domain: 'binary_sensor', tk: 'rear_right_door_open' },
+  windowFL: { domain: 'binary_sensor', tk: 'front_left_window_open' },
+  windowFR: { domain: 'binary_sensor', tk: 'front_right_window_open' },
+  windowRL: { domain: 'binary_sensor', tk: 'rear_left_window_open' },
+  windowRR: { domain: 'binary_sensor', tk: 'rear_right_window_open' },
+  windowPosFL: { domain: 'sensor', tk: 'front_left_window_position_percent' },
+  windowPosFR: { domain: 'sensor', tk: 'front_right_window_position_percent' },
+  windowPosRL: { domain: 'sensor', tk: 'rear_left_window_position_percent' },
+  windowPosRR: { domain: 'sensor', tk: 'rear_right_window_position_percent' },
+  trunk: { domain: 'binary_sensor', tk: 'trunk_open' },
+  roof: { domain: 'binary_sensor', tk: 'skylight_open' },
+
+  // clima
+  climateSwitch: { domain: 'switch', tk: 'climate_control' },
+  climateOn: { domain: 'binary_sensor', tk: 'climate_on' },
+  interiorTemp: { domain: 'sensor', tk: 'interior_temp_c' },
+  targetTemp: { domain: 'sensor', tk: 'climate_set_temp_left_c' },
+  climateMode: { domain: 'sensor', tk: 'climate_mode' },
+  recirculation: { domain: 'binary_sensor', tk: 'air_recirculation' },
+
+  // botões
+  openTrunk: { domain: 'button', tk: 'open_trunk' },
+  closeTrunk: { domain: 'button', tk: 'close_trunk' },
+  openWindows: { domain: 'button', tk: 'open_windows' },
+  closeWindows: { domain: 'button', tk: 'close_windows' },
+  quickCool: { domain: 'button', tk: 'quick_cool' },
+  quickHeat: { domain: 'button', tk: 'quick_heat' },
+  windshieldDefrost: { domain: 'button', tk: 'windshield_defrost' },
+  findVehicle: { domain: 'button', tk: 'find_vehicle' },
+  refreshData: { domain: 'button', tk: 'refresh_data' },
+
+  // pneus
+  tireFL: { domain: 'sensor', tk: 'tire_pressure_front_left_bar' },
+  tireFR: { domain: 'sensor', tk: 'tire_pressure_front_right_bar' },
+  tireRL: { domain: 'sensor', tk: 'tire_pressure_rear_left_bar' },
+  tireRR: { domain: 'sensor', tk: 'tire_pressure_rear_right_bar' },
+
+  // viagem
+  odometer: { domain: 'sensor', tk: 'odometer_km' },
+  totalMileage: { domain: 'sensor', tk: 'total_mileage_km' },
+  last7DaysKm: { domain: 'sensor', tk: 'last_7_days_mileage_km' },
+  last7DaysKwh: { domain: 'sensor', tk: 'last_7_days_energy_kwh' },
+  avgConsumption6w: { domain: 'sensor', tk: 'average_consumption_6w_kwh_100km' },
+  totalEnergy: { domain: 'sensor', tk: 'total_energy_kwh' },
+
+  // conforto
+  driverSeatHeat: { domain: 'number', tk: 'driver_seat_heating' },
+  driverSeatVent: { domain: 'number', tk: 'driver_seat_ventilation' },
+  passengerSeatHeat: { domain: 'number', tk: 'passenger_seat_heating' },
+  passengerSeatVent: { domain: 'number', tk: 'passenger_seat_ventilation' },
+  steeringWheelHeat: { domain: 'switch', tk: 'steering_wheel_heat' },
+  steeringWheelHeatRemaining: { domain: 'sensor', tk: 'steering_wheel_heating_remaining_minutes' },
+  mirrorHeat: { domain: 'switch', tk: 'rearview_mirror_heat' },
+  batteryPreheat: { domain: 'switch', tk: 'battery_preheat' },
+
+  // agendamento
+  scheduleSwitch: { domain: 'switch', tk: 'charging_schedule' },
+  scheduleStart: { domain: 'sensor', tk: 'charging_planned_start' },
+  scheduleEnd: { domain: 'sensor', tk: 'charging_planned_end' },
+  scheduleRecurrence: { domain: 'sensor', tk: 'charging_planned_circulation' },
+  scheduleWeekly: { domain: 'binary_sensor', tk: 'charging_planned_weekly' },
+  scheduleCancelledOnce: { domain: 'binary_sensor', tk: 'charging_schedule_cancelled_once' },
+} as const
+
+export type LogicalKey = keyof typeof ENTITY_KEYS
+
+/**
+ * Os quatro níveis de assento. Estão aqui, e não numa secção, porque o card
+ * também precisa deles: é ele que guarda os pedidos por confirmar. Os nomes são
+ * de propósito os mesmos dos campos de `VehicleState['comfort']`, o que deixa
+ * ler o nível reportado de cada um sem tabela de conversão.
+ */
+export const SEAT_LEVEL_KEYS = [
+  'driverSeatHeat', 'driverSeatVent', 'passengerSeatHeat', 'passengerSeatVent',
+] as const
+
+export type SeatLevelKey = typeof SEAT_LEVEL_KEYS[number]
+
+export function isSeatLevelKey(key: LogicalKey): key is SeatLevelKey {
+  return (SEAT_LEVEL_KEYS as readonly LogicalKey[]).includes(key)
+}
+
+export const INTEGRATION_DOMAIN = 'leapmotor'
