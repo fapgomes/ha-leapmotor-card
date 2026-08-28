@@ -1,0 +1,51 @@
+name: validate
+
+# Workflow próprio, e não um job dentro do build.yml, por três razões:
+#
+#  1. O `on:` do build.yml existe para servir o job `release`: está limitado a
+#     `branches: [main]` mais `tags: ['v*']`. Um job de HACS lá dentro herdava
+#     esse gatilho — não corria nos pushes de nenhum outro ramo, que é onde uma
+#     regressão aparece primeiro, e corria nos pushes de tag, que é
+#     precisamente onde não pode correr (ver o ponto 3).
+#  2. A `hacs/action` não compila nada. Interroga a API do GitHub sobre o
+#     repositório publicado, no ref indicado; não precisa de checkout, de Node
+#     nem do `dist/`. Não tem nada a partilhar com os jobs que compilam, e um
+#     `needs:` entre os dois só atrasaria o resultado.
+#  3. Os pushes de tag ficam de fora de propósito. A HACS resolve o `filename`
+#     do hacs.json primeiro nos assets da release e só depois na árvore do
+#     repositório; como o `dist/` está no .gitignore, no instante do push da
+#     tag o asset ainda não existe — quem o publica é o job `release` do
+#     build.yml, logo a seguir. Validar aí seria uma corrida contra a nossa
+#     própria release, perdida em cada tag. Pushes de ramo e pull requests
+#     apanham a regressão antes de se chegar à tag, que é o que se quer.
+#
+# O `schedule` diário apanha o que nenhum push apanha: uma alteração nos
+# requisitos da própria HACS, que reprova este repositório sem que aqui se
+# tenha mexido em nada. Está no exemplo da documentação da action.
+#
+# `@main` e não uma tag: a última tag da `hacs/action` é 22.5.0, de maio de
+# 2022, e o `action.yml` dessa tag aponta na mesma para
+# `docker://ghcr.io/hacs/action:main`. Pinar a tag não fixa versão nenhuma —
+# dá a mesma imagem, com um `action.yml` velho à frente.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      # `category: plugin` é o valor interno da HACS para um card de dashboard.
+      # A interface mostra-o como «Dashboard», mas a API — e esta action —
+      # continuam a chamar-lhe `plugin`.
+      - name: HACS validation
+        uses: hacs/action@main
+        with:
+          category: plugin

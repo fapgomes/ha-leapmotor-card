@@ -9,6 +9,15 @@ action buttons, then the sections you enable — charging, the interior/openings
 tiles with the expandable climate panel drawn over a top view of the cabin,
 tyres, trip, comfort, charging schedule and the map.
 
+![The Leapmotor Card rendered in the Home Assistant dark theme](images/card-dark.png)
+
+That image is a headless render of the card against this project's test
+fixtures — a synthetic vehicle called `Demo` — in the Home Assistant dark
+theme, with every section enabled except the map. The map section is Home
+Assistant's own `map` card, which the card only borrows and which does not
+exist outside Home Assistant, so it is left out of the shot rather than
+faked.
+
 ## Requirements
 
 - Home Assistant **2026.8** or later (developed and tested against
@@ -19,10 +28,23 @@ tyres, trip, comfort, charging schedule and the map.
 
 ## Installation — HACS
 
+This repository is not part of the HACS default list, so HACS has to be told
+about it as a **custom repository**. The badge below does exactly that in one
+click: it opens your own Home Assistant, asks you to confirm, and adds this
+repository to HACS.
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=fapgomes&repository=ha-leapmotor-card&category=plugin)
+
+On the page it opens, press **Download**. The Lovelace resource is registered
+automatically.
+
+The same thing by hand, if you prefer:
+
 1. In HACS, open the three-dot menu and choose **Custom repositories**.
-2. Add this repository's URL with category **Lovelace**.
-3. Install **Leapmotor Card** from HACS. The Lovelace resource is
-   registered automatically.
+2. Add this repository's URL with type **Dashboard** (the label HACS shows for
+   the category it calls `plugin` internally — older HACS versions called it
+   *Lovelace*).
+3. Download **Leapmotor Card** from HACS.
 
 > **A tagged release is required.** `dist/` is listed in `.gitignore`, so
 > the built `leapmotor-card.js` file does not exist in the repository
@@ -287,6 +309,48 @@ npm run build
 npm test
 npm run watch
 ```
+
+### Why the bundle is `leapmotor-card.js` and not `ha-leapmotor-card.js`
+
+The HACS plugin requirements say that one of the `.js` files must have the
+same name as the repository, with an exception only for repositories whose
+name starts with `lovelace-`. This repository is `ha-leapmotor-card` and the
+bundle is `leapmotor-card.js`, which looks like a violation and is not one:
+that rule describes the *fallback*, used only when the repository does not
+name the file itself.
+
+In `custom_components/hacs/repositories/plugin.py`, `update_filenames()`
+reads:
+
+```python
+if specific_filename := self.repository_manifest.filename:
+    valid_filenames = (specific_filename,)
+else:
+    valid_filenames = (
+        f"{self.data.name.replace('lovelace-', '')}.js",
+        f"{self.data.name}.js",
+        f"{self.data.name}.umd.js",
+        f"{self.data.name}-bundle.js",
+    )
+```
+
+A `filename` in `hacs.json` replaces the whole list of repository-name
+candidates, and is then the only name HACS looks for — first among the assets
+of the newest release, then in the repository tree. This repository declares
+`"filename": "leapmotor-card.js"`, so `leapmotor-card.js` is correct and
+renaming the rollup output would be the thing that breaks it.
+
+Two more notes on `hacs.json`, recorded here because JSON takes no comments:
+
+- `render_readme` is still a supported key: it is a field of `HacsManifest`
+  and an explicit `vol.Optional("render_readme"): bool` in
+  `HACS_MANIFEST_JSON_SCHEMA` (`custom_components/hacs/utils/validate.py`).
+  It no longer changes anything, mind — `async_get_info_file_contents()` now
+  looks only for `README.md` and its case variants, so HACS renders the readme
+  either way — but it is accepted, not an unknown key, and so is kept.
+- That schema is declared `extra=vol.PREVENT_EXTRA`, so an *unknown* key would
+  fail validation outright. Do not add keys to `hacs.json` that are not in
+  that schema.
 
 ## License
 
