@@ -114,5 +114,6 @@
   "editor.language_auto": "Automatic",
   "editor.image_auto": "Automatic",
   "editor.image_entity": "Entity only",
-  "editor.image_none": "No image"
+  "editor.image_none": "No image",
+  "editor.map_zoom": "Map zoom"
 }

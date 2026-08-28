@@ -21,6 +21,7 @@ export interface LeapmotorCardConfig {
   confirm_actions?: ActionId[]
   sections?: Partial<Record<SectionId, boolean>>
   entities?: EntityMap
+  map_zoom?: number
 }
 
 export type ChargingPhase = 'unplugged' | 'plugged' | 'charging' | 'complete' | 'scheduled'
@@ -73,4 +74,36 @@ export const DEFAULT_ACTIONS: ActionId[] = ['unlock', 'lock', 'trunk', 'windows'
 export const DEFAULT_CONFIRM_ACTIONS: ActionId[] = ['unlock']
 export const DEFAULT_SECTIONS: Record<SectionId, boolean> = {
   location: false, charging: true, tiles: true, tires: false, trip: false, comfort: false, schedule: false,
+}
+
+export const DEFAULT_MAP_ZOOM = 16
+export const MAP_ZOOM_MIN = 1
+export const MAP_ZOOM_MAX = 20
+
+/**
+ * `map_zoom` vem de YAML escrito à mão, sem validação de esquema — um utilizador
+ * pode pôr `50`, `0` ou um texto por engano. Sem isto, o `default_zoom` que
+ * chega ao card `map` do HA ficaria fora do que o Leaflet aceita para estas
+ * peças (1 a 20) e o mapa apareceria em branco. O corte é aqui, na leitura, e
+ * não no editor: o editor não vê configurações escritas à mão.
+ */
+export function clampMapZoom(zoom: number | undefined): number {
+  if (typeof zoom !== 'number' || !Number.isFinite(zoom)) return DEFAULT_MAP_ZOOM
+  return Math.min(MAP_ZOOM_MAX, Math.max(MAP_ZOOM_MIN, Math.round(zoom)))
+}
+
+/** O que identifica o pedido de mapa em curso: a que entidade e com que zoom. */
+export interface MapRequest {
+  entityId: string
+  zoom: number
+}
+
+/**
+ * Diz se o pedido de mapa guardado já não serve para o pedido seguinte. Pura,
+ * para poder ser testada sem DOM — quem decide se o `ensureMap` do card deve
+ * reconstruir o mapa é esta função, não o `render()`, que corre a cada
+ * actualização de estado e reconstruiria o mapa sem necessidade nenhuma.
+ */
+export function mapRequestChanged(previous: MapRequest | undefined, next: MapRequest): boolean {
+  return !previous || previous.entityId !== next.entityId || previous.zoom !== next.zoom
 }

@@ -12,8 +12,8 @@ import { createTranslator, pickLanguage, type TranslateFn } from './localize'
 import { loadRegistryFallback, resolveEntities, type ResolveResult } from './resolver'
 import { sharedStyles } from './theme'
 import {
-  DEFAULT_ACTIONS, DEFAULT_SECTIONS,
-  type ActionId, type LeapmotorCardConfig, type SectionId, type VehicleState,
+  DEFAULT_ACTIONS, DEFAULT_SECTIONS, clampMapZoom, mapRequestChanged,
+  type ActionId, type LeapmotorCardConfig, type MapRequest, type SectionId, type VehicleState,
 } from './types'
 import { attr, buildVehicleState } from './vehicle-state'
 
@@ -101,6 +101,7 @@ export class LeapmotorCard extends LitElement {
   private _resolveCache?: { entities: unknown; config: unknown; fallback: unknown; result: ResolveResult }
   private _mapElement?: HTMLElement
   private _mapRequested = false
+  private _mapRequest?: MapRequest
   private _climateTimer?: number
 
   override disconnectedCallback(): void {
@@ -148,6 +149,7 @@ export class LeapmotorCard extends LitElement {
     }
     this._mapRequested = false
     this._mapElement = undefined
+    this._mapRequest = undefined
     this._climateIntent = { fanSpeed: DEFAULT_FAN_SPEED }
     this._seatRequests = {}
   }
@@ -171,21 +173,38 @@ export class LeapmotorCard extends LitElement {
    * `loadCardHelpers` é um global semi-público do frontend do HA. Se não
    * existir, ou se falhar, ficamos sem `_mapElement` e a secção mostra o seu
    * texto de recurso — o card não parte por causa disto.
+   *
+   * Chamado a cada `render()`, por isso o `_mapRequested` só pode cair quando
+   * o pedido realmente muda — entidade ou zoom — nunca a cada actualização de
+   * estado, ou o mapa seria destruído e reconstruído sem necessidade nenhuma
+   * (ver `mapRequestChanged`, testada sem DOM em `types.ts`).
    */
   private ensureMap(entityId: string): void {
+    const request: MapRequest = { entityId, zoom: clampMapZoom(this._config?.map_zoom) }
+    if (this._mapRequested && mapRequestChanged(this._mapRequest, request)) {
+      this._mapRequested = false
+      this._mapElement = undefined
+    }
     if (this._mapRequested) return
     this._mapRequested = true
+    this._mapRequest = request
     const loader = (window as unknown as {
       loadCardHelpers?: () => Promise<{ createCardElement: (c: Record<string, unknown>) => HTMLElement }>
     }).loadCardHelpers
     if (!loader) return
     loader()
       .then(helpers => {
+        // Um pedido mais recente pode ter chegado enquanto este estava no ar
+        // (ex.: o zoom mudou outra vez antes deste `then` correr). Sem este
+        // guarda, a resposta atrasada do pedido antigo substituía o mapa
+        // correcto pelo mapa com o zoom de há um momento.
+        if (this._mapRequest !== request) return
         const el = helpers.createCardElement({
           type: 'map',
           entities: [entityId],
           aspect_ratio: '16:9',
           hours_to_show: 0,
+          default_zoom: request.zoom,
         })
         if (this._hass) (el as unknown as { hass?: HomeAssistant }).hass = this._hass
         this._mapElement = el

@@ -2,7 +2,10 @@ import { LitElement, html, nothing } from 'lit'
 import { customElement, property, state as internalState } from 'lit/decorators.js'
 import type { HomeAssistant } from './ha-types'
 import { createTranslator, pickLanguage } from './localize'
-import { DEFAULT_ACTIONS, DEFAULT_SECTIONS, type ActionId, type LeapmotorCardConfig, type SectionId } from './types'
+import {
+  DEFAULT_ACTIONS, DEFAULT_MAP_ZOOM, DEFAULT_SECTIONS, MAP_ZOOM_MAX, MAP_ZOOM_MIN,
+  type ActionId, type LeapmotorCardConfig, type SectionId,
+} from './types'
 
 /**
  * Uma entrada por ação, e não uma lista: `Record<ActionId, boolean>` obriga o
@@ -85,12 +88,25 @@ export class LeapmotorCardEditor extends LitElement {
         selector: { select: { multiple: true, mode: 'dropdown', options: ALL_ACTIONS.map(a => ({ value: a, label: actionOptionLabel(t, a) })) } },
       },
       {
+        name: 'map_zoom',
+        selector: { number: { min: MAP_ZOOM_MIN, max: MAP_ZOOM_MAX, mode: 'box' } },
+      },
+      {
         type: 'expandable',
         name: 'sections',
         schema: SECTION_IDS.map(id => ({ name: id, selector: { boolean: {} } })),
       },
     ]
   }
+
+  /**
+   * Os campos de topo mostram o próprio nome do campo, sem tradução — é assim
+   * desde sempre, e mudar isso para todos fica fora do âmbito de uma opção
+   * nova. O `map_zoom` é a excepção: só existe uma vez por catálogo (ver
+   * `editor.map_zoom`), por isso ganha rótulo traduzido sem tocar nos outros.
+   */
+  private computeLabel = (t: (k: string) => string) => (s: { name: string }): string =>
+    s.name === 'map_zoom' ? t('editor.map_zoom') : s.name
 
   private valueChanged(e: CustomEvent<{ value: Record<string, unknown> }>) {
     const raw = { ...e.detail.value }
@@ -108,6 +124,7 @@ export class LeapmotorCardEditor extends LitElement {
     const data = {
       image: 'auto',
       actions: DEFAULT_ACTIONS,
+      map_zoom: DEFAULT_MAP_ZOOM,
       ...this._config,
       sections: { ...DEFAULT_SECTIONS, ...(this._config.sections ?? {}) },
     }
@@ -116,7 +133,7 @@ export class LeapmotorCardEditor extends LitElement {
       .hass=${this.hass}
       .data=${data}
       .schema=${this.schema(t)}
-      .computeLabel=${(s: { name: string }) => s.name}
+      .computeLabel=${this.computeLabel(t)}
       @value-changed=${this.valueChanged}
     ></ha-form>`
   }

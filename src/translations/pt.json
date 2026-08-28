@@ -114,5 +114,6 @@
   "editor.language_auto": "Automático",
   "editor.image_auto": "Automática",
   "editor.image_entity": "Só a entidade",
-  "editor.image_none": "Sem imagem"
+  "editor.image_none": "Sem imagem",
+  "editor.map_zoom": "Zoom do mapa"
 }
