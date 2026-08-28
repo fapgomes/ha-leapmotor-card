@@ -79,7 +79,7 @@ export class LeapmotorComfort extends LitElement {
       ${this.levelRow({ key: 'passengerSeatHeat', label: `${this.t('comfort.passenger_seat')} · ${this.t('comfort.heating')}`, value: c.passengerSeatHeat, icon: 'mdi:car-seat-heater' })}
       ${this.levelRow({ key: 'passengerSeatVent', label: `${this.t('comfort.passenger_seat')} · ${this.t('comfort.ventilation')}`, value: c.passengerSeatVent, icon: 'mdi:car-seat-cooler' })}
       ${this.toggleRow('steeringWheelHeat', 'steeringWheelHeat', `${this.t('comfort.steering_wheel')}${wheelSuffix}`, c.steeringWheelHeat, 'mdi:steering')}
-      ${this.toggleRow('mirrorHeat', 'mirrorHeat', this.t('comfort.mirrors'), c.mirrorHeat, 'mdi:mirror-rectangle')}
+      ${this.toggleRow('mirrorHeat', 'mirrorHeat', this.t('comfort.mirrors'), c.mirrorHeat, 'mdi:mirror')}
       ${this.toggleRow('batteryPreheat', 'batteryPreheat', this.t('comfort.battery_preheat'), c.batteryPreheat, 'mdi:battery-heart-variant')}
     </div>`
   }

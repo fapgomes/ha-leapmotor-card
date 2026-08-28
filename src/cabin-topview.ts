@@ -11,16 +11,26 @@ import { html, type TemplateResult } from 'lit'
  * `viewBox` em 200 x 228 (1 : 1,14) — a vista de topo do carro inteiro que aqui
  * esteve era 1 : 2,5 e obrigava a espremer os controlos numa faixa estreita.
  *
+ * ONDE HÁ CONTROLO NÃO HÁ DESENHO. Esta é a regra que rege o que aqui está e,
+ * sobretudo, o que aqui deixou de estar. Um chip é uma caixa opaca de cantos
+ * redondos: pôr por baixo dele outra peça com a mesma forma — a roda do volante
+ * era uma elipse, o espelho um rectângulo arredondado — não acrescenta leitura
+ * nenhuma, só deixa espreitar uma orla à volta do chip que se lê como uma
+ * nódoa. Foi o que aconteceu no dashboard, e é por isso que nem o volante nem
+ * os espelhos estão desenhados: o chip que os comanda É a peça. Quem mexer
+ * neste ficheiro não os volte a acrescentar.
+ *
  * O que está desenhado, de cima para baixo:
- *   - dois espelhos exteriores (x 10 a 25 e x 175 a 190, y 26 a 35), unidos
- *     pela linha do tablier. Estão para dentro, e não encostados à margem, por
- *     causa do chip que se encosta por baixo do da esquerda: com o espelho no
- *     canto, o chip saía da caixa;
- *   - o volante em cima à esquerda (elipse de 38 x 28 centrada em 57, 42), com
- *     o cubo. É deliberadamente maior do que o chip que o acompanha: com uma
- *     roda de 30 x 22 o chip tapava-a toda menos 4px de cada lado e a peça
- *     lia-se como uma nódoa. Agora o chip está encostado à direita e a metade
- *     esquerda da roda fica à vista;
+ *   - a linha do tablier, que é o corte da frente da cabina. Já não vai de
+ *     espelho a espelho: as pontas caem agora em (11,5; 46) e (188,5; 46), que
+ *     são os topos dos painéis das portas da frente, e a linha entra por eles
+ *     dentro. Tinha de ser: sem os espelhos nas pontas, uma linha que acabava
+ *     no ar lia-se como um risco solto e não como o tablier. Ao meio sobe até
+ *     y = 29,5, e é por trás do chip do volante que ela passa — entra-lhe pela
+ *     aresta esquerda a y = 35 e sai pela direita a y = 31, ambas dentro da
+ *     caixa do chip e mais de 8,75 unidades abaixo do topo dele, portanto para
+ *     lá do raio do canto (7,5) e sem o roçar. Um volante montado no tablier é
+ *     o que se vê, e é o que é;
  *   - dois bancos da frente, cada um com encosto de cabeça (y 60), espaldar
  *     (y 78 a 126) e assento (y 129 a 156), centrados em x = 57 e x = 143;
  *   - a consola central entre eles (x 88 a 112), com dois porta-copos em
@@ -31,24 +41,19 @@ import { html, type TemplateResult } from 'lit'
  *
  * As percentagens `left`/`top` dos controlos em `climate-panel.ts` resolvem
  * contra esta caixa e estão calculadas sobre estas coordenadas: cada controlo
- * está sobre a peça que comanda (o das ventoinhas dos espelhos a meio do
- * tablier que os une, o do volante sobre a roda, e a pastilha de cada banco
- * sobre o espaldar respectivo). Mexer no desenho obriga a revê-las.
+ * está no lugar da peça que comanda (o dos espelhos no canto da frente à
+ * esquerda, o do volante à frente do banco do condutor, e a pastilha de cada
+ * banco sobre o espaldar respectivo). Mexer no desenho obriga a revê-las.
  */
 export const CABIN_TOPVIEW: TemplateResult = html`
   <svg viewBox="0 0 200 228" aria-hidden="true" part="topview">
     <g fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.3">
-      <rect x="10" y="26" width="15" height="9" rx="4" />
-      <rect x="175" y="26" width="15" height="9" rx="4" />
-      <path d="M25 31 C70 19 130 19 175 31" />
+      <path d="M11.5 46 C56 24 144 24 188.5 46" />
 
       <rect x="6" y="46" width="11" height="84" rx="5" />
       <rect x="6" y="136" width="11" height="66" rx="5" />
       <rect x="183" y="46" width="11" height="84" rx="5" />
       <rect x="183" y="136" width="11" height="66" rx="5" />
-
-      <ellipse cx="57" cy="42" rx="19" ry="14" />
-      <rect x="50" y="38.5" width="14" height="7" rx="3" />
 
       <rect x="44" y="60" width="26" height="15" rx="7" />
       <rect x="30" y="78" width="54" height="48" rx="13" />

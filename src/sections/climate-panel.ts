@@ -183,33 +183,57 @@ export class LeapmotorClimatePanel extends LitElement {
   }
 
   /**
-   * Cada controlo sobre a peça que comanda, nas coordenadas do desenho
-   * (`cabin-topview.ts`, viewBox 200 x 228):
-   *   - espelhos: encostado por baixo do espelho esquerdo, 8,75% / 20%. O
-   *     espelho está desenhado em y = 26 a 35 e o chip começa em y = 33,1, ou
-   *     seja sobrepõe-lhe a aresta de baixo e deixa o resto à vista: centrado
-   *     nele tapava-o por inteiro, que é o defeito que se corrigiu no volante;
-   *   - volante: sobre a roda mas encostado à direita, 35% / 18,42%
-   *     (centro do chip em 70, 42; roda de x = 38 a x = 76), o que deixa a
-   *     metade esquerda da roda à vista em vez de a tapar toda;
+   * Onde há controlo não há desenho: nem o volante nem os espelhos estão
+   * desenhados (ver `cabin-topview.ts`). O chip É a peça, e é por isso que a
+   * sua posição deixou de ser «sobre a peça que comanda» e passou a ser «no
+   * lugar da peça que comanda», nas coordenadas do desenho (viewBox 200 x 228):
+   *   - espelhos: no canto da frente à esquerda, 8,75% / 9,5% (centro em 17,5;
+   *     21,7), que é onde a app põe o seu chip do lado esquerdo. Fica ACIMA da
+   *     linha do tablier — como o espelho, que está fora e à frente dela — com
+   *     3,4 unidades de folga para o traço e 11,8 para o topo do painel da
+   *     porta;
+   *   - volante: à frente do banco do condutor, 28,5% / 14,7% (centro em
+   *     57; 33,5 — o mesmo x da pastilha do condutor, portanto a prumo com
+   *     ela). Este fica SOBRE a linha do tablier, que lhe passa por trás e
+   *     desaparece: o chip é opaco. É de propósito, e é a única maneira que a
+   *     caixa dá — entre o traço e o encosto de cabeça (y = 60) não cabem as
+   *     25 unidades do chip com folga dos dois lados. Fica melhor assim do que
+   *     caberia: um volante montado no tablier. O que é preciso garantir é que
+   *     a linha entra e sai bem DENTRO da caixa, longe dos cantos redondos
+   *     (raio 7,5): entra a y = 35,0 e sai a y = 31,1, com o topo do chip em
+   *     y = 21,0. Subir o chip 4 unidades punha a saída em cima do canto e
+   *     via-se o traço a roçá-lo;
    *   - pastilhas: sobre o espaldar de cada banco, 28,5% e 71,5% / 44,7%
-   *     (centros 57 e 143, espaldar de y = 78 a y = 126).
+   *     (centros 57 e 143, espaldar de y = 78 a y = 126). Estas continuam
+   *     sobre o desenho porque o espaldar é MAIOR do que a pastilha e não é da
+   *     mesma forma: vê-se o banco à volta dela, e lê-se como um banco com um
+   *     controlo em cima. Era isso que a roda de 38 x 28 debaixo de um chip de
+   *     25 não conseguia — duas formas redondas quase do mesmo tamanho, uma
+   *     por cima da outra, lêem-se como uma nódoa.
    *
    * A app mostra DOIS chips de espelhos, um em cada canto de cima. Aqui é um
    * só, e de propósito: a integração expõe um único `switch` para os dois
    * espelhos, portanto dois chips a mexer no mesmo interruptor seriam uma
-   * mentira. Mas a meio do tablier ficava a 159px de qualquer espelho, e quem
-   * conhece a app tocava primeiro num canto e não acontecia nada. Passa a
-   * assentar sobre o espelho esquerdo — onde a app põe o primeiro chip — e diz
-   * no nome acessível que comanda os dois, que é o que o desenho sozinho não
+   * mentira. Fica no canto esquerdo — onde a app põe o primeiro — e diz no
+   * nome acessível que comanda os dois, que é o que o desenho sozinho não
    * consegue dizer.
+   *
+   * O ícone dos espelhos é `mdi:mirror`: um oval com dois brilhos, que é o
+   * vidro de um espelho retrovisor. O `mdi:mirror-rectangle` que aqui esteve
+   * é um rectângulo com outro rectângulo dentro e lia-se como um telemóvel ou
+   * uma porta. A app usa um ícone de vidro aquecido, e o equivalente em MDI
+   * seria o `mdi:car-defrost-rear` — mas esse é, traço por traço, o
+   * `mdi:car-defrost-front` do botão Descongelar que está mais abaixo NESTE
+   * MESMO painel (um vidro com três ondas de calor), só que com o vidro
+   * rectangular em vez de trapezoidal. A 18px são o mesmo ícone. O calor fica
+   * dito pelo rótulo e pelo painel onde isto vive; a forma diz «espelho».
    */
   private topview() {
     const c = this.state.comfort
     return html`<div class="topview">
       ${CABIN_TOPVIEW}
-      ${this.chipToggle('mirrorHeat', 'mirrorHeat', 'mdi:mirror-rectangle', this.t('comfort.mirrors_both'), c.mirrorHeat, { left: '8.75%', top: '20%' })}
-      ${this.chipToggle('steeringWheelHeat', 'steeringWheelHeat', 'mdi:steering', this.t('comfort.steering_wheel'), c.steeringWheelHeat, { left: '35%', top: '18.42%' })}
+      ${this.chipToggle('mirrorHeat', 'mirrorHeat', 'mdi:mirror', this.t('comfort.mirrors_both'), c.mirrorHeat, { left: '8.75%', top: '9.5%' })}
+      ${this.chipToggle('steeringWheelHeat', 'steeringWheelHeat', 'mdi:steering', this.t('comfort.steering_wheel'), c.steeringWheelHeat, { left: '28.5%', top: '14.7%' })}
       ${this.seatPill(this.t('comfort.driver_seat'), 'driverSeatHeat', 'driverSeatVent', { left: '28.5%', top: '44.7%' })}
       ${this.seatPill(this.t('comfort.passenger_seat'), 'passengerSeatHeat', 'passengerSeatVent', { left: '71.5%', top: '44.7%' })}
     </div>`
@@ -293,16 +317,16 @@ export class LeapmotorClimatePanel extends LitElement {
      *   - pastilha de um banco: 88 x 44px, dois alvos de 44 x 44px. Centrada em
      *     28,5% / 44,7% -> x 47,2..135,2, y 141,1..185,1; e em 71,5% / 44,7%
      *     -> x 184,8..272,8. Corredor entre as duas: 184,8 - 135,2 = 49,6px.
-     *   - chip do volante: 40 x 40px em 35% / 18,42% -> x 92..132,
-     *     y 47,2..87,2. Até ao topo da pastilha do condutor: 141,1 - 87,2 =
-     *     53,9px.
-     *   - chip dos espelhos: 40 x 40px em 8,75% / 20% -> x 8..48,
-     *     y 53,0..93,0. Ao chip do volante: 92 - 48 = 44px de folga em x
+     *   - chip do volante: 40 x 40px em 28,5% / 14,7% -> x 71,2..111,2,
+     *     y 33,6..73,6. Até ao topo da pastilha do condutor: 141,1 - 73,6 =
+     *     67,5px (e o mesmo centro em x, 91,2, portanto a prumo com ela).
+     *   - chip dos espelhos: 40 x 40px em 8,75% / 9,5% -> x 8..48,
+     *     y 14,7..54,7. Ao chip do volante: 71,2 - 48 = 23,2px de folga em x
      *     (chega, porque duas caixas separadas em x não se tocam, seja qual for
-     *     o y). Às pastilhas: 141,1 - 93,0 = 48,1px.
+     *     o y). Às pastilhas: 141,1 - 54,7 = 86,4px.
      *   - margens da caixa: 8px à esquerda (o chip dos espelhos, que é o mais
-     *     encostado), 320 - 272,8 = 47,2px à direita, 47,2px em cima (o chip do
-     *     volante), 364,8 - 185,1 = 179,7px em baixo.
+     *     encostado), 320 - 272,8 = 47,2px à direita, 14,7px em cima (o chip
+     *     dos espelhos outra vez), 364,8 - 185,1 = 179,7px em baixo.
      * Nenhum alvo desce abaixo dos 40px, nenhum toca noutro e nenhum sai da
      * caixa. Os min() são isso: as medidas em píxeis enquanto a vista tem
      * 320px, proporcionais — e portanto ainda sem sobreposição — se o card for
