@@ -5,6 +5,22 @@ Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [0.3.3] — 2026-08-28
+
+### Alterado
+
+- O volante desceu da linha do tablier para a frente do banco do condutor,
+  alinhado com a pastilha desse banco. Estava a ler-se como um emblema colado
+  ao tablier em vez de um volante.
+- Os espelhos passaram a **dois botões, um em cada canto**, como na app. Os
+  dois comandam o mesmo interruptor — que é o único que a integração expõe —,
+  acendem e apagam juntos, e o nome acessível de cada um diz que comuta o par.
+  A versão anterior mostrava um só botão por eu ter julgado que dois seriam
+  enganadores; não são, porque os dois espelhos aquecem mesmo em conjunto.
+  Enganador seria dois botões que parecessem independentes.
+- A cabina ganhou doze unidades de altura à frente, para o volante caber entre
+  o tablier e o encosto de cabeça sem encostar a nenhum dos dois.
+
 ## [0.3.2] — 2026-08-28
 
 ### Alterado
