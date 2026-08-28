@@ -5,6 +5,21 @@ Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [0.3.2] — 2026-08-28
+
+### Alterado
+
+- No volante e nos espelhos, **o botão passou a ser a peça**. Estavam ambos
+  desenhados com o botão por cima, e duas formas redondas sobrepostas liam-se
+  como um borrão. O desenho por baixo saiu; o botão fica onde a peça está.
+- O ícone dos espelhos passou de `mdi:mirror-rectangle`, que se lia como um
+  telemóvel, para `mdi:mirror`. O ícone de vidro aquecido que a app usa era o
+  candidato óbvio, mas em Material Design Icons é traço por traço o mesmo que
+  o do Desembaciar, que já está no fundo deste painel — a 18 px seriam
+  indistinguíveis. O calor fica dito no rótulo.
+- A linha do tablier fechou-se de porta a porta. Ia de espelho a espelho, e
+  sem eles ficava com as pontas no ar.
+
 ## [0.3.1] — 2026-08-28
 
 ### Alterado
