@@ -43,4 +43,23 @@ export const sharedStyles: CSSResult = css`
     align-items: center; gap: 8px; -webkit-tap-highlight-color: transparent;
   }
   button.plain[disabled] { cursor: not-allowed; opacity: 0.4; }
+  /*
+   * O all: unset acima também apaga o contorno de foco, e o browser não o
+   * repõe sozinho: qualquer botão do card ficava sem qualquer marca visível
+   * ao ser alcançado pelo teclado. Isso doía sobretudo na pastilha de um
+   * banco, cujas duas metades são contíguas e sem separador — sem anel de
+   * foco não havia como saber qual delas ia disparar.
+   *
+   * Vive aqui, e não numa secção, porque o all: unset também vive aqui: a
+   * regra tem de cobrir todos os class="plain …" do card, não só os de um
+   * painel. Está a (0,2,1), portanto acima do button.plain (0,1,1) que a
+   * apagou. Uma secção que precise do anel POR DENTRO da sua caixa — é o caso
+   * das metades da pastilha, que vivem dentro de um contentor com
+   * overflow: hidden — só tem de declarar o outline-offset no seu seletor
+   * composto, que a (0,3,1) ganha a esta.
+   */
+  button.plain:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
 `

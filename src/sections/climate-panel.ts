@@ -185,23 +185,31 @@ export class LeapmotorClimatePanel extends LitElement {
   /**
    * Cada controlo sobre a peça que comanda, nas coordenadas do desenho
    * (`cabin-topview.ts`, viewBox 200 x 228):
-   *   - espelhos: a meio do tablier, 50% / 10,96% (y = 25);
-   *   - volante: sobre a roda, 28,5% / 19,3% (centro 57, 44);
+   *   - espelhos: encostado por baixo do espelho esquerdo, 8,75% / 20%. O
+   *     espelho está desenhado em y = 26 a 35 e o chip começa em y = 33,1, ou
+   *     seja sobrepõe-lhe a aresta de baixo e deixa o resto à vista: centrado
+   *     nele tapava-o por inteiro, que é o defeito que se corrigiu no volante;
+   *   - volante: sobre a roda mas encostado à direita, 35% / 18,42%
+   *     (centro do chip em 70, 42; roda de x = 38 a x = 76), o que deixa a
+   *     metade esquerda da roda à vista em vez de a tapar toda;
    *   - pastilhas: sobre o espaldar de cada banco, 28,5% e 71,5% / 44,7%
    *     (centros 57 e 143, espaldar de y = 78 a y = 126).
    *
    * A app mostra DOIS chips de espelhos, um em cada canto de cima. Aqui é um
    * só, e de propósito: a integração expõe um único `switch` para os dois
    * espelhos, portanto dois chips a mexer no mesmo interruptor seriam uma
-   * mentira. Fica a meio do tablier, na linha que une os dois espelhos
-   * desenhados, para se ler como sendo dos dois.
+   * mentira. Mas a meio do tablier ficava a 159px de qualquer espelho, e quem
+   * conhece a app tocava primeiro num canto e não acontecia nada. Passa a
+   * assentar sobre o espelho esquerdo — onde a app põe o primeiro chip — e diz
+   * no nome acessível que comanda os dois, que é o que o desenho sozinho não
+   * consegue dizer.
    */
   private topview() {
     const c = this.state.comfort
     return html`<div class="topview">
       ${CABIN_TOPVIEW}
-      ${this.chipToggle('mirrorHeat', 'mirrorHeat', 'mdi:car-side', this.t('comfort.mirrors'), c.mirrorHeat, { left: '50%', top: '10.96%' })}
-      ${this.chipToggle('steeringWheelHeat', 'steeringWheelHeat', 'mdi:steering', this.t('comfort.steering_wheel'), c.steeringWheelHeat, { left: '28.5%', top: '19.3%' })}
+      ${this.chipToggle('mirrorHeat', 'mirrorHeat', 'mdi:mirror-rectangle', this.t('comfort.mirrors_both'), c.mirrorHeat, { left: '8.75%', top: '20%' })}
+      ${this.chipToggle('steeringWheelHeat', 'steeringWheelHeat', 'mdi:steering', this.t('comfort.steering_wheel'), c.steeringWheelHeat, { left: '35%', top: '18.42%' })}
       ${this.seatPill(this.t('comfort.driver_seat'), 'driverSeatHeat', 'driverSeatVent', { left: '28.5%', top: '44.7%' })}
       ${this.seatPill(this.t('comfort.passenger_seat'), 'passengerSeatHeat', 'passengerSeatVent', { left: '71.5%', top: '44.7%' })}
     </div>`
@@ -285,15 +293,16 @@ export class LeapmotorClimatePanel extends LitElement {
      *   - pastilha de um banco: 88 x 44px, dois alvos de 44 x 44px. Centrada em
      *     28,5% / 44,7% -> x 47,2..135,2, y 141,1..185,1; e em 71,5% / 44,7%
      *     -> x 184,8..272,8. Corredor entre as duas: 184,8 - 135,2 = 49,6px.
-     *     Margens: 47,2px à esquerda, 320 - 272,8 = 47,2px à direita,
-     *     364,8 - 185,1 = 179,7px em baixo.
-     *   - chip do volante: 40 x 40px em 28,5% / 19,3% -> x 71,2..111,2,
-     *     y 50,4..90,4. Até ao topo da pastilha do condutor: 141,1 - 90,4 =
-     *     50,7px.
-     *   - chip dos espelhos: 40 x 40px em 50% / 10,96% -> x 140..180,
-     *     y 20..60. Ao chip do volante: 140 - 111,2 = 28,8px de folga em x
+     *   - chip do volante: 40 x 40px em 35% / 18,42% -> x 92..132,
+     *     y 47,2..87,2. Até ao topo da pastilha do condutor: 141,1 - 87,2 =
+     *     53,9px.
+     *   - chip dos espelhos: 40 x 40px em 8,75% / 20% -> x 8..48,
+     *     y 53,0..93,0. Ao chip do volante: 92 - 48 = 44px de folga em x
      *     (chega, porque duas caixas separadas em x não se tocam, seja qual for
-     *     o y). Ao topo da caixa: 20px. Às pastilhas: 141,1 - 60 = 81,1px.
+     *     o y). Às pastilhas: 141,1 - 93,0 = 48,1px.
+     *   - margens da caixa: 8px à esquerda (o chip dos espelhos, que é o mais
+     *     encostado), 320 - 272,8 = 47,2px à direita, 47,2px em cima (o chip do
+     *     volante), 364,8 - 185,1 = 179,7px em baixo.
      * Nenhum alvo desce abaixo dos 40px, nenhum toca noutro e nenhum sai da
      * caixa. Os min() são isso: as medidas em píxeis enquanto a vista tem
      * 320px, proporcionais — e portanto ainda sem sobreposição — se o card for
@@ -344,9 +353,17 @@ export class LeapmotorClimatePanel extends LitElement {
       box-sizing: border-box; flex: 1 1 0; min-width: 0;
       display: grid; place-items: center; gap: 0; padding: 0;
       background: transparent; color: var(--lm-muted);
+      transition: background 120ms ease, transform 120ms ease;
     }
     button.plain.seat-btn.on { color: var(--primary-color); }
     button.plain.seat-btn.pending { opacity: 0.6; }
+    /*
+     * O anel de foco global (theme.ts) usa outline-offset: 2px, que aqui era
+     * cortado pelo overflow: hidden da pastilha e transbordava para a outra
+     * metade. Por dentro, o anel cabe na metade que vai disparar e é isso que
+     * o utilizador precisa de ver. (0,3,1) ganha ao (0,2,1) de lá.
+     */
+    button.plain.seat-btn:focus-visible { outline-offset: -3px; }
     /*
      * O mesmo para os chips de um ícone só (espelhos, volante), com um aviso
      * extra: sem position: absolute caíam em fluxo por baixo da vista e nenhum
@@ -360,8 +377,29 @@ export class LeapmotorClimatePanel extends LitElement {
       border-radius: 30%; background: var(--card-background-color);
       color: var(--lm-muted);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      transition: box-shadow 120ms ease, transform 120ms ease;
     }
     button.plain.chip-btn.on { color: var(--primary-color); }
+    /*
+     * Resposta ao ponteiro e ao toque, na linha do que actions-row.ts já fazia
+     * com o seu .circle. Sem ela, o utilizador toca no aquecimento do banco,
+     * não vê nada mexer enquanto o Home Assistant não devolve o nível novo, e
+     * toca outra vez — o shownLevel absorve o segundo toque e não perde
+     * comando nenhum, mas o nível a mais é escusado.
+     *
+     * O :hover está atrás de um @media (hover: hover) para o estado não ficar
+     * colado num ecrã tátil, onde o browser o mantém depois do toque. O
+     * :active do chip repete o translate(-50%, -50%) porque a transform é UMA
+     * propriedade: escrever só o scale apagava o centramento e o chip saltava
+     * para baixo e para a direita ao ser tocado. Ambas as regras estão a
+     * (0,3,1), acima do button.plain (0,1,1) e das próprias caixas (0,2,1).
+     */
+    @media (hover: hover) {
+      button.plain.seat-btn:hover { background: var(--lm-chip); }
+      button.plain.chip-btn:hover { box-shadow: 0 2px 7px rgba(0, 0, 0, 0.32); }
+    }
+    button.plain.seat-btn:active { transform: scale(0.9); }
+    button.plain.chip-btn:active { transform: translate(-50%, -50%) scale(0.9); }
     /*
      * Em píxeis fixos o conteúdo saía da caixa abaixo de uma vista de ~223px.
      * 5,6cqw e 3,1cqw são exactamente os 18px e os 9,9px de uma vista a 320px,

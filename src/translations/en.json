@@ -94,6 +94,7 @@
   "comfort.ventilation": "Ventilation",
   "comfort.steering_wheel": "Steering wheel",
   "comfort.mirrors": "Mirrors",
+  "comfort.mirrors_both": "Mirrors · both",
   "comfort.battery_preheat": "Battery preheat",
   "comfort.remaining": "{minutes} min left",
   "schedule.title": "Charging schedule",

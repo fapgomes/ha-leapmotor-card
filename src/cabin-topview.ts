@@ -12,8 +12,15 @@ import { html, type TemplateResult } from 'lit'
  * esteve era 1 : 2,5 e obrigava a espremer os controlos numa faixa estreita.
  *
  * O que está desenhado, de cima para baixo:
- *   - dois espelhos exteriores (x 2 e x 187, y 30) unidos pela linha do tablier;
- *   - o volante em cima à esquerda (elipse centrada em 57, 45), com o cubo;
+ *   - dois espelhos exteriores (x 10 a 25 e x 175 a 190, y 26 a 35), unidos
+ *     pela linha do tablier. Estão para dentro, e não encostados à margem, por
+ *     causa do chip que se encosta por baixo do da esquerda: com o espelho no
+ *     canto, o chip saía da caixa;
+ *   - o volante em cima à esquerda (elipse de 38 x 28 centrada em 57, 42), com
+ *     o cubo. É deliberadamente maior do que o chip que o acompanha: com uma
+ *     roda de 30 x 22 o chip tapava-a toda menos 4px de cada lado e a peça
+ *     lia-se como uma nódoa. Agora o chip está encostado à direita e a metade
+ *     esquerda da roda fica à vista;
  *   - dois bancos da frente, cada um com encosto de cabeça (y 60), espaldar
  *     (y 78 a 126) e assento (y 129 a 156), centrados em x = 57 e x = 143;
  *   - a consola central entre eles (x 88 a 112), com dois porta-copos em
@@ -31,17 +38,17 @@ import { html, type TemplateResult } from 'lit'
 export const CABIN_TOPVIEW: TemplateResult = html`
   <svg viewBox="0 0 200 228" aria-hidden="true" part="topview">
     <g fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.3">
-      <rect x="2" y="30" width="11" height="8" rx="3" />
-      <rect x="187" y="30" width="11" height="8" rx="3" />
-      <path d="M13 34 C60 20 140 20 187 34" />
+      <rect x="10" y="26" width="15" height="9" rx="4" />
+      <rect x="175" y="26" width="15" height="9" rx="4" />
+      <path d="M25 31 C70 19 130 19 175 31" />
 
       <rect x="6" y="46" width="11" height="84" rx="5" />
       <rect x="6" y="136" width="11" height="66" rx="5" />
       <rect x="183" y="46" width="11" height="84" rx="5" />
       <rect x="183" y="136" width="11" height="66" rx="5" />
 
-      <ellipse cx="57" cy="45" rx="15" ry="11" />
-      <rect x="51" y="41.5" width="12" height="7" rx="3" />
+      <ellipse cx="57" cy="42" rx="19" ry="14" />
+      <rect x="50" y="38.5" width="14" height="7" rx="3" />
 
       <rect x="44" y="60" width="26" height="15" rx="7" />
       <rect x="30" y="78" width="54" height="48" rx="13" />
