@@ -18,6 +18,7 @@ Valem em **todas** as tarefas. Os requisitos de cada tarefa incluem implicitamen
 - **Valor ausente renderiza `DASH`.** Nunca `NaN`, `unknown` ou `unavailable`.
 - **Nenhum ficheiro em `src/sections/` importa `src/vehicle-state.ts`.** É essa fronteira que garante que nenhuma secção alcança o `hass`. O `src/groups.ts` fica do lado puro e também não o importa.
 - **`noImplicitOverride: true`** — `render()`, `willUpdate()`, `updated()`, `firstUpdated()`, `disconnectedCallback()` e `static styles` levam `override`.
+- **Os catálogos de tradução são PLANOS.** 130 chaves de topo, o ponto faz parte do nome da chave, zero objetos aninhados. Uma chave nova escreve-se `"openings.title"`, nunca dentro de um objeto `"openings"`.
 - **Toda a chave de tradução nova entra nos DOIS catálogos**, `src/translations/en.json` e `src/translations/pt.json`. `test/localize.test.ts` tem um teste de paridade que falha, nomeando as chaves, se só um for atualizado.
 - **`button.plain` em `theme.ts` faz `all: unset` e está a (0,1,1).** Qualquer botão novo precisa de um seletor composto (`button.tile.plain`, `button.nav.plain`) que reponha fundo, `padding`, cantos, dimensões e `box-sizing`. O comentário no `theme.ts` conta que isto já produziu seis defeitos neste projeto, dois deles visíveis no dashboard de um utilizador.
 - **Testes:** `npm test` (que é `TZ=UTC vitest run`). Ambiente `node`, sem harness de DOM — **nenhum teste de render**. Componentes Lit verificam-se com `npm run typecheck && npm run build`.
@@ -718,41 +719,39 @@ Expected: FAIL — `summaryFor is not a function`.
 Em `src/translations/pt.json`:
 
 ```json
-  "group": {
-    "charging": "Carga",
-    "status": "Estado",
-    "climate": "Clima",
-    "tires": "Pneus",
-    "trip": "Viagem",
-    "location": "Localização"
-  },
-  "openings": {
-    "all_closed": "Tudo fechado",
-    "open_one": "1 aberto",
-    "open_count": "{count} abertos",
-    "open": "Aberto",
-    "closed": "Fechado"
-  },
-  "climate": {
-    "state_on": "Ligada",
-    "state_off": "Desligada"
-  }
+  "group.charging": "Carga",
+  "group.status": "Estado",
+  "group.climate": "Clima",
+  "group.tires": "Pneus",
+  "group.trip": "Viagem",
+  "group.location": "Localização",
+  "openings.all_closed": "Tudo fechado",
+  "openings.open_one": "1 aberto",
+  "openings.open_count": "{count} abertos",
+  "openings.open": "Aberto",
+  "openings.closed": "Fechado",
+  "climate.state_on": "Ligada",
+  "climate.state_off": "Desligada"
 ```
 
-Atenção: `openings` e `climate` **já existem** nos catálogos. Acrescenta estas chaves aos objetos existentes em vez de criar objetos novos — um segundo `"openings"` no mesmo JSON perde as chaves do primeiro em silêncio.
+**ATENÇÃO AO FORMATO.** Os dois catálogos são **planos**: 130 chaves de topo, com o ponto a fazer parte do nome da chave, e **zero objetos aninhados**. Uma chave nova escreve-se `"openings.all_closed"`, nunca dentro de um objeto `"openings"`. Já existem chaves com os prefixos `openings.` e `climate.` — junta as tuas ao lado delas, mantendo o ficheiro ordenado como está.
 
 Em `src/translations/en.json`, as mesmas chaves:
 
 ```json
-  "group": {
-    "charging": "Charging", "status": "Status", "climate": "Climate",
-    "tires": "Tires", "trip": "Trip", "location": "Location"
-  },
-  "openings": {
-    "all_closed": "All closed", "open_one": "1 open", "open_count": "{count} open",
-    "open": "Open", "closed": "Closed"
-  },
-  "climate": { "state_on": "On", "state_off": "Off" }
+  "group.charging": "Charging",
+  "group.status": "Status",
+  "group.climate": "Climate",
+  "group.tires": "Tires",
+  "group.trip": "Trip",
+  "group.location": "Location",
+  "openings.all_closed": "All closed",
+  "openings.open_one": "1 open",
+  "openings.open_count": "{count} open",
+  "openings.open": "Open",
+  "openings.closed": "Closed",
+  "climate.state_on": "On",
+  "climate.state_off": "Off"
 ```
 
 - [ ] **Step 4: Implementar em `src/groups.ts`**
@@ -1322,10 +1321,10 @@ Dentro do bloco `:host` de `sharedStyles`, depois do `--lm-chip`:
 
 - [ ] **Step 3: Acrescentar as chaves de tradução**
 
-Ao objeto `tires` existente nos dois catálogos.
+Os catálogos são **planos**: o ponto faz parte do nome da chave e não há objetos aninhados. Acrescenta, nos dois:
 
-`pt.json`: `"no_warning": "Sem perda de pressão detetada"`, `"unit": "bar"`
-`en.json`: `"no_warning": "No pressure loss detected"`, `"unit": "bar"`
+`pt.json`: `"tires.no_warning": "Sem perda de pressão detetada"`, `"tires.unit": "bar"`
+`en.json`: `"tires.no_warning": "No pressure loss detected"`, `"tires.unit": "bar"`
 
 - [ ] **Step 4: Reescrever `src/sections/tires.ts`**
 
@@ -1469,23 +1468,26 @@ certo."
 
 - [ ] **Step 1: Acrescentar as chaves de tradução**
 
-Ao objeto `openings` existente, nos dois catálogos.
+Os catálogos são **planos**: o ponto faz parte do nome da chave e não há objetos aninhados. Já existem chaves com o prefixo `openings.` — junta estas ao lado delas, nos dois ficheiros.
 
 `pt.json`:
 ```json
-    "title": "Estado do veículo",
-    "locks": "Trancas",
-    "windows": "Vidros",
-    "doors": "Portas",
-    "trunk": "Bagageira",
-    "roof": "Teto"
+  "openings.title": "Estado do veículo",
+  "openings.locks": "Trancas",
+  "openings.windows": "Vidros",
+  "openings.doors": "Portas",
+  "openings.trunk": "Bagageira",
+  "openings.roof": "Teto"
 ```
 
 `en.json`:
 ```json
-    "title": "Vehicle status",
-    "locks": "Locks", "windows": "Windows", "doors": "Doors",
-    "trunk": "Trunk", "roof": "Roof"
+  "openings.title": "Vehicle status",
+  "openings.locks": "Locks",
+  "openings.windows": "Windows",
+  "openings.doors": "Doors",
+  "openings.trunk": "Trunk",
+  "openings.roof": "Roof"
 ```
 
 - [ ] **Step 2: Criar `src/sections/openings.ts`**
@@ -1875,10 +1877,10 @@ documento."
 
 - [ ] **Step 1: Acrescentar as chaves de tradução**
 
-Nos dois catálogos, um objeto `detail` novo.
+Os catálogos são **planos**: o ponto faz parte do nome da chave e não há objetos aninhados. Três chaves novas com o prefixo `detail.`, nos dois:
 
-`pt.json`: `{ "close": "Fechar", "previous": "Anterior", "next": "Seguinte" }`
-`en.json`: `{ "close": "Close", "previous": "Previous", "next": "Next" }`
+`pt.json`: `"detail.close": "Fechar"`, `"detail.previous": "Anterior"`, `"detail.next": "Seguinte"`
+`en.json`: `"detail.close": "Close"`, `"detail.previous": "Previous"`, `"detail.next": "Next"`
 
 - [ ] **Step 2: Criar `src/sections/group-detail.ts`**
 
@@ -2207,9 +2209,9 @@ git rm src/sections/tiles.ts
 
 - [ ] **Step 3: Acrescentar a chave do aviso de rutura**
 
-Nos dois catálogos, ao objeto `error` existente:
+Os catálogos são **planos**: o ponto faz parte do nome da chave. Já existem chaves com o prefixo `error.` — junta esta ao lado delas, nos dois:
 
-`pt.json`: `"sections_removed": "A opção «sections» deixou de existir nesta versão do card. Substitui-a por «grid», que escolhe e ordena os grupos da grelha — ver o README."`
+`pt.json`: `"error.sections_removed": "A opção «sections» deixou de existir nesta versão do card. Substitui-a por «grid», que escolhe e ordena os grupos da grelha — ver o README."`
 `en.json`: `"sections_removed": "The 'sections' option no longer exists in this version of the card. Replace it with 'grid', which picks and orders the groups shown — see the README."`
 
 - [ ] **Step 4: Reescrever a parte do card que renderiza**
@@ -2457,10 +2459,10 @@ Acrescenta `formatUpdated` ao `import` de `./format` no card.
 
 - [ ] **Step 5: Acrescentar a chave do grupo desconhecido**
 
-Nos dois catálogos, ao objeto `error`:
+Nos dois catálogos, com o prefixo `error.` no nome da chave (os ficheiros são planos):
 
-`pt.json`: `"unknown_group": "Grupo desconhecido em «grid»: {groups}"`
-`en.json`: `"unknown_group": "Unknown group in 'grid': {groups}"`
+`pt.json`: `"error.unknown_group": "Grupo desconhecido em «grid»: {groups}"`
+`en.json`: `"error.unknown_group": "Unknown group in 'grid': {groups}"`
 
 - [ ] **Step 6: Limpar as chaves `tiles.*` que ficaram órfãs**
 
@@ -2516,10 +2518,10 @@ descobrir a mudança no CHANGELOG."
 
 - [ ] **Step 1: Acrescentar as chaves de tradução**
 
-Ao objeto `editor` existente, nos dois catálogos.
+Os catálogos são **planos**: o ponto faz parte do nome da chave. Já existem chaves com o prefixo `editor.` — junta estas ao lado delas, nos dois:
 
-`pt.json`: `"grid": "Grelha"`, `"grid_up": "Subir"`, `"grid_down": "Descer"`, `"tire_range": "Faixa de pressão dos pneus (bar)"`
-`en.json`: `"grid": "Grid"`, `"grid_up": "Move up"`, `"grid_down": "Move down"`, `"tire_range": "Tyre pressure range (bar)"`
+`pt.json`: `"editor.grid": "Grelha"`, `"editor.grid_up": "Subir"`, `"editor.grid_down": "Descer"`, `"editor.tire_range": "Faixa de pressão dos pneus (bar)"`
+`en.json`: `"editor.grid": "Grid"`, `"editor.grid_up": "Move up"`, `"editor.grid_down": "Move down"`, `"editor.tire_range": "Tyre pressure range (bar)"`
 
 - [ ] **Step 2: Substituir a entrada `sections` do esquema**
 
