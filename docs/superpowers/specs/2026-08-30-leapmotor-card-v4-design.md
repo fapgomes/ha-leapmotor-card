@@ -231,6 +231,17 @@ leitura também não é alerta.
 
 ### 4.3 Altura estável
 
+> **RETIRADA na 0.4.2.** Esta secção descreve a funcionalidade como foi
+> desenhada e entregue na 0.4.0, e fica aqui como registo. Foi removida por
+> inteiro depois de o utilizador a ver a funcionar: o desenho abaixo parte de
+> uma dispersão de 137 px entre sub-vistas, tirada das capturas de referência,
+> e a dispersão real neste carro é de cerca de 750 px — o painel de clima é
+> muito mais alto do que todos os outros. Com essa diferença, «altura estável»
+> deixou de significar «não salta» e passou a significar «tudo é tão alto como o
+> mais alto», o que é pior do que o refluxo que a funcionalidade existia para
+> evitar. A premissa da §4.3 estava errada, não a sua implementação.
+
+
 As duas capturas de referência têm 553 px e 690 px: 137 px de salto ao passar de
 Pneus para Viagem. A referência salta.
 
