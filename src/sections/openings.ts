@@ -66,7 +66,12 @@ export class LeapmotorOpenings extends LitElement {
     return [
       {
         key: 'locks',
-        icon: locked === true ? 'mdi:lock-outline' : 'mdi:lock-open-variant-outline',
+        // O ícone reporta a leitura, como em todas as outras linhas desta secção
+        // (o botão é que carrega a ação) — e para uma leitura desconhecida o
+        // cadeado fechado é o que não afirma nada, ao contrário do aberto, que
+        // afirmaria "destrancado". É também o que o hero mostra para o mesmo
+        // estado desconhecido; não alterar para concordar com a ação.
+        icon: locked === false ? 'mdi:lock-open-variant-outline' : 'mdi:lock-outline',
         label: this.t('openings.locks'),
         value: locked === undefined ? this.t('doors_unknown') : this.t(locked ? 'doors_locked' : 'doors_unlocked'),
         warn: locked === false && !this.state.lock.stale,
