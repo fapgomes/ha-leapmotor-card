@@ -107,7 +107,10 @@ export class LeapmotorOpenings extends LitElement {
         key: 'doors',
         icon: 'mdi:car-door',
         label: this.t('openings.doors'),
-        value: this.closedOrUnknown(areDoorsUnknown(o.doors), openDoors.length, 'openings.open_one', 'openings.open_count'),
+        // Porta é feminina e uma só porta não são «abertas»: as chaves `_fem`
+        // existem só por isto, e o singular vem da mesma regra que os vidros já
+        // aplicavam. Em inglês as quatro chaves dizem o mesmo.
+        value: this.closedOrUnknown(areDoorsUnknown(o.doors), openDoors.length, 'openings.open_one_fem', 'openings.open_count_fem'),
         detail: openDoors.length > 0 ? openDoors.join(' · ') : undefined,
         warn: openDoors.length > 0,
         // Sem ação, e de propósito: a integração não expõe comando de porta.

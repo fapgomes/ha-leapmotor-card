@@ -77,6 +77,8 @@
   "openings.all_closed": "All closed",
   "openings.open_one": "1 open",
   "openings.open_count": "{count} open",
+  "openings.open_one_fem": "1 open",
+  "openings.open_count_fem": "{count} open",
   "openings.open": "Open",
   "openings.closed": "Closed",
   "openings.title": "Vehicle status",
