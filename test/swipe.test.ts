@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { SWIPE_THRESHOLD_PX, decideSwipe } from '../src/swipe'
+import { GESTURE_OWNER_CLASS, INTERACTIVE_SELECTOR, SWIPE_THRESHOLD_PX, decideSwipe } from '../src/swipe'
 
 /**
  * A decisão do gesto vive numa função pura pela mesma razão do `decideAction`
  * e do `mapRequestChanged`: é aqui que está o que pode estar errado. A cola no
- * DOM — três listeners de pointer que chamam esta função — fica sem teste, e
+ * DOM — três listeners de pointer que chamam esta função e o guarda dos
+ * controlos, cujo contrato está testado mais abaixo — fica sem teste, e
  * de propósito: este projeto corre os testes em `environment: 'node'` e um
  * jsdom que não faz scroll não afirmaria nada sobre o conflito com o scroll do
  * dashboard, que é o único risco real do gesto.
@@ -53,5 +54,37 @@ describe('decideSwipe', () => {
     // perder um deslize é um inconveniente, prender o scroll é uma avaria.
     expect(decideSwipe(80, 80)).toBe('scroll')
     expect(decideSwipe(-80, 80)).toBe('scroll')
+  })
+})
+
+/**
+ * O guarda que tira os controlos ao deslize não é testável aqui: o `matches()`
+ * do `composedPath()` é DOM, e este projeto corre em `environment: 'node'` de
+ * propósito. Um duplo do `matches` só provaria que o `Array.some` funciona.
+ *
+ * O que **é** testável, e é onde o defeito real cabe, é o contrato entre os dois
+ * ficheiros: `sections/location.ts` marca o contentor do mapa com a
+ * `GESTURE_OWNER_CLASS` e o `INTERACTIVE_SELECTOR` tem de a procurar. A
+ * constante partilhada impede que os dois literais divirjam; estes testes
+ * impedem que a classe seja esquecida na lista, que é o mesmo defeito com outra
+ * cara.
+ */
+describe('INTERACTIVE_SELECTOR', () => {
+  it('procura a classe com que o mapa se marca', () => {
+    expect(INTERACTIVE_SELECTOR).toContain(`.${GESTURE_OWNER_CLASS}`)
+  })
+
+  it('a classe é um nome de classe CSS utilizável', () => {
+    // Sem isto, uma classe com espaços ou com um ponto passava a lista a
+    // seletores que casam com coisas que não são o mapa.
+    expect(GESTURE_OWNER_CLASS).toMatch(/^[a-z][a-z0-9-]*$/)
+  })
+
+  it('cobre os controlos que o dedo agarra dentro de uma sub-vista', () => {
+    // Os sliders do limite de carga e da ventoinha são `input`; os botões da
+    // barra e das linhas são `button`.
+    for (const selector of ['input', 'button', 'ha-icon-button', '[role="slider"]']) {
+      expect(INTERACTIVE_SELECTOR.split(', '), selector).toContain(selector)
+    }
   })
 })

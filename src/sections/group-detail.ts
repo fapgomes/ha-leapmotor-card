@@ -1,18 +1,8 @@
 import { LitElement, css, html, nothing } from 'lit'
 import { customElement, property, query } from 'lit/decorators.js'
 import type { TranslateFn } from '../localize'
-import { decideSwipe } from '../swipe'
+import { INTERACTIVE_SELECTOR, decideSwipe } from '../swipe'
 import { sharedStyles } from '../theme'
-
-/**
- * Onde um arrasto NÃO é um deslize. Os sliders (limite de carga, ventoinha)
- * vivem dentro do slot desta moldura e um arrasto horizontal do polegar é,
- * pixel a pixel, indistinguível de um deslize entre sub-vistas — o card saltava
- * de grupo a meio do gesto. Os botões da barra entram na mesma lista: antes só
- * escapavam por o limiar de 48px ser maior que os seus 34px de largura, o que
- * era coincidência e não regra.
- */
-const INTERACTIVE = 'input, button, ha-icon-button, a, [role="slider"], [role="button"]'
 
 @customElement('leapmotor-group-detail')
 export class LeapmotorGroupDetail extends LitElement {
@@ -80,10 +70,14 @@ export class LeapmotorGroupDetail extends LitElement {
     // Só toque e caneta: com o rato, arrastar sobre o card é seleção de texto,
     // não um gesto.
     if (e.pointerType === 'mouse') return
-    // O caminho composto, e não o `e.target`: o conteúdo da sub-vista chega
-    // por `<slot>`, vem do DOM claro do card e o alvo re-alvejado pelo shadow
-    // não denuncia o controlo onde o dedo assentou.
-    if (e.composedPath().some(node => node instanceof Element && node.matches(INTERACTIVE))) return
+    // Nada de deslize quando o gesto começa num controlo — a lista e o porquê
+    // de cada entrada estão no `INTERACTIVE_SELECTOR`. O caminho composto, e
+    // não o `e.target`: o conteúdo da sub-vista chega por `<slot>`, vem do DOM
+    // claro do card e o alvo re-alvejado pelo shadow não denuncia o controlo
+    // onde o dedo assentou. A varredura é do caminho todo, e não só do
+    // primeiro nó, porque o dedo assenta num azulejo ou num ícone e o controlo
+    // é um antepassado seu.
+    if (e.composedPath().some(node => node instanceof Element && node.matches(INTERACTIVE_SELECTOR))) return
     this.pointerId = e.pointerId
     this.startX = e.clientX
     this.startY = e.clientY

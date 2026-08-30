@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
 import { formatAgo } from '../format'
 import { DASH, type TranslateFn } from '../localize'
+import { GESTURE_OWNER_CLASS } from '../swipe'
 import { sharedStyles } from '../theme'
 import type { VehicleState } from '../types'
 
@@ -29,7 +30,13 @@ export class LeapmotorLocation extends LitElement {
         ? html`
             <div class="zone muted">${loc.zone ?? DASH}</div>
             ${this.mapElement
-              ? html`<div class="map ${loc.stale ? 'stale' : ''}">${this.mapElement}</div>`
+              // A GESTURE_OWNER_CLASS tem de ficar neste contentor: é ela que
+              // tira o mapa ao deslize entre sub-vistas, e o outro lado do
+              // contrato é o INTERACTIVE_SELECTOR em `swipe.ts` — mexer numa
+              // ponta sem a outra devolve o defeito. O Leaflet arrasta em
+              // `touchstart` e nunca vê o nosso `pointerdown`, por isso não se
+              // defende sozinho.
+              ? html`<div class="map ${GESTURE_OWNER_CLASS} ${loc.stale ? 'stale' : ''}">${this.mapElement}</div>`
               : html`<div class="fallback muted">${this.t('location.map_unavailable')}</div>`}
           `
         : html`<div class="fallback muted">${this.t('location.unknown')}</div>`}
