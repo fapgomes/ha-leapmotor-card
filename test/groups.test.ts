@@ -204,9 +204,19 @@ describe('summaryFor — estado', () => {
   })
 
   it('mostra a bagageira', () => {
-    expect(summaryFor(group('status', 'trunk'), realState(), t, 'en')).toBe(t('openings.closed'))
+    expect(summaryFor(group('status', 'trunk'), realState(), t, 'en')).toBe(t('openings.closed_fem'))
     const open = realState({ 'binary_sensor/trunk_open': 'on' })
-    expect(summaryFor(group('status', 'trunk'), open, t, 'en')).toBe(t('openings.open'))
+    expect(summaryFor(group('status', 'trunk'), open, t, 'en')).toBe(t('openings.open_fem'))
+  })
+
+  it('trata a bagageira como feminina em português', () => {
+    // A asserção tem de ser em português: em inglês as chaves `_fem` dizem a
+    // mesma palavra que as masculinas, e um teste só em inglês passava com a
+    // chave errada. É a razão de este teste existir a olhar para o literal.
+    const pt = createTranslator('pt')
+    const open = realState({ 'binary_sensor/trunk_open': 'on' })
+    expect(summaryFor(group('status', 'trunk'), open, pt, 'pt')).toBe('Aberta')
+    expect(summaryFor(group('status', 'trunk'), realState(), pt, 'pt')).toBe('Fechada')
   })
 })
 

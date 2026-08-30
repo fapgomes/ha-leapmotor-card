@@ -81,6 +81,8 @@
   "openings.open_count_fem": "{count} abertas",
   "openings.open": "Aberto",
   "openings.closed": "Fechado",
+  "openings.open_fem": "Aberta",
+  "openings.closed_fem": "Fechada",
   "openings.title": "Estado do veículo",
   "openings.locks": "Trancas",
   "openings.windows": "Vidros",

@@ -215,7 +215,10 @@ function statusSummary(group: ResolvedGroup, state: VehicleState, t: TranslateFn
     }
     case 'trunk':
       if (state.openings.trunk === undefined) return DASH
-      return t(state.openings.trunk ? 'openings.open' : 'openings.closed')
+      // A bagageira é feminina: «Aberta», e não o «Aberto» que serve o teto. O
+      // par `_fem` existe só por isto, e em inglês diz a mesma palavra que o
+      // masculino — ver o comentário do `boolValue` em `sections/openings.ts`.
+      return t(state.openings.trunk ? 'openings.open_fem' : 'openings.closed_fem')
     default: {
       const { locked } = state.lock
       // `doors_unknown` é «Portas», uma etiqueta — servia de valor por

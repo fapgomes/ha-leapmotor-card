@@ -81,6 +81,8 @@
   "openings.open_count_fem": "{count} open",
   "openings.open": "Open",
   "openings.closed": "Closed",
+  "openings.open_fem": "Open",
+  "openings.closed_fem": "Closed",
   "openings.title": "Vehicle status",
   "openings.locks": "Locks",
   "openings.windows": "Windows",

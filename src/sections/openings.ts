@@ -61,9 +61,18 @@ export class LeapmotorOpenings extends LitElement {
     return this.t(count === 1 ? oneKey : manyKey, { count })
   }
 
-  private boolValue(v: boolean | undefined): string {
+  /**
+   * O valor de uma linha booleana. As chaves vêm de fora, e não por omissão, de
+   * propósito: em português o adjectivo concorda com o substantivo da linha, e
+   * este card tem os dois géneros — a bagageira é «Aberta», o teto é «Aberto».
+   * Cada chamada declara o género que quer, para nenhuma linha nova o herdar
+   * por acidente. Não juntar os dois pares num só: em inglês as quatro chaves
+   * dizem a mesma palavra e a duplicação parece redundante, mas é o que separa
+   * os dois géneros em português.
+   */
+  private boolValue(v: boolean | undefined, openKey: string, closedKey: string): string {
     if (v === undefined) return DASH
-    return this.t(v ? 'openings.open' : 'openings.closed')
+    return this.t(v ? openKey : closedKey)
   }
 
   private rows(): Row[] {
@@ -121,7 +130,7 @@ export class LeapmotorOpenings extends LitElement {
         key: 'trunk',
         icon: actionIcon('trunk', this.state),
         label: this.t('openings.trunk'),
-        value: this.boolValue(o.trunk),
+        value: this.boolValue(o.trunk, 'openings.open_fem', 'openings.closed_fem'),
         warn: o.trunk === true,
         action: 'trunk',
       },
@@ -129,7 +138,7 @@ export class LeapmotorOpenings extends LitElement {
         key: 'roof',
         icon: 'mdi:window-shutter',
         label: this.t('openings.roof'),
-        value: this.boolValue(o.roof),
+        value: this.boolValue(o.roof, 'openings.open', 'openings.closed'),
         warn: o.roof === true,
       },
     ]
