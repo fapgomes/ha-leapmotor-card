@@ -131,6 +131,10 @@
   "editor.image_entity": "Entity only",
   "editor.image_none": "No image",
   "editor.map_zoom": "Map zoom",
+  "editor.grid": "Grid",
+  "editor.grid_up": "Move up",
+  "editor.grid_down": "Move down",
+  "editor.tire_range": "Tyre pressure range (bar)",
   "detail.close": "Close",
   "detail.previous": "Previous",
   "detail.next": "Next"

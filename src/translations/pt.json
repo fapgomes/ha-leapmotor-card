@@ -131,6 +131,10 @@
   "editor.image_entity": "Só a entidade",
   "editor.image_none": "Sem imagem",
   "editor.map_zoom": "Zoom do mapa",
+  "editor.grid": "Grelha",
+  "editor.grid_up": "Subir",
+  "editor.grid_down": "Descer",
+  "editor.tire_range": "Faixa de pressão dos pneus (bar)",
   "detail.close": "Fechar",
   "detail.previous": "Anterior",
   "detail.next": "Seguinte"

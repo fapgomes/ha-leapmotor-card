@@ -1,10 +1,11 @@
-import { LitElement, html, nothing } from 'lit'
+import { LitElement, css, html, nothing } from 'lit'
 import { customElement, property, state as internalState } from 'lit/decorators.js'
 import type { HomeAssistant } from './ha-types'
+import { GROUP_CATALOGUE, GROUP_ORDER } from './groups'
 import { createTranslator, pickLanguage } from './localize'
 import {
   DEFAULT_ACTIONS, DEFAULT_MAP_ZOOM, MAP_ZOOM_MAX, MAP_ZOOM_MIN,
-  type ActionId, type LeapmotorCardConfig,
+  type ActionId, type GridEntry, type GroupId, type LeapmotorCardConfig,
 } from './types'
 
 /**
@@ -97,17 +98,116 @@ export class LeapmotorCardEditor extends LitElement {
    * desde sempre, e mudar isso para todos fica fora do âmbito de uma opção
    * nova. O `map_zoom` é a excepção: só existe uma vez por catálogo (ver
    * `editor.map_zoom`), por isso ganha rótulo traduzido sem tocar nos outros.
+   * O `tire_range` não está no esquema do `ha-form` (é uma lista de dois
+   * números, sem selector), mas o ramo fica pronto para quando houver um.
    */
-  private computeLabel = (t: (k: string) => string) => (s: { name: string }): string =>
-    s.name === 'map_zoom' ? t('editor.map_zoom') : s.name
+  private computeLabel = (t: (k: string) => string) => (s: { name: string }): string => {
+    if (s.name === 'map_zoom') return t('editor.map_zoom')
+    if (s.name === 'tire_range') return t('editor.tire_range')
+    return s.name
+  }
 
   private valueChanged(e: CustomEvent<{ value: Record<string, unknown> }>) {
     const raw = { ...e.detail.value }
     if (raw.language === '') delete raw.language
+    // `sections` já não existe no tipo, mas pode existir em configurações
+    // ainda não migradas — o `ha-form` devolve tudo o que lhe foi dado, por
+    // isso é aqui, no editor, que a chave morta finalmente desaparece.
+    delete (raw as Record<string, unknown>)['sections']
     const config = { type: 'custom:leapmotor-card', ...raw } as LeapmotorCardConfig
     this._config = config
     this.dispatchEvent(new CustomEvent('config-changed', { detail: { config }, bubbles: true, composed: true }))
   }
+
+  /** Os grupos por ordem, com o estado da caixa de seleção de cada um. */
+  private gridRows(): { id: GroupId; on: boolean }[] {
+    const configured = this._config?.grid
+    if (!Array.isArray(configured)) {
+      // Sem `grid:` escrito, a grelha é o catálogo inteiro: mostra-se tudo
+      // ligado, que é o que o card faz.
+      return GROUP_ORDER.map(id => ({ id, on: true }))
+    }
+    const chosen = configured
+      .map(entry => (typeof entry === 'string' ? entry : entry.group))
+      .filter((id): id is GroupId => id in GROUP_CATALOGUE)
+    const rest = GROUP_ORDER.filter(id => !chosen.includes(id))
+    return [
+      ...chosen.map(id => ({ id, on: true })),
+      ...rest.map(id => ({ id, on: false })),
+    ]
+  }
+
+  /**
+   * Escreve o `grid:` a partir das linhas. Preserva a forma longa de uma
+   * entrada que já a tinha: reordenar no editor não deve apagar um ícone ou um
+   * título que alguém escreveu à mão em YAML.
+   */
+  private commitGrid(rows: { id: GroupId; on: boolean }[]) {
+    const previous = Array.isArray(this._config?.grid) ? this._config!.grid : []
+    const longForm = new Map<GroupId, GridEntry>()
+    for (const entry of previous) {
+      if (typeof entry !== 'string') longForm.set(entry.group, entry)
+    }
+    const grid: GridEntry[] = rows
+      .filter(row => row.on)
+      .map(row => longForm.get(row.id) ?? row.id)
+
+    const config = { ...this._config, type: 'custom:leapmotor-card', grid } as LeapmotorCardConfig
+    this._config = config
+    this.dispatchEvent(new CustomEvent('config-changed', { detail: { config }, bubbles: true, composed: true }))
+  }
+
+  private toggleGroup(id: GroupId) {
+    this.commitGrid(this.gridRows().map(row => (row.id === id ? { ...row, on: !row.on } : row)))
+  }
+
+  private moveGroup(id: GroupId, delta: -1 | 1) {
+    const rows = this.gridRows()
+    const index = rows.findIndex(row => row.id === id)
+    const target = index + delta
+    if (index < 0 || target < 0 || target >= rows.length) return
+    const reordered = [...rows]
+    const [moved] = reordered.splice(index, 1)
+    reordered.splice(target, 0, moved!)
+    this.commitGrid(reordered)
+  }
+
+  private renderGridEditor(t: (k: string) => string) {
+    const rows = this.gridRows()
+    return html`<div class="grid-editor">
+      <div class="grid-title">${t('editor.grid')}</div>
+      ${rows.map((row, index) => html`
+        <div class="grid-row">
+          <ha-formfield .label=${t(GROUP_CATALOGUE[row.id].titleKey)}>
+            <ha-checkbox
+              .checked=${row.on}
+              @change=${() => this.toggleGroup(row.id)}
+            ></ha-checkbox>
+          </ha-formfield>
+          <ha-icon-button
+            .label=${t('editor.grid_up')}
+            .disabled=${index === 0}
+            @click=${() => this.moveGroup(row.id, -1)}
+          ><ha-icon icon="mdi:arrow-up"></ha-icon></ha-icon-button>
+          <ha-icon-button
+            .label=${t('editor.grid_down')}
+            .disabled=${index === rows.length - 1}
+            @click=${() => this.moveGroup(row.id, 1)}
+          ><ha-icon icon="mdi:arrow-down"></ha-icon></ha-icon-button>
+        </div>
+      `)}
+    </div>`
+  }
+
+  static override styles = css`
+    .grid-editor { margin-top: 16px; }
+    .grid-title {
+      font-size: 0.85rem; font-weight: 500;
+      color: var(--secondary-text-color); margin-bottom: 4px;
+    }
+    .grid-row { display: flex; align-items: center; gap: 4px; }
+    .grid-row ha-formfield { flex: 1 1 auto; min-width: 0; }
+  `
 
   override render() {
     if (!this._config || !this.hass) return nothing
@@ -121,13 +221,16 @@ export class LeapmotorCardEditor extends LitElement {
       ...this._config,
     }
 
-    return html`<ha-form
-      .hass=${this.hass}
-      .data=${data}
-      .schema=${this.schema(t)}
-      .computeLabel=${this.computeLabel(t)}
-      @value-changed=${this.valueChanged}
-    ></ha-form>`
+    return html`
+      <ha-form
+        .hass=${this.hass}
+        .data=${data}
+        .schema=${this.schema(t)}
+        .computeLabel=${this.computeLabel(t)}
+        @value-changed=${this.valueChanged}
+      ></ha-form>
+      ${this.renderGridEditor(t)}
+    `
   }
 }
 
