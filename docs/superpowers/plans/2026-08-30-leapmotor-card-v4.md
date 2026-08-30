@@ -20,6 +20,7 @@ Valem em **todas** as tarefas. Os requisitos de cada tarefa incluem implicitamen
 - **`noImplicitOverride: true`** — `render()`, `willUpdate()`, `updated()`, `firstUpdated()`, `disconnectedCallback()` e `static styles` levam `override`.
 - **Os catálogos de tradução são PLANOS.** 130 chaves de topo, o ponto faz parte do nome da chave, zero objetos aninhados. Uma chave nova escreve-se `"openings.title"`, nunca dentro de um objeto `"openings"`.
 - **Toda a chave de tradução nova entra nos DOIS catálogos**, `src/translations/en.json` e `src/translations/pt.json`. `test/localize.test.ts` tem um teste de paridade que falha, nomeando as chaves, se só um for atualizado.
+- **Nunca um acento grave dentro de um `css`​`` ` `` literal.** Um acento grave num comentário CSS termina o literal etiquetado e parte o *parsing* do TypeScript. Escreve `button.plain` e `all: unset` sem os acentos graves quando o comentário vive dentro de um bloco `css`.
 - **`button.plain` em `theme.ts` faz `all: unset` e está a (0,1,1).** Qualquer botão novo precisa de um seletor composto (`button.tile.plain`, `button.nav.plain`) que reponha fundo, `padding`, cantos, dimensões e `box-sizing`. O comentário no `theme.ts` conta que isto já produziu seis defeitos neste projeto, dois deles visíveis no dashboard de um utilizador.
 - **Testes:** `npm test` (que é `TZ=UTC vitest run`). Ambiente `node`, sem harness de DOM — **nenhum teste de render**. Componentes Lit verificam-se com `npm run typecheck && npm run build`.
 - **Comentários, testes e mensagens de commit em português**, como o resto do repositório. Um comentário explica *porquê*, não *o quê*.
@@ -1671,7 +1672,7 @@ export class LeapmotorOpenings extends LitElement {
     .detail { font-size: 0.72rem; margin-top: 1px; }
     .value { white-space: nowrap; }
     /*
-     * Seletor composto: o `button.plain` do theme.ts faz `all: unset` a
+     * Seletor composto: o button.plain do theme.ts faz all: unset a
      * (0,1,1) e apagaria fundo, padding, cantos e box-sizing deste botão.
      */
     button.do.plain {
@@ -1804,8 +1805,8 @@ export class LeapmotorGroupGrid extends LitElement {
       gap: 10px; margin-top: var(--lm-gap);
     }
     /*
-     * Seletor composto, e não `.tile`: o `button.plain` do theme.ts faz
-     * `all: unset` a (0,1,1) e apagaria fundo, padding, cantos, dimensões e
+     * Seletor composto, e não .tile: o button.plain do theme.ts faz
+     * all: unset a (0,1,1) e apagaria fundo, padding, cantos, dimensões e
      * box-sizing. Ver o aviso no theme.ts — isto já produziu seis defeitos
      * neste projeto, dois deles visíveis no dashboard de um utilizador.
      */
@@ -2009,9 +2010,9 @@ export class LeapmotorGroupDetail extends LitElement {
 
   static override styles = [sharedStyles, css`
     /*
-     * `pan-y` entrega o arrasto vertical ao browser e deixa-nos só o
+     * pan-y entrega o arrasto vertical ao browser e deixa-nos só o
      * horizontal: é metade da convivência com o scroll do dashboard. A outra
-     * metade é o `decideSwipe`.
+     * metade é o decideSwipe.
      */
     .wrap { touch-action: pan-y; outline: none; }
     .wrap:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; border-radius: var(--lm-radius); }
@@ -2021,7 +2022,7 @@ export class LeapmotorGroupDetail extends LitElement {
     }
     .heading { flex: 1 1 auto; min-width: 0; font-size: 1.05rem; font-weight: 600; }
     /*
-     * Seletor composto: o `button.plain` do theme.ts faz `all: unset` a
+     * Seletor composto: o button.plain do theme.ts faz all: unset a
      * (0,1,1) e apagaria as dimensões, o raio e o box-sizing destes botões.
      */
     button.nav.plain {
