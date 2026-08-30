@@ -156,6 +156,17 @@ export function missingForGroups(groups: ResolvedGroup[], missing: LogicalKey[])
   return missing.filter(key => wanted.has(key))
 }
 
+/**
+ * A altura do card em unidades de masonry do Home Assistant (~50px cada), a
+ * partir do número de grupos na grelha. A base de 6 é o hero com foto mais a
+ * fila de ações; cada linha da grelha leva dois tiles e mede ~70px, ou seja 1,5
+ * unidades — contá-la como 1 subestimava o card, e o HA equilibra as colunas
+ * uma só vez com este número.
+ */
+export function estimateCardSize(groupCount: number): number {
+  return 6 + Math.ceil(Math.ceil(groupCount / 2) * 1.5)
+}
+
 const TIRE_CORNERS = [
   { key: 'fl', labelKey: 'tires.corner_fl' },
   { key: 'fr', labelKey: 'tires.corner_fr' },

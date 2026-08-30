@@ -409,7 +409,7 @@ export class LeapmotorClimatePanel extends LitElement {
      * flex, que voltam ao inicial 0 1 auto. Sem flex: 1 1 0 as duas metades
      * encolhiam para o tamanho do conteúdo e deixavam de ser alvos de 44px.
      * Por isso a caixa vive no seletor composto, tal como button.plain.chip-btn
-     * e button.plain.step-btn abaixo, ou button.plain.tile em tiles.ts.
+     * e button.plain.step-btn abaixo, ou button.tile.plain em group-grid.ts.
      */
     button.plain.seat-btn {
       box-sizing: border-box; flex: 1 1 0; min-width: 0;
@@ -490,7 +490,7 @@ export class LeapmotorClimatePanel extends LitElement {
      * button.plain (theme.ts) faz all: unset a (0,1,1); uma regra .step-btn
      * isolada a (0,1,0) perdia display, place-items, width, height,
      * border-radius e background. A caixa do botão vive por isso no seletor
-     * composto, tal como button.plain.tile em tiles.ts.
+     * composto, tal como button.tile.plain em group-grid.ts.
      */
     button.plain.step-btn {
       display: grid; place-items: center; width: 44px; height: 44px;
@@ -529,7 +529,8 @@ export class LeapmotorClimatePanel extends LitElement {
     button.plain.tile-btn { flex-direction: column; }
     /* button.plain (theme.ts) sits at specificity (0,1,1); a bare .on class
        (0,1,0) cannot override it, so the on/off colour needs the same
-       compound-selector treatment as the tile's .fab.on (tiles.ts). */
+       compound-selector treatment as the grid tile's button.tile.plain.warn
+       (group-grid.ts). */
     button.plain.tile-btn.on { color: var(--primary-color); }
     .circle { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: var(--lm-chip); }
     .label { font-size: 0.72rem; text-align: center; line-height: 1.15; }

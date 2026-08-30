@@ -31,7 +31,7 @@ export function formatNumber(n: number | undefined, digits = 0): string {
 
 /**
  * Um vidro conta como aberto pelo `open` booleano ou por uma posição > 0.
- * Vive aqui (em vez de `vehicle-state.ts`) porque `src/sections/tiles.ts`
+ * Vive aqui (em vez de `vehicle-state.ts`) porque `src/sections/openings.ts`
  * não pode importar `vehicle-state.ts` — essa fronteira é o que garante que
  * nenhuma secção alcança o `hass`. `format.ts` é puro e já é importado
  * pelas secções, por isso serve de casa neutra para este predicado partilhado

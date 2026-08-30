@@ -1,4 +1,4 @@
-import { LitElement, css, html, nothing } from 'lit'
+import { LitElement, css, html, nothing, type TemplateResult } from 'lit'
 import { customElement, state as internalState } from 'lit/decorators.js'
 import {
   DEFAULT_FAN_SPEED, actionLabel, composeClimateCommand, decideAction, forgetRequest, pendingValue,
@@ -7,7 +7,10 @@ import {
   type SeatLevels, type SeatRequests, type ServiceCall,
 } from './actions'
 import { formatUpdated } from './format'
-import { alertFor, missingForGroups, resolveGrid, summaryFor, type ResolvedGroup } from './groups'
+import {
+  GROUP_ORDER, alertFor, estimateCardSize, missingForGroups, resolveGrid, summaryFor,
+  type ResolvedGroup,
+} from './groups'
 import type { HassEntityDisplayEntry, HomeAssistant } from './ha-types'
 import { SEAT_LEVEL_KEYS, isSeatLevelKey, type LogicalKey } from './keys'
 import { createTranslator, pickLanguage, type TranslateFn } from './localize'
@@ -171,17 +174,21 @@ export class LeapmotorCard extends LitElement {
   }
 
   /**
-   * A altura que a vista de secções do HA reserva, em linhas de ~50 px. Já não
-   * soma secção a secção porque já não há uma coluna de secções: o corpo é o
-   * hero, a linha de ações e as linhas da grelha — duas colunas, logo metade
-   * dos grupos, arredondada para cima. Com uma sub-vista aberta a altura é a
-   * reservada, que nasce desta mesma estimativa e não a excede em regra.
+   * A altura que a vista de secções do HA reserva. Já não soma secção a secção
+   * porque já não há uma coluna de secções: a conta vive no `estimateCardSize`,
+   * que é puro e testado, e aqui fica só a contagem dos grupos.
    */
   public getCardSize(): number {
     const config = this._config
     const result = this.resolved()
-    if (!config || !result || result.error || result.needsFallback) return 6
-    return 6 + Math.ceil(resolveGrid(config, result.map).groups.length / 2)
+    const resolved = config && result && !result.error && !result.needsFallback
+    // Sem resolução ainda não se sabe que grupos o carro dá, mas sabe-se
+    // quantos foram pedidos — e responder pela linha de carregamento fazia o
+    // masonry equilibrar as colunas com um card que ia crescer.
+    const count = resolved
+      ? resolveGrid(config, result.map).groups.length
+      : (config?.grid?.length ?? GROUP_ORDER.length)
+    return estimateCardSize(count)
   }
 
   /**
@@ -544,7 +551,7 @@ export class LeapmotorCard extends LitElement {
      * fechar sobre `state`, `map`, `t` e o resto sem passar um contexto de dez
      * campos. Quem as instancia é o card; a sub-vista recebe-as pelo `slot`.
      */
-    const panelsFor = (group: ResolvedGroup) => {
+    const panelsFor = (group: ResolvedGroup): TemplateResult => {
       switch (group.id) {
         case 'charging':
           return html`

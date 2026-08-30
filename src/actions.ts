@@ -405,8 +405,14 @@ export function actionIcon(action: ActionId, state: VehicleState): string {
 /** Ações que não devem ser possíveis com o carro em andamento. */
 export const BLOCKED_WHILE_DRIVING: ActionId[] = ['unlock', 'lock', 'trunk', 'windows', 'sunshade']
 
-/** O painel que a expansão do card pode mostrar. */
-export type ExpandPanel = 'climate' | 'openings' | 'sunshade'
+/**
+ * O painel que a expansão do card pode mostrar. Um só, desde que a grelha de
+ * grupos substituiu os tiles: o painel de clima passou a ser o conteúdo de uma
+ * sub-vista e deixou de se expandir. Manter aqui membros que o `CONTROL_PANEL`
+ * — único produtor — não produz deixava compilar para sempre uma comparação
+ * que nunca é verdadeira.
+ */
+export type ExpandPanel = 'sunshade'
 
 /**
  * Ações cujo `resolveAction` exige um `ActionPayload` que só um controlo

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { alertFor, GROUP_CATALOGUE, GROUP_ORDER, missingForGroups, resolveGrid, summaryFor } from '../src/groups'
+import {
+  alertFor, estimateCardSize, GROUP_CATALOGUE, GROUP_ORDER, missingForGroups, resolveGrid, summaryFor,
+} from '../src/groups'
 import { createTranslator, DASH } from '../src/localize'
 import { resolveEntities } from '../src/resolver'
 import { DEFAULT_TIRE_RANGE, type EntityMap, type GroupId, type LeapmotorCardConfig } from '../src/types'
@@ -358,6 +360,36 @@ describe('alertFor — carro offline', () => {
     const state = { ...realState(), online: false }
     for (const id of ['charging', 'status', 'climate', 'tires', 'trip', 'location'] as const) {
       expect(alertFor(group(id), state, RANGE), id).toBe('none')
+    }
+  })
+})
+
+describe('estimateCardSize', () => {
+  // Os valores vêm da fórmula: 6 de base, mais 1,5 unidades por linha de dois
+  // tiles, arredondado para cima. Uma linha custa 2, duas custam 3, três custam
+  // 5 — o arredondamento só é neutro nas linhas pares.
+  it('uma grelha vazia é só o hero e as ações', () => {
+    expect(estimateCardSize(0)).toBe(6)
+  })
+
+  it('um grupo já ocupa uma linha inteira', () => {
+    // Uma linha é uma linha, com um tile ou com dois: 6 + ceil(1,5) = 8.
+    expect(estimateCardSize(1)).toBe(8)
+    expect(estimateCardSize(2)).toBe(8)
+  })
+
+  it('a grelha por omissão, de seis grupos, dá três linhas', () => {
+    // 6 + ceil(3 × 1,5) = 6 + 5 = 11.
+    expect(estimateCardSize(6)).toBe(11)
+    expect(estimateCardSize(GROUP_ORDER.length)).toBe(11)
+  })
+
+  it('nunca decresce quando a contagem cresce', () => {
+    // O HA equilibra as colunas uma só vez com este número: um grupo a mais
+    // nunca pode dar um card mais baixo.
+    for (let count = 0; count < 20; count += 1) {
+      expect(estimateCardSize(count + 1), `${count} → ${count + 1}`)
+        .toBeGreaterThanOrEqual(estimateCardSize(count))
     }
   })
 })
