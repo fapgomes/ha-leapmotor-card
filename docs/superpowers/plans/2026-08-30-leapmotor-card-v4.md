@@ -2555,6 +2555,24 @@ E apaga a constante `SECTION_IDS` e o `SectionId` do `import`.
 O `ha-form` do Home Assistant não tem selector de reordenação, por isso a grelha ganha um bloco próprio. Acrescenta à classe:
 
 ```ts
+  /**
+   * O que cada grupo tinha na forma longa — ícone, título, resumo — mesmo depois
+   * de o utilizador o desligar. Nunca se limpa por inteiro, de propósito: é
+   * isso que faz desligar-e-voltar-a-ligar não perder o que estava em YAML.
+   *
+   * Um grupo que reapareça na forma CURTA apaga a sua entrada aqui — senão um
+   * ícone que alguém tirasse do YAML à mão ressuscitava no toque seguinte.
+   */
+  private _longForm = new Map<GroupId, GridEntry>()
+
+  private rememberLongForm(grid: GridEntry[] | undefined): void {
+    if (!Array.isArray(grid)) return
+    for (const entry of grid) {
+      if (typeof entry === 'string') this._longForm.delete(entry)
+      else if (entry.group in GROUP_CATALOGUE) this._longForm.set(entry.group, entry)
+    }
+  }
+
   /** Os grupos por ordem, com o estado da caixa de seleção de cada um. */
   private gridRows(): { id: GroupId; on: boolean }[] {
     const configured = this._config?.grid
@@ -2575,18 +2593,18 @@ O `ha-form` do Home Assistant não tem selector de reordenação, por isso a gre
 
   /**
    * Escreve o `grid:` a partir das linhas. Preserva a forma longa de uma
-   * entrada que já a tinha: reordenar no editor não deve apagar um ícone ou um
-   * título que alguém escreveu à mão em YAML.
+   * entrada que já a tinha: reordenar ou desligar no editor não deve apagar um
+   * ícone, um título ou um resumo que alguém escreveu à mão em YAML.
+   *
+   * A memória é o `_longForm` e não o `grid:` actual, e isso é a correcção de um
+   * defeito real: desligar um grupo tira-lhe a entrada do `grid:`, portanto ler
+   * a forma longa de lá significava que voltar a ligá-lo já não a encontrava e
+   * escrevia o grupo na forma curta — o ícone desaparecia sem aviso.
    */
   private commitGrid(rows: { id: GroupId; on: boolean }[]) {
-    const previous = Array.isArray(this._config?.grid) ? this._config!.grid : []
-    const longForm = new Map<GroupId, GridEntry>()
-    for (const entry of previous) {
-      if (typeof entry !== 'string') longForm.set(entry.group, entry)
-    }
     const grid: GridEntry[] = rows
       .filter(row => row.on)
-      .map(row => longForm.get(row.id) ?? row.id)
+      .map(row => this._longForm.get(row.id) ?? row.id)
 
     const config = { ...this._config, type: 'custom:leapmotor-card', grid } as LeapmotorCardConfig
     this._config = config
@@ -2645,6 +2663,17 @@ O `ha-form` do Home Assistant não tem selector de reordenação, por isso a gre
 ```
 
 Junta `html` e `css` ao `import` de `lit`, e `GROUP_CATALOGUE, GROUP_ORDER` ao `import` de `./groups`, e `GridEntry, GroupId` ao `import type` de `./types`.
+
+- [ ] **Step 3b: Alimentar a memória no `setConfig`**
+
+O `setConfig` existente do editor passa a registar a forma longa que recebe:
+
+```ts
+  public setConfig(config: LeapmotorCardConfig): void {
+    this._config = { ...config }
+    this.rememberLongForm(config.grid)
+  }
+```
 
 - [ ] **Step 4: Chamar o bloco novo do `render()`**
 
