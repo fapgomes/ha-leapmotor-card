@@ -394,7 +394,21 @@ export class LeapmotorCard extends LitElement {
     const result = this.resolved()
     if (!result || result.error || result.needsFallback) return
     const { groups } = resolveGrid(this._config, result.map)
-    if (!groups.some(group => group.id === this._openGroup)) this._openGroup = undefined
+    if (!groups.some(group => group.id === this._openGroup)) this.showGroup(undefined)
+  }
+
+  /**
+   * Troca de vista, fechando sempre o painel expansível. Só duas vistas o
+   * mostram: a grelha, por baixo da fila de ações, e a sub-vista de estado, por
+   * baixo da linha do teto. Um painel que sobrevivesse à troca reaparecia onde
+   * ninguém o pediu — na grelha ao fechar a sub-vista, ou na sub-vista de
+   * estado ao voltar a ela pelas setas — e um painel órfão do controlo que o
+   * abriu é lixo no ecrã. A regra vale nos dois sentidos, por isso vive aqui e
+   * não num dos lados.
+   */
+  private showGroup(group: GroupId | undefined): void {
+    this._expanded = undefined
+    this._openGroup = group
   }
 
   /**
@@ -498,21 +512,18 @@ export class LeapmotorCard extends LitElement {
       }
     }
     const onOpenGroup = (e: CustomEvent<{ group: GroupId }>) => {
-      // Abrir um grupo esconde a fila de ações, e com ela o botão que abriu o
-      // painel da cortina: um painel órfão de um botão invisível é lixo no ecrã.
-      this._expanded = undefined
-      this._openGroup = e.detail.group
+      this.showGroup(e.detail.group)
     }
     const onCloseGroup = () => {
       this._focusGroup = this._openGroup
-      this._openGroup = undefined
+      this.showGroup(undefined)
     }
     const onNav = (e: CustomEvent<{ delta: -1 | 1 }>) => {
       const index = grid.groups.findIndex(group => group.id === this._openGroup)
       if (index < 0) return
       const size = grid.groups.length
       // Dá a volta: do último para o primeiro, e ao contrário.
-      this._openGroup = grid.groups[(index + e.detail.delta + size) % size]!.id
+      this.showGroup(grid.groups[(index + e.detail.delta + size) % size]!.id)
     }
 
     // O pedido que o carro já resolveu — confirmando-o ou contrariando-o —
@@ -549,9 +560,16 @@ export class LeapmotorCard extends LitElement {
             ></leapmotor-charging>
             <leapmotor-schedule .state=${state} .t=${t} .map=${map}></leapmotor-schedule>`
         case 'status':
-          return html`<leapmotor-openings
-            .state=${state} .t=${t} .map=${map} .pending=${this._pending}
-          ></leapmotor-openings>`
+          // O painel da cortina vem à sub-vista de estado pela mesma razão que
+          // já vinha à grelha: é ele que escolhe a posição que o comando exige,
+          // e sem ele a linha do teto tinha um botão sem para onde ir.
+          return html`
+            <leapmotor-openings
+              .state=${state} .t=${t} .map=${map} .pending=${this._pending}
+            ></leapmotor-openings>
+            ${this._expanded === 'sunshade'
+              ? html`<leapmotor-sunshade-control .t=${t}></leapmotor-sunshade-control>`
+              : nothing}`
         case 'climate':
           return html`
             <leapmotor-climate-panel

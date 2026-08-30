@@ -1,7 +1,8 @@
 import { LitElement, css, html, nothing } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
 import {
-  BLOCKED_WHILE_DRIVING, actionIcon, actionLabel, isActionAvailable, type ActionEventDetail,
+  BLOCKED_WHILE_DRIVING, CONTROL_PANEL, actionIcon, actionLabel, isActionAvailable,
+  type ActionEventDetail,
 } from '../actions'
 import { areDoorsUnknown, areWindowsUnknown, isWindowOpen } from '../format'
 import { DASH, type TranslateFn } from '../localize'
@@ -140,6 +141,15 @@ export class LeapmotorOpenings extends LitElement {
         label: this.t('openings.roof'),
         value: this.boolValue(o.roof, 'openings.open', 'openings.closed'),
         warn: o.roof === true,
+        // A cortina comanda-se por posição absoluta (0–10) e o `resolveAction`
+        // nem olha para esta leitura, ao contrário da bagageira, cujo comando
+        // se escolhe a partir do estado lido. Por isso a linha comanda mesmo
+        // com o teto em DASH: quem não sabe o estado é o card, e o comando não
+        // precisa de o saber — a regra de não oferecer um controlo inútil não
+        // se aplica a um controlo que funciona. O valor continua a dizer DASH,
+        // que é o que não afirma nada. O botão abre o painel da posição; ver
+        // `fire`.
+        action: 'sunshade',
       },
     ]
   }
@@ -151,6 +161,17 @@ export class LeapmotorOpenings extends LitElement {
   }
 
   private fire(action: ActionId) {
+    // Uma ação com painel não chama serviço a partir daqui: o `resolveAction`
+    // exige-lhe um valor que só o painel dela escolhe (a cortina, uma posição).
+    // A regra e o mapa são os mesmos da fila de ações — de propósito, para as
+    // duas não poderem divergir sobre a mesma ação.
+    const panel = CONTROL_PANEL[action]
+    if (panel) {
+      this.dispatchEvent(new CustomEvent('leapmotor-expand', {
+        detail: { panel }, bubbles: true, composed: true,
+      }))
+      return
+    }
     this.dispatchEvent(new CustomEvent<ActionEventDetail>('leapmotor-action', {
       detail: { action }, bubbles: true, composed: true,
     }))
