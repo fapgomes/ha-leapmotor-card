@@ -1,5 +1,7 @@
+import { formatAgo, formatNumber, formatTimeOfDay } from './format'
 import type { LogicalKey } from './keys'
-import type { EntityMap, GridEntry, GroupId, LeapmotorCardConfig, PanelId } from './types'
+import { DASH, formatDuration, type TranslateFn } from './localize'
+import type { EntityMap, GridEntry, GroupId, LeapmotorCardConfig, PanelId, VehicleState } from './types'
 
 /**
  * O que define um grupo da grelha. Vive em código, e não na configuração: um
@@ -152,4 +154,134 @@ export function resolveGrid(config: LeapmotorCardConfig, map: EntityMap): GridRe
 export function missingForGroups(groups: ResolvedGroup[], missing: LogicalKey[]): LogicalKey[] {
   const wanted = new Set<LogicalKey>(groups.flatMap(group => [...group.def.keys]))
   return missing.filter(key => wanted.has(key))
+}
+
+const TIRE_CORNERS = [
+  { key: 'fl', labelKey: 'tires.corner_fl' },
+  { key: 'fr', labelKey: 'tires.corner_fr' },
+  { key: 'rl', labelKey: 'tires.corner_rl' },
+  { key: 'rr', labelKey: 'tires.corner_rr' },
+] as const
+
+/** Os pneus com leitura válida, do mais baixo para o mais alto. */
+function sortedTires(state: VehicleState): { value: number; labelKey: string }[] {
+  return TIRE_CORNERS
+    // O `labelKey` explícito como `string` larga a união de literais do
+    // `as const`: sem isto o predicado do `filter` seguinte não tipifica —
+    // não pode estreitar `labelKey` de um literal para `string`.
+    .map((corner): { value: number | undefined; labelKey: string } => ({ value: state.tires[corner.key], labelKey: corner.labelKey }))
+    .filter((entry): entry is { value: number; labelKey: string } => entry.value !== undefined)
+    .sort((a, b) => a.value - b.value)
+}
+
+function chargingSummary(group: ResolvedGroup, state: VehicleState, t: TranslateFn, language: string): string {
+  const { charging } = state
+  switch (group.summary) {
+    case 'limit':
+      return state.chargeLimit === undefined ? DASH : t('charging.limit', { percent: state.chargeLimit })
+    case 'phase':
+      if (charging.phase === 'charging') return t(charging.speed === 'fast' ? 'charging.fast' : 'charging.slow')
+      return t(`charging.${charging.phase}`)
+    case 'eta':
+      if (charging.remainingMinutes !== undefined) return formatDuration(charging.remainingMinutes, t)
+      if (charging.finishTime) return formatTimeOfDay(charging.finishTime, language)
+      return DASH
+    default:
+      return state.battery === undefined ? DASH : `${formatNumber(state.battery, 1)} %`
+  }
+}
+
+function statusSummary(group: ResolvedGroup, state: VehicleState, t: TranslateFn): string {
+  switch (group.summary) {
+    case 'openings': {
+      const { openCount } = state.openings
+      if (openCount === 0) return t('openings.all_closed')
+      if (openCount === 1) return t('openings.open_one')
+      return t('openings.open_count', { count: openCount })
+    }
+    case 'trunk':
+      if (state.openings.trunk === undefined) return DASH
+      return t(state.openings.trunk ? 'openings.open' : 'openings.closed')
+    default: {
+      const { locked } = state.lock
+      if (locked === undefined) return t('doors_unknown')
+      return t(locked ? 'doors_locked' : 'doors_unlocked')
+    }
+  }
+}
+
+function climateSummary(group: ResolvedGroup, state: VehicleState, t: TranslateFn): string {
+  const { climate } = state
+  switch (group.summary) {
+    case 'target':
+      return climate.targetC === undefined ? DASH : `${formatNumber(climate.targetC, 1)} °C`
+    case 'state':
+      return climate.on === undefined ? DASH : t(climate.on ? 'climate.state_on' : 'climate.state_off')
+    default:
+      return climate.interiorC === undefined ? DASH : `${formatNumber(climate.interiorC)} °C`
+  }
+}
+
+function tiresSummary(group: ResolvedGroup, state: VehicleState, t: TranslateFn): string {
+  const sorted = sortedTires(state)
+  if (sorted.length === 0) return DASH
+  const lowest = sorted[0]!
+  switch (group.summary) {
+    case 'min':
+      return `${formatNumber(lowest.value, 1)} bar`
+    case 'worst':
+      // O canto vai com o número: saber que está baixo sem saber qual é
+      // obriga a abrir a sub-vista, que é precisamente o que o resumo
+      // existe para evitar.
+      return `${formatNumber(lowest.value, 1)} bar ${t(lowest.labelKey)}`
+    default: {
+      const highest = sorted[sorted.length - 1]!
+      if (sorted.length === 1) return `${formatNumber(lowest.value, 1)} bar`
+      return `${formatNumber(lowest.value, 1)} – ${formatNumber(highest.value, 1)} bar`
+    }
+  }
+}
+
+function tripSummary(group: ResolvedGroup, state: VehicleState): string {
+  const { trip } = state
+  switch (group.summary) {
+    case 'last7':
+      return trip.last7DaysKm === undefined ? DASH : `${formatNumber(trip.last7DaysKm)} km`
+    case 'consumption':
+      return trip.avgConsumption === undefined ? DASH : `${formatNumber(trip.avgConsumption, 1)} kWh/100 km`
+    default:
+      return trip.odometerKm === undefined ? DASH : `${formatNumber(trip.odometerKm)} km`
+  }
+}
+
+function locationSummary(group: ResolvedGroup, state: VehicleState, t: TranslateFn): string {
+  switch (group.summary) {
+    case 'zone':
+      return state.location?.zone ?? t('location.unknown')
+    case 'age':
+      return state.location?.ageSeconds === undefined ? DASH : formatAgo(state.location.ageSeconds, t)
+    default:
+      // `activity.unknown` não existe no catálogo, de propósito: não se anuncia
+      // uma atividade que não se conhece.
+      return state.activity === 'unknown' ? DASH : t(`activity.${state.activity}`)
+  }
+}
+
+/**
+ * O texto que o tile do grupo mostra debaixo do título. O `group.summary` já
+ * vem validado pelo `resolveGrid` — nenhum destes `switch` precisa de tratar um
+ * resumo que não seja do grupo, e o `default` de cada um é o resumo por
+ * omissão, que é o primeiro da lista do catálogo.
+ */
+export function summaryFor(
+  group: ResolvedGroup, state: VehicleState, t: TranslateFn, language: string,
+): string {
+  switch (group.id) {
+    case 'charging': return chargingSummary(group, state, t, language)
+    case 'status': return statusSummary(group, state, t)
+    case 'climate': return climateSummary(group, state, t)
+    case 'tires': return tiresSummary(group, state, t)
+    case 'trip': return tripSummary(group, state)
+    case 'location': return locationSummary(group, state, t)
+  }
 }

@@ -1,14 +1,29 @@
 import { describe, expect, it } from 'vitest'
-import { GROUP_CATALOGUE, GROUP_ORDER, missingForGroups, resolveGrid } from '../src/groups'
+import { GROUP_CATALOGUE, GROUP_ORDER, missingForGroups, resolveGrid, summaryFor } from '../src/groups'
+import { createTranslator, DASH } from '../src/localize'
 import { resolveEntities } from '../src/resolver'
-import type { EntityMap, LeapmotorCardConfig } from '../src/types'
-import { realHass } from './fixtures/real-states'
+import type { EntityMap, GroupId, LeapmotorCardConfig } from '../src/types'
+import { buildVehicleState } from '../src/vehicle-state'
+import { REAL_NOW, realHass } from './fixtures/real-states'
 
 const CONFIG: LeapmotorCardConfig = { type: 'custom:leapmotor-card' }
+const t = createTranslator('en')
 
 /** O mapa de entidades do carro real das fixtures. */
 function realMap(): EntityMap {
   return resolveEntities(realHass(), CONFIG).map
+}
+
+/** O estado do carro real das fixtures, com sobreposições por chave. */
+function realState(overrides: Record<string, string> = {}) {
+  const hass = realHass(overrides)
+  return buildVehicleState(hass, resolveEntities(hass, CONFIG).map, REAL_NOW)
+}
+
+/** Um grupo resolvido com o resumo escolhido à mão. */
+function group(id: GroupId, summary?: string) {
+  const config = { ...CONFIG, grid: [{ group: id, summary }] } as LeapmotorCardConfig
+  return resolveGrid(config, realMap()).groups[0]!
 }
 
 describe('resolveGrid — grelha por omissão', () => {
@@ -143,5 +158,102 @@ describe('missingForGroups', () => {
   it('devolve vazio quando a grelha não pede nada do que falta', () => {
     const { groups } = resolveGrid({ ...CONFIG, grid: ['tires'] }, realMap())
     expect(missingForGroups(groups, ['odometer'])).toEqual([])
+  })
+})
+
+describe('summaryFor — carga', () => {
+  it('mostra a percentagem de bateria por omissão', () => {
+    expect(summaryFor(group('charging'), realState(), t, 'en')).toBe('60.3 %')
+  })
+
+  it('mostra o limite de carga', () => {
+    expect(summaryFor(group('charging', 'limit'), realState(), t, 'en')).toBe(t('charging.limit', { percent: 80 }))
+  })
+
+  it('mostra a fase, e distingue sem cabo de a carregar', () => {
+    expect(summaryFor(group('charging', 'phase'), realState(), t, 'en')).toBe(t('charging.unplugged'))
+  })
+
+  it('dá DASH no tempo restante quando não há carregamento em curso', () => {
+    expect(summaryFor(group('charging', 'eta'), realState(), t, 'en')).toBe(DASH)
+  })
+
+  it('dá DASH na bateria quando nenhum sensor de bateria é válido', () => {
+    const state = realState({ 'sensor/battery_percent': 'unavailable', 'sensor/battery_percent_precise': 'unavailable' })
+    expect(summaryFor(group('charging'), state, t, 'en')).toBe(DASH)
+  })
+})
+
+describe('summaryFor — estado', () => {
+  it('mostra o estado das trancas por omissão', () => {
+    expect(summaryFor(group('status'), realState(), t, 'en')).toBe(t('doors_locked'))
+  })
+
+  it('mostra tudo fechado quando não há aberturas', () => {
+    expect(summaryFor(group('status', 'openings'), realState(), t, 'en')).toBe(t('openings.all_closed'))
+  })
+
+  it('conta as aberturas no singular e no plural', () => {
+    const one = realState({ 'binary_sensor/trunk_open': 'on' })
+    expect(summaryFor(group('status', 'openings'), one, t, 'en')).toBe(t('openings.open_one'))
+    const two = realState({ 'binary_sensor/trunk_open': 'on', 'binary_sensor/skylight_open': 'on' })
+    expect(summaryFor(group('status', 'openings'), two, t, 'en')).toBe(t('openings.open_count', { count: 2 }))
+  })
+
+  it('mostra a bagageira', () => {
+    expect(summaryFor(group('status', 'trunk'), realState(), t, 'en')).toBe(t('openings.closed'))
+    const open = realState({ 'binary_sensor/trunk_open': 'on' })
+    expect(summaryFor(group('status', 'trunk'), open, t, 'en')).toBe(t('openings.open'))
+  })
+})
+
+describe('summaryFor — clima, pneus, viagem e localização', () => {
+  it('mostra a temperatura interior por omissão', () => {
+    expect(summaryFor(group('climate'), realState(), t, 'en')).toMatch(/°C$/)
+  })
+
+  it('mostra a faixa de pressão dos pneus por omissão, do mais baixo ao mais alto', () => {
+    const summary = summaryFor(group('tires'), realState(), t, 'en')
+    expect(summary).toMatch(/^\d+\.\d – \d+\.\d bar$/)
+  })
+
+  it('mostra o pneu mais baixo com o seu canto no resumo `worst`', () => {
+    const summary = summaryFor(group('tires', 'worst'), realState(), t, 'en')
+    expect(summary).toContain('bar')
+    expect(summary).toMatch(/(FL|FR|RL|RR)$/)
+  })
+
+  it('dá DASH nos pneus quando nenhum é válido', () => {
+    const state = realState({
+      'sensor/tire_pressure_front_left_bar': 'unavailable',
+      'sensor/tire_pressure_front_right_bar': 'unavailable',
+      'sensor/tire_pressure_rear_left_bar': 'unavailable',
+      'sensor/tire_pressure_rear_right_bar': 'unavailable',
+    })
+    expect(summaryFor(group('tires'), state, t, 'en')).toBe(DASH)
+    expect(summaryFor(group('tires', 'worst'), state, t, 'en')).toBe(DASH)
+  })
+
+  it('mostra o odómetro por omissão na viagem', () => {
+    expect(summaryFor(group('trip'), realState(), t, 'en')).toMatch(/ km$/)
+  })
+
+  it('mostra a atividade por omissão na localização', () => {
+    const summary = summaryFor(group('location'), realState(), t, 'en')
+    expect(summary === DASH || summary.length > 0).toBe(true)
+  })
+
+  it('mostra a idade da posição, que nas fixtures está obsoleta', () => {
+    expect(summaryFor(group('location', 'age'), realState(), t, 'en')).not.toBe(DASH)
+  })
+})
+
+describe('summaryFor — o resumo desconhecido nunca chega aqui', () => {
+  it('um resumo fora do grupo já foi trocado pela omissão em resolveGrid', () => {
+    // A validação é do resolveGrid; este teste fixa o contrato entre os dois,
+    // para ninguém acrescentar mais tarde um `default:` que devolva a chave.
+    const g = group('tires', 'odometer')
+    expect(g.summary).toBe('range')
+    expect(summaryFor(g, realState(), t, 'en')).not.toBe('odometer')
   })
 })
