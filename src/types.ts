@@ -4,6 +4,29 @@ export type EntityMap = Partial<Record<LogicalKey, string>>
 
 export type SectionId = 'location' | 'charging' | 'tiles' | 'tires' | 'trip' | 'comfort' | 'schedule'
 
+/** Os grupos que a grelha pode mostrar. */
+export type GroupId = 'charging' | 'status' | 'climate' | 'tires' | 'trip' | 'location'
+
+/**
+ * As secções que uma sub-vista pode instanciar. Não é o `SectionId`: aquele é o
+ * campo `sections` da configuração antiga, que sai na 0.4.0. Este nomeia os
+ * componentes, e um grupo pode instanciar mais do que um.
+ */
+export type PanelId =
+  | 'charging' | 'schedule' | 'climate' | 'comfort'
+  | 'openings' | 'tires' | 'trip' | 'location'
+
+/**
+ * Uma entrada da grelha. A forma curta é só o nome do grupo; a longa existe
+ * para sobrepor o ícone, o título ou qual dos resumos do grupo se mostra.
+ */
+export type GridEntry = GroupId | {
+  group: GroupId
+  icon?: string
+  title?: string
+  summary?: string
+}
+
 export type ActionId =
   | 'unlock' | 'lock' | 'trunk' | 'windows' | 'sunshade'
   | 'quickCool' | 'quickHeat' | 'defrost'
@@ -23,6 +46,7 @@ export interface LeapmotorCardConfig {
   entities?: EntityMap
   map_zoom?: number
   tire_range?: [number, number]
+  grid?: GridEntry[]
 }
 
 export type ChargingPhase = 'unplugged' | 'plugged' | 'charging' | 'complete' | 'scheduled'
