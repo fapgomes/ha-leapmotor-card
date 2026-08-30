@@ -5,6 +5,25 @@ Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [0.4.1] — 2026-08-30
+
+### Corrigido
+
+- Arrastar um controlo dentro de uma sub-vista já não a troca por outra. Os
+  dois deslizadores que vivem em sub-vistas — o limite de carga e a ventoinha —
+  e o mapa embutido eram indistinguíveis de um deslize horizontal entre grupos:
+  o card saltava a meio do gesto. Estes controlos passaram para a coluna
+  principal, que não tinha gesto nenhum, na 0.4.0, e é aí que o defeito nasceu.
+- O tile de estado já não afirma «Tudo fechado» a um carro que não reportou
+  nada. A contagem de aberturas só conta leituras positivas, portanto tudo
+  desconhecido dava zero e lia-se como fecho. Agora dá `—`, tal como acontece
+  quando o carro está desligado.
+- Concordância de género em português: «1 aberta» em vez de «1 abertos» na
+  linha das portas, e «Bagageira: Aberta» em vez de «Aberto». O teto continua
+  masculino.
+- Abrir uma sub-vista já não arrasta a página quando o card está meio fora do
+  ecrã.
+
 ## [0.4.0] — 2026-08-30
 
 ### Rutura
