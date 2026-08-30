@@ -5,6 +5,20 @@ Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [0.4.2] — 2026-08-30
+
+### Corrigido
+
+- Uma sub-vista já não fica com a altura da mais alta que se abriu antes. O card
+  reservava a maior altura vista e aplicava-a a todas, e como o painel de clima é
+  muito mais alto que os outros, abri-lo uma vez deixava as restantes com
+  centenas de píxeis de vazio até se recarregar a página. A reserva foi removida
+  por inteiro: cada sub-vista tem a sua altura.
+- A linha do teto, no estado do veículo, passa a abrir o controlo da cortina. O
+  comando existia — é o mesmo da fila de ações, que precisa de uma posição e por
+  isso abre um painel em vez de chamar um serviço — mas a linha nunca lhe tinha
+  sido ligada.
+
 ## [0.4.1] — 2026-08-30
 
 ### Corrigido
