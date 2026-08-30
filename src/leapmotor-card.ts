@@ -79,13 +79,6 @@ export class LeapmotorCard extends LitElement {
   @internalState() private _fallback?: HassEntityDisplayEntry[]
   @internalState() private _expanded?: ExpandPanel
   @internalState() private _openGroup?: GroupId
-  /**
-   * A maior altura de conteúdo já medida numa sub-vista, para o dashboard não
-   * saltar ao passar de uma para outra. Campo simples e não estado reactivo: é
-   * escrito de dentro de um `ResizeObserver`, e um `@internalState` aí dentro
-   * pedia render a cada medição, incluindo as que não mudam o máximo.
-   */
-  private _reservedHeight = 0
   /** O grupo a quem devolver o foco depois de fechar. Ver spec §4.5. */
   private _focusGroup?: GroupId
   /**
@@ -521,14 +514,6 @@ export class LeapmotorCard extends LitElement {
       // Dá a volta: do último para o primeiro, e ao contrário.
       this._openGroup = grid.groups[(index + e.detail.delta + size) % size]!.id
     }
-    const onMeasured = (e: CustomEvent<{ height: number }>) => {
-      // O mapa tem altura fixa própria e não entra no máximo, senão impunha-a
-      // a todas as outras sub-vistas. Ver spec §4.3.
-      if (this._openGroup === 'location') return
-      if (e.detail.height <= this._reservedHeight) return
-      this._reservedHeight = e.detail.height
-      this.requestUpdate()
-    }
 
     // O pedido que o carro já resolveu — confirmando-o ou contrariando-o —
     // deixa de existir aqui, e não só de ser mostrado: se ficasse guardado,
@@ -652,11 +637,9 @@ export class LeapmotorCard extends LitElement {
               .t=${t}
               .heading=${openGroup.titleOverride ?? t(openGroup.titleKey)}
               .navigable=${grid.groups.length > 1}
-              .reservedHeight=${this._reservedHeight}
               .updatedLabel=${formatUpdated(state.lastUpdate, now, t, language)}
               @leapmotor-close=${onCloseGroup}
               @leapmotor-nav=${onNav}
-              @leapmotor-measured=${onMeasured}
             >${panelsFor(openGroup)}</leapmotor-group-detail>`}
 
         ${(() => {
