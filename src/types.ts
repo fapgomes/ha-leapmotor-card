@@ -2,15 +2,12 @@ import type { LogicalKey } from './keys'
 
 export type EntityMap = Partial<Record<LogicalKey, string>>
 
-export type SectionId = 'location' | 'charging' | 'tiles' | 'tires' | 'trip' | 'comfort' | 'schedule'
-
 /** Os grupos que a grelha pode mostrar. */
 export type GroupId = 'charging' | 'status' | 'climate' | 'tires' | 'trip' | 'location'
 
 /**
- * As secções que uma sub-vista pode instanciar. Não é o `SectionId`: aquele é o
- * campo `sections` da configuração antiga, que sai na 0.4.0. Este nomeia os
- * componentes, e um grupo pode instanciar mais do que um.
+ * As secções que uma sub-vista pode instanciar. Nomeia componentes, não grupos:
+ * um grupo pode instanciar mais do que um.
  */
 export type PanelId =
   | 'charging' | 'schedule' | 'climate' | 'comfort'
@@ -42,7 +39,6 @@ export interface LeapmotorCardConfig {
   image?: 'auto' | 'entity' | 'none' | string
   actions?: ActionId[]
   confirm_actions?: ActionId[]
-  sections?: Partial<Record<SectionId, boolean>>
   entities?: EntityMap
   map_zoom?: number
   tire_range?: [number, number]
@@ -97,9 +93,6 @@ export interface VehicleState {
 
 export const DEFAULT_ACTIONS: ActionId[] = ['unlock', 'lock', 'trunk', 'windows', 'findVehicle', 'sunshade']
 export const DEFAULT_CONFIRM_ACTIONS: ActionId[] = ['unlock']
-export const DEFAULT_SECTIONS: Record<SectionId, boolean> = {
-  location: false, charging: true, tiles: true, tires: false, trip: false, comfort: false, schedule: false,
-}
 
 export const DEFAULT_MAP_ZOOM = 16
 export const MAP_ZOOM_MIN = 1

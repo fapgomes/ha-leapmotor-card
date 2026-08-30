@@ -6,14 +6,17 @@ import {
   type ActionEventDetail, type ActionPayload, type ClimateChange, type ClimateIntent, type ExpandPanel,
   type SeatLevels, type SeatRequests, type ServiceCall,
 } from './actions'
+import { formatUpdated } from './format'
+import { alertFor, missingForGroups, resolveGrid, summaryFor, type ResolvedGroup } from './groups'
 import type { HassEntityDisplayEntry, HomeAssistant } from './ha-types'
 import { SEAT_LEVEL_KEYS, isSeatLevelKey, type LogicalKey } from './keys'
 import { createTranslator, pickLanguage, type TranslateFn } from './localize'
 import { loadRegistryFallback, resolveEntities, type ResolveResult } from './resolver'
+import type { GridTile, LeapmotorGroupGrid } from './sections/group-grid'
 import { sharedStyles } from './theme'
 import {
-  DEFAULT_ACTIONS, DEFAULT_SECTIONS, clampMapZoom, mapRequestChanged,
-  type ActionId, type LeapmotorCardConfig, type MapRequest, type SectionId, type VehicleState,
+  DEFAULT_ACTIONS, clampMapZoom, clampTireRange, mapRequestChanged,
+  type ActionId, type GroupId, type LeapmotorCardConfig, type MapRequest, type VehicleState,
 } from './types'
 import { attr, buildVehicleState } from './vehicle-state'
 
@@ -23,7 +26,9 @@ import './sections/charging'
 import './sections/location'
 import './sections/climate-panel'
 import './sections/sunshade-control'
-import './sections/tiles'
+import './sections/openings'
+import './sections/group-grid'
+import './sections/group-detail'
 import './sections/tires'
 import './sections/trip'
 import './sections/comfort'
@@ -56,16 +61,12 @@ console.info(
   documentationURL: 'https://github.com/fapgomes/ha-leapmotor-card',
 })
 
-const SECTION_KEYS: Record<SectionId | 'core', LogicalKey[]> = {
-  core: ['battery', 'lock'],
-  location: ['location'],
-  charging: ['chargeLimit', 'isCharging', 'isPluggedIn'],
-  tiles: ['interiorTemp', 'trunk'],
-  tires: ['tireFL', 'tireFR', 'tireRL', 'tireRR'],
-  trip: ['odometer', 'last7DaysKm'],
-  comfort: ['driverSeatHeat', 'steeringWheelHeat'],
-  schedule: ['scheduleStart', 'scheduleEnd'],
-}
+/**
+ * As chaves cuja falta se reporta sempre, independentemente da grelha: sem
+ * bateria e sem trancas o card não tem nada para dizer, mesmo com a grelha
+ * vazia. As chaves de cada grupo vêm do catálogo, via `missingForGroups`.
+ */
+const CORE_KEYS: LogicalKey[] = ['battery', 'lock']
 
 @customElement('leapmotor-card')
 export class LeapmotorCard extends LitElement {
@@ -74,6 +75,16 @@ export class LeapmotorCard extends LitElement {
   @internalState() private _pending?: ActionId
   @internalState() private _fallback?: HassEntityDisplayEntry[]
   @internalState() private _expanded?: ExpandPanel
+  @internalState() private _openGroup?: GroupId
+  /**
+   * A maior altura de conteúdo já medida numa sub-vista, para o dashboard não
+   * saltar ao passar de uma para outra. Campo simples e não estado reactivo: é
+   * escrito de dentro de um `ResizeObserver`, e um `@internalState` aí dentro
+   * pedia render a cada medição, incluindo as que não mudam o máximo.
+   */
+  private _reservedHeight = 0
+  /** O grupo a quem devolver o foco depois de fechar. Ver spec §4.5. */
+  private _focusGroup?: GroupId
   /**
    * Tudo o que o card sabe sobre a climatização e o carro não reporta: o que o
    * utilizador pediu e ainda não foi confirmado (com a leitura que o carro dava
@@ -159,10 +170,18 @@ export class LeapmotorCard extends LitElement {
     if (this._mapElement) (this._mapElement as unknown as { hass?: HomeAssistant }).hass = hass
   }
 
+  /**
+   * A altura que a vista de secções do HA reserva, em linhas de ~50 px. Já não
+   * soma secção a secção porque já não há uma coluna de secções: o corpo é o
+   * hero, a linha de ações e as linhas da grelha — duas colunas, logo metade
+   * dos grupos, arredondada para cima. Com uma sub-vista aberta a altura é a
+   * reservada, que nasce desta mesma estimativa e não a excede em regra.
+   */
   public getCardSize(): number {
-    const s = this.sections()
-    return 6 + (s.location ? 4 : 0) + (s.charging ? 2 : 0) + (s.tiles ? 3 : 0) + (s.tires ? 3 : 0)
-      + (s.trip ? 2 : 0) + (s.comfort ? 3 : 0) + (s.schedule ? 2 : 0)
+    const config = this._config
+    const result = this.resolved()
+    if (!config || !result || result.error || result.needsFallback) return 6
+    return 6 + Math.ceil(resolveGrid(config, result.map).groups.length / 2)
   }
 
   /**
@@ -211,19 +230,6 @@ export class LeapmotorCard extends LitElement {
         this.requestUpdate()
       })
       .catch(() => { /* a secção mostra location.map_unavailable */ })
-  }
-
-  private sections(): Record<SectionId, boolean> {
-    return { ...DEFAULT_SECTIONS, ...(this._config?.sections ?? {}) }
-  }
-
-  private missingForActiveSections(result: ResolveResult): LogicalKey[] {
-    const sections = this.sections()
-    const wanted = [
-      ...SECTION_KEYS.core,
-      ...(Object.keys(sections) as SectionId[]).filter(s => sections[s]).flatMap(s => SECTION_KEYS[s]),
-    ]
-    return result.missing.filter(k => wanted.includes(k))
   }
 
   private resolved(): ResolveResult | undefined {
@@ -376,6 +382,32 @@ export class LeapmotorCard extends LitElement {
     return attr<string>(hass, map, 'vehiclePicture', 'entity_picture')
   }
 
+  /**
+   * Um grupo aberto pode deixar de existir sem ninguém o fechar: a
+   * configuração muda, ou as entidades dele desaparecem. Fecha-se aqui, no
+   * `willUpdate`, que é o sítio onde o Lit permite mexer em estado antes do
+   * render — fazê-lo dentro do `render()` era pedir um segundo render a partir
+   * do primeiro.
+   */
+  override willUpdate() {
+    if (!this._openGroup || !this._config) return
+    const result = this.resolved()
+    if (!result || result.error || result.needsFallback) return
+    const { groups } = resolveGrid(this._config, result.map)
+    if (!groups.some(group => group.id === this._openGroup)) this._openGroup = undefined
+  }
+
+  /**
+   * Devolve o foco ao tile que abriu a sub-vista que se acabou de fechar. Tem
+   * de ser depois do render: o tile só existe outra vez quando a grelha volta.
+   */
+  override updated() {
+    const id = this._focusGroup
+    if (!id) return
+    this._focusGroup = undefined
+    this.renderRoot.querySelector<LeapmotorGroupGrid>('leapmotor-group-grid')?.focusTile(id)
+  }
+
   override render() {
     const hass = this._hass
     const config = this._config
@@ -399,7 +431,9 @@ export class LeapmotorCard extends LitElement {
     const { map } = result
     const now = new Date()
     const state = buildVehicleState(hass, map, now)
-    const sections = this.sections()
+    const tireRange = clampTireRange(config.tire_range)
+    const grid = resolveGrid(config, map)
+    const openGroup = grid.groups.find(group => group.id === this._openGroup)
     const actions = config.actions ?? DEFAULT_ACTIONS
     const name = config.name ?? result.deviceName ?? ''
     const imageMode = config.image ?? 'auto'
@@ -414,11 +448,10 @@ export class LeapmotorCard extends LitElement {
       void this.callAction(e.detail.action, state, map, t, e.detail.payload)
     }
     const onExpand = (e: CustomEvent<{ panel: ExpandPanel | null }>) => {
-      // `leapmotor-tiles` já envia o alvo pré-alternado (o próprio tile sabe
-      // se está expandido). `leapmotor-actions-row` envia sempre 'sunshade' e
-      // `leapmotor-sunshade-control` envia sempre null: para esses, alternar
-      // aqui é o que dá a exclusão mútua entre os painéis e permite fechar o
-      // painel de cortina a partir do botão que o abriu.
+      // Sobrou um único painel expansível, a cortina: `leapmotor-actions-row`
+      // envia sempre 'sunshade' e `leapmotor-sunshade-control` envia sempre
+      // null. Alternar aqui é o que permite fechar o painel a partir do mesmo
+      // botão que o abriu.
       const panel = e.detail.panel
       this._expanded = panel === this._expanded ? undefined : (panel ?? undefined)
     }
@@ -464,6 +497,31 @@ export class LeapmotorCard extends LitElement {
           .catch(err => this.notifyError(err))
       }
     }
+    const onOpenGroup = (e: CustomEvent<{ group: GroupId }>) => {
+      // Abrir um grupo esconde a fila de ações, e com ela o botão que abriu o
+      // painel da cortina: um painel órfão de um botão invisível é lixo no ecrã.
+      this._expanded = undefined
+      this._openGroup = e.detail.group
+    }
+    const onCloseGroup = () => {
+      this._focusGroup = this._openGroup
+      this._openGroup = undefined
+    }
+    const onNav = (e: CustomEvent<{ delta: -1 | 1 }>) => {
+      const index = grid.groups.findIndex(group => group.id === this._openGroup)
+      if (index < 0) return
+      const size = grid.groups.length
+      // Dá a volta: do último para o primeiro, e ao contrário.
+      this._openGroup = grid.groups[(index + e.detail.delta + size) % size]!.id
+    }
+    const onMeasured = (e: CustomEvent<{ height: number }>) => {
+      // O mapa tem altura fixa própria e não entra no máximo, senão impunha-a
+      // a todas as outras sub-vistas. Ver spec §4.3.
+      if (this._openGroup === 'location') return
+      if (e.detail.height <= this._reservedHeight) return
+      this._reservedHeight = e.detail.height
+      this.requestUpdate()
+    }
 
     // O pedido que o carro já resolveu — confirmando-o ou contrariando-o —
     // deixa de existir aqui, e não só de ser mostrado: se ficasse guardado,
@@ -481,7 +539,53 @@ export class LeapmotorCard extends LitElement {
     // intenção de clima têm tipos diferentes e ficam nas duas linhas acima.
     const shownLevels: SeatLevels = pruneRequests(this._seatRequests, SEAT_LEVEL_KEYS, key => state.comfort[key])
 
-    if (sections.location && map.location) this.ensureMap(map.location)
+    /**
+     * Instancia as secções de um grupo. Função local, e não um método, para
+     * fechar sobre `state`, `map`, `t` e o resto sem passar um contexto de dez
+     * campos. Quem as instancia é o card; a sub-vista recebe-as pelo `slot`.
+     */
+    const panelsFor = (group: ResolvedGroup) => {
+      switch (group.id) {
+        case 'charging':
+          return html`
+            <leapmotor-charging
+              .state=${state} .t=${t} .language=${language}
+              .limitEditable=${!!map.chargeLimitSet}
+              .limitMin=${attr<number>(hass, map, 'chargeLimitSet', 'min') ?? 50}
+              .limitMax=${attr<number>(hass, map, 'chargeLimitSet', 'max') ?? 100}
+              .limitStep=${attr<number>(hass, map, 'chargeLimitSet', 'step') ?? 5}
+            ></leapmotor-charging>
+            <leapmotor-schedule .state=${state} .t=${t} .map=${map}></leapmotor-schedule>`
+        case 'status':
+          return html`<leapmotor-openings
+            .state=${state} .t=${t} .map=${map} .pending=${this._pending}
+          ></leapmotor-openings>`
+        case 'climate':
+          return html`
+            <leapmotor-climate-panel
+              .state=${state} .t=${t} .map=${map} .fanSpeed=${this._climateIntent.fanSpeed}
+              .pendingTemp=${pendingTemp} .pendingRecirc=${pendingRecirc}
+              .shownLevels=${shownLevels}
+              .maxLevel=${attr<number>(hass, map, 'driverSeatHeat', 'max') ?? 3}
+            ></leapmotor-climate-panel>
+            <leapmotor-comfort
+              .state=${state} .t=${t} .map=${map} .shownLevels=${shownLevels}
+              .maxLevel=${attr<number>(hass, map, 'driverSeatHeat', 'max') ?? 3}
+            ></leapmotor-comfort>`
+        case 'tires':
+          return html`<leapmotor-tires .state=${state} .t=${t} .limits=${tireRange}></leapmotor-tires>`
+        case 'trip':
+          return html`<leapmotor-trip .state=${state} .t=${t}></leapmotor-trip>`
+        case 'location':
+          return html`<leapmotor-location
+            .state=${state} .t=${t} .mapElement=${this._mapElement}
+          ></leapmotor-location>`
+      }
+    }
+
+    // O mapa só se constrói quando a sua sub-vista está aberta, em vez de a
+    // cada carregamento do dashboard. Ver spec §5.5.
+    if (this._openGroup === 'location' && map.location) this.ensureMap(map.location)
 
     return html`<ha-card
       @leapmotor-action=${onAction}
@@ -493,70 +597,76 @@ export class LeapmotorCard extends LitElement {
       @leapmotor-expand=${onExpand}
     >
       <div class="body">
+        ${/*
+           * O `sections` já não é um campo de `LeapmotorCardConfig`, por isso a
+           * leitura tem de passar por um índice: é uma chave que já não existe
+           * no tipo mas que ainda existe no YAML de quem não migrou, e é
+           * precisamente por isso que se lê.
+           */
+          (config as unknown as Record<string, unknown>).sections !== undefined
+          ? html`<ha-alert alert-type="warning">${t('error.sections_removed')}</ha-alert>`
+          : nothing}
+
+        ${grid.unknown.length > 0
+          ? html`<ha-alert alert-type="warning">${t('error.unknown_group', { groups: grid.unknown.join(', ') })}</ha-alert>`
+          : nothing}
+
         <leapmotor-hero
           .state=${state} .t=${t} .now=${now} .name=${name}
           .language=${language} .imageUrl=${imageUrl}
           .showImage=${showImage} .allowSilhouette=${allowSilhouette}
+          .compact=${openGroup !== undefined}
         ></leapmotor-hero>
 
-        <leapmotor-actions-row
-          .state=${state} .t=${t} .map=${map} .actions=${actions} .pending=${this._pending}
-        ></leapmotor-actions-row>
+        ${openGroup === undefined
+          ? html`
+            <leapmotor-actions-row
+              .state=${state} .t=${t} .map=${map} .actions=${actions} .pending=${this._pending}
+            ></leapmotor-actions-row>
 
-        ${this._expanded === 'sunshade'
-          ? html`<leapmotor-sunshade-control .t=${t}></leapmotor-sunshade-control>`
-          : nothing}
+            ${this._expanded === 'sunshade'
+              ? html`<leapmotor-sunshade-control .t=${t}></leapmotor-sunshade-control>`
+              : nothing}
 
-        ${sections.charging
-          ? html`<leapmotor-charging
-              .state=${state} .t=${t} .language=${language}
-              .limitEditable=${!!map.chargeLimitSet}
-              .limitMin=${attr<number>(hass, map, 'chargeLimitSet', 'min') ?? 50}
-              .limitMax=${attr<number>(hass, map, 'chargeLimitSet', 'max') ?? 100}
-              .limitStep=${attr<number>(hass, map, 'chargeLimitSet', 'step') ?? 5}
-            ></leapmotor-charging>`
-          : nothing}
-
-        ${sections.tiles
-          ? html`<leapmotor-tiles
-              .state=${state} .t=${t} .climateToggleable=${!!map.climateSwitch}
-              .expanded=${this._expanded ?? null} .pendingTemp=${pendingTemp}
-            ></leapmotor-tiles>`
-          : nothing}
-
-        ${sections.tiles && this._expanded === 'climate'
-          ? html`<leapmotor-climate-panel
-              .state=${state} .t=${t} .map=${map} .fanSpeed=${this._climateIntent.fanSpeed}
-              .pendingTemp=${pendingTemp} .pendingRecirc=${pendingRecirc}
-              .shownLevels=${shownLevels}
-              .maxLevel=${attr<number>(hass, map, 'driverSeatHeat', 'max') ?? 3}
-            ></leapmotor-climate-panel>`
-          : nothing}
-
-        ${sections.tires ? html`<leapmotor-tires .state=${state} .t=${t}></leapmotor-tires>` : nothing}
-        ${sections.trip ? html`<leapmotor-trip .state=${state} .t=${t}></leapmotor-trip>` : nothing}
-
-        ${sections.comfort
-          ? html`<leapmotor-comfort
-              .state=${state} .t=${t} .map=${map} .shownLevels=${shownLevels}
-              .maxLevel=${attr<number>(hass, map, 'driverSeatHeat', 'max') ?? 3}
-            ></leapmotor-comfort>`
-          : nothing}
-        ${sections.schedule ? html`<leapmotor-schedule .state=${state} .t=${t} .map=${map}></leapmotor-schedule>` : nothing}
-
-        ${sections.location
-          ? html`<leapmotor-location
-              .state=${state} .t=${t} .mapElement=${this._mapElement}
-            ></leapmotor-location>`
-          : nothing}
+            ${grid.groups.length > 0
+              ? html`<leapmotor-group-grid
+                  .state=${state}
+                  .tiles=${grid.groups.map((group): GridTile => ({
+                    group,
+                    title: group.titleOverride ?? t(group.titleKey),
+                    summary: summaryFor(group, state, t, language),
+                    alert: alertFor(group, state, tireRange),
+                  }))}
+                  @leapmotor-open-group=${onOpenGroup}
+                ></leapmotor-group-grid>`
+              : nothing}`
+          : html`
+            <leapmotor-group-detail
+              .t=${t}
+              .heading=${openGroup.titleOverride ?? t(openGroup.titleKey)}
+              .navigable=${grid.groups.length > 1}
+              .reservedHeight=${this._reservedHeight}
+              .updatedLabel=${formatUpdated(state.lastUpdate, now, t, language)}
+              @leapmotor-close=${onCloseGroup}
+              @leapmotor-nav=${onNav}
+              @leapmotor-measured=${onMeasured}
+            >${panelsFor(openGroup)}</leapmotor-group-detail>`}
 
         ${(() => {
-          const missing = this.missingForActiveSections(result)
-          return missing.length === 0
+          // As chaves do núcleo reportam-se sempre; as dos grupos, só com o
+          // `grid:` escrito à mão. Numa grelha por omissão um grupo sem
+          // entidades é simplesmente omitido, e avisar do que não se mostra era
+          // ruído — ver `resolveGrid`.
+          const missing = [
+            ...CORE_KEYS.filter(key => result.missing.includes(key)),
+            ...(grid.explicit ? missingForGroups(grid.groups, result.missing) : []),
+          ]
+          const unique = [...new Set(missing)]
+          return unique.length === 0
             ? nothing
-            : html`<div class="missing muted" title=${t('missing_entity', { keys: missing.join(', ') })}>
+            : html`<div class="missing muted" title=${t('missing_entity', { keys: unique.join(', ') })}>
                 <ha-icon icon="mdi:alert-outline"></ha-icon>
-                ${t('missing_entity_count', { count: missing.length })}
+                ${t('missing_entity_count', { count: unique.length })}
               </div>`
         })()}
       </div>

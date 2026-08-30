@@ -3,8 +3,8 @@ import { customElement, property, state as internalState } from 'lit/decorators.
 import type { HomeAssistant } from './ha-types'
 import { createTranslator, pickLanguage } from './localize'
 import {
-  DEFAULT_ACTIONS, DEFAULT_MAP_ZOOM, DEFAULT_SECTIONS, MAP_ZOOM_MAX, MAP_ZOOM_MIN,
-  type ActionId, type LeapmotorCardConfig, type SectionId,
+  DEFAULT_ACTIONS, DEFAULT_MAP_ZOOM, MAP_ZOOM_MAX, MAP_ZOOM_MIN,
+  type ActionId, type LeapmotorCardConfig,
 } from './types'
 
 /**
@@ -28,8 +28,6 @@ const OFFERED_IN_EDITOR: Record<ActionId, boolean> = {
 
 const ALL_ACTIONS: ActionId[] = (Object.keys(OFFERED_IN_EDITOR) as ActionId[])
   .filter(a => OFFERED_IN_EDITOR[a])
-
-const SECTION_IDS: SectionId[] = ['location', 'charging', 'tiles', 'tires', 'trip', 'comfort', 'schedule']
 
 /**
  * `trunk` e `windows` são alternantes e não têm chave `action.trunk` nem
@@ -91,11 +89,6 @@ export class LeapmotorCardEditor extends LitElement {
         name: 'map_zoom',
         selector: { number: { min: MAP_ZOOM_MIN, max: MAP_ZOOM_MAX, mode: 'box' } },
       },
-      {
-        type: 'expandable',
-        name: 'sections',
-        schema: SECTION_IDS.map(id => ({ name: id, selector: { boolean: {} } })),
-      },
     ]
   }
 
@@ -126,7 +119,6 @@ export class LeapmotorCardEditor extends LitElement {
       actions: DEFAULT_ACTIONS,
       map_zoom: DEFAULT_MAP_ZOOM,
       ...this._config,
-      sections: { ...DEFAULT_SECTIONS, ...(this._config.sections ?? {}) },
     }
 
     return html`<ha-form

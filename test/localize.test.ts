@@ -23,10 +23,10 @@ describe('pickLanguage', () => {
 
 describe('createTranslator', () => {
   it('traduz para português', () => {
-    expect(createTranslator('pt')('tiles.all_closed')).toBe('Todos fechados')
+    expect(createTranslator('pt')('openings.all_closed')).toBe('Tudo fechado')
   })
   it('traduz para inglês', () => {
-    expect(createTranslator('en')('tiles.all_closed')).toBe('All closed')
+    expect(createTranslator('en')('openings.all_closed')).toBe('All closed')
   })
   it('interpola variáveis', () => {
     expect(createTranslator('pt')('charging.title', { percent: 60 })).toBe('Carregado a 60%')
