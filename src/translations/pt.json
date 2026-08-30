@@ -93,6 +93,8 @@
   "tires.corner_fr": "FD",
   "tires.corner_rl": "TE",
   "tires.corner_rr": "TD",
+  "tires.no_warning": "Sem perda de pressão detetada",
+  "tires.unit": "bar",
   "trip.title": "Viagem",
   "trip.odometer": "Odómetro",
   "trip.last7days": "Últimos 7 dias",

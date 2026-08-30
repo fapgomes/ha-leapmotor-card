@@ -93,6 +93,8 @@
   "tires.corner_fr": "FR",
   "tires.corner_rl": "RL",
   "tires.corner_rr": "RR",
+  "tires.no_warning": "No pressure loss detected",
+  "tires.unit": "bar",
   "trip.title": "Trip",
   "trip.odometer": "Odometer",
   "trip.last7days": "Last 7 days",

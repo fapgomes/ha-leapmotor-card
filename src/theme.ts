@@ -15,6 +15,15 @@ export const sharedStyles: CSSResult = css`
     --lm-muted: var(--secondary-text-color);
     --lm-surface: var(--leapmotor-surface, var(--card-background-color));
     --lm-chip: var(--leapmotor-chip, rgba(127, 127, 127, 0.12));
+    /*
+     * Aviso e alerta com nome próprio. Antes disto, o aviso de pressão de pneu
+     * em tires.ts usava --leapmotor-battery-mid: um aviso de pneu a pedir
+     * emprestada a cor da bateria. Os valores por omissão são os mesmos que
+     * eram, para nada mudar de aspeto — muda só de significado, e o significado
+     * é o que um tema de utilizador precisa de poder redefinir.
+     */
+    --lm-warn: var(--leapmotor-warn, #f5a623);
+    --lm-alert: var(--leapmotor-alert, #e5484d);
     color: var(--lm-text);
     font-family: var(--paper-font-body1_-_font-family, inherit);
   }
