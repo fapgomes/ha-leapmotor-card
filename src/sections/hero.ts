@@ -21,6 +21,14 @@ export class LeapmotorHero extends LitElement {
   // entrada"; esta prop cobre o caso "URL que falha depois de montado".
   @property({ type: Boolean }) allowSilhouette = true
 
+  /**
+   * A forma de uma linha, para quando uma sub-vista está aberta: nome,
+   * autonomia, bateria e trancas, sem foto e sem rótulo de atividade. O que
+   * fica é o que identifica o carro e o que se quer saber sem pensar; o resto
+   * dá lugar aos dados da sub-vista. Ver spec §3.3.
+   */
+  @property({ type: Boolean }) compact = false
+
   @internalState() private imageFailed = false
 
   override willUpdate(changed: PropertyValues) {
@@ -69,7 +77,24 @@ export class LeapmotorHero extends LitElement {
     </div>`
   }
 
+  private renderCompact() {
+    const { range, lock } = this.state
+    return html`<div class="compact-row">
+      <div class="compact-name">${this.name || DASH}</div>
+      <div class="compact-range">
+        ${range ? formatNumber(range.km) : DASH}<span class="unit muted"> ${range?.unit ?? ''}</span>
+      </div>
+      ${this.bar()}
+      <ha-icon
+        class="compact-lock ${lock.stale ? 'stale' : ''}"
+        title=${this.lockLabel()}
+        icon=${lock.locked === false ? 'mdi:lock-open-variant-outline' : 'mdi:lock-outline'}
+      ></ha-icon>
+    </div>`
+  }
+
   override render() {
+    if (this.compact) return this.renderCompact()
     const { range, lock, activity } = this.state
     return html`
       <div class="head">
@@ -134,9 +159,23 @@ export class LeapmotorHero extends LitElement {
     .image { display: flex; justify-content: center; margin: var(--lm-gap) 0 4px; }
     .image img, .image svg { max-width: 100%; height: auto; max-height: 160px; }
     .activity { text-align: center; font-size: 0.95rem; }
+    .compact-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .compact-name {
+      flex: 1 1 auto; min-width: 0; font-size: 1.05rem; font-weight: 600;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .compact-range { flex: 0 0 auto; font-size: 1.05rem; }
+    /*
+     * A barra é a mesma do hero completo, mas aqui vive numa fila: perde a
+     * margem vertical e a largura máxima de 220px, que ali servia uma coluna.
+     */
+    .compact-row .bar { flex: 0 0 64px; margin: 0; max-width: 64px; }
+    .compact-lock { flex: 0 0 auto; --mdc-icon-size: 20px; }
+    .compact-lock.stale { opacity: 0.55; }
     @media (max-width: 360px) {
       .big { font-size: 2.1rem; }
       .lock-text { font-size: 0.9rem; }
+      .compact-row .bar { display: none; }
     }
   `]
 }
