@@ -3,7 +3,7 @@ import { customElement, property } from 'lit/decorators.js'
 import {
   BLOCKED_WHILE_DRIVING, actionIcon, actionLabel, isActionAvailable, type ActionEventDetail,
 } from '../actions'
-import { isWindowOpen } from '../format'
+import { areDoorsUnknown, areWindowsUnknown, isWindowOpen } from '../format'
 import { DASH, type TranslateFn } from '../localize'
 import { sharedStyles } from '../theme'
 import type { ActionId, EntityMap, VehicleState } from '../types'
@@ -52,6 +52,15 @@ export class LeapmotorOpenings extends LitElement {
     return named.filter(([side]) => isWindowOpen(windows[side])).map(([, key]) => this.t(key))
   }
 
+  /**
+   * O valor de uma linha de contagem. Zero aberturas com zero leituras não é
+   * «tudo fechado» — é ignorância, e essa escreve-se DASH. Ver spec §9.
+   */
+  private closedOrUnknown(nothingKnown: boolean, count: number, oneKey: string, manyKey: string): string {
+    if (count === 0) return nothingKnown ? DASH : this.t('openings.all_closed')
+    return this.t(count === 1 ? oneKey : manyKey, { count })
+  }
+
   private boolValue(v: boolean | undefined): string {
     if (v === undefined) return DASH
     return this.t(v ? 'openings.open' : 'openings.closed')
@@ -73,7 +82,10 @@ export class LeapmotorOpenings extends LitElement {
         // estado desconhecido; não alterar para concordar com a ação.
         icon: locked === false ? 'mdi:lock-open-variant-outline' : 'mdi:lock-outline',
         label: this.t('openings.locks'),
-        value: locked === undefined ? this.t('doors_unknown') : this.t(locked ? 'doors_locked' : 'doors_unlocked'),
+        // DASH, e não `doors_unknown`: esta linha já tem coluna de etiqueta, e
+        // «Trancas → Portas» não é um valor. No hero a mesma chave está certa,
+        // porque lá o chip é a etiqueta e o valor ao mesmo tempo.
+        value: locked === undefined ? DASH : this.t(locked ? 'doors_locked' : 'doors_unlocked'),
         warn: locked === false && !this.state.lock.stale,
         // A ação é a oposta do estado, e o desconhecido conta como destrancado:
         // trancar um carro já trancado não faz mal, destrancar um carro cujo
@@ -86,9 +98,7 @@ export class LeapmotorOpenings extends LitElement {
         key: 'windows',
         icon: actionIcon('windows', this.state),
         label: this.t('openings.windows'),
-        value: openWindows === 0
-          ? this.t('openings.all_closed')
-          : this.t(openWindows === 1 ? 'openings.open_one' : 'openings.open_count', { count: openWindows }),
+        value: this.closedOrUnknown(areWindowsUnknown(o.windows), openWindows, 'openings.open_one', 'openings.open_count'),
         detail: openWindows > 0 ? this.openWindowNames().join(' · ') : undefined,
         warn: openWindows > 0,
         action: 'windows',
@@ -97,7 +107,7 @@ export class LeapmotorOpenings extends LitElement {
         key: 'doors',
         icon: 'mdi:car-door',
         label: this.t('openings.doors'),
-        value: openDoors.length === 0 ? this.t('openings.all_closed') : this.t('openings.open_count', { count: openDoors.length }),
+        value: this.closedOrUnknown(areDoorsUnknown(o.doors), openDoors.length, 'openings.open_one', 'openings.open_count'),
         detail: openDoors.length > 0 ? openDoors.join(' · ') : undefined,
         warn: openDoors.length > 0,
         // Sem ação, e de propósito: a integração não expõe comando de porta.

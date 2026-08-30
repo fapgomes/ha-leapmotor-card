@@ -1,4 +1,5 @@
 import { DASH, formatDuration, type TranslateFn } from './localize'
+import type { VehicleState } from './types'
 
 export function formatTimeOfDay(d: Date, language: string): string {
   return new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', hour12: false }).format(d)
@@ -39,4 +40,30 @@ export function formatNumber(n: number | undefined, digits = 0): string {
  */
 export function isWindowOpen(w: { open?: boolean; position?: number }): boolean {
   return w.open === true || (w.position !== undefined && w.position > 0)
+}
+
+type Openings = VehicleState['openings']
+
+/** Um vidro sem leitura nenhuma: nem o booleano de aberto, nem a posição. */
+function isWindowUnknown(w: Openings['windows'][keyof Openings['windows']]): boolean {
+  return w.open === undefined && w.position === undefined
+}
+
+export function areWindowsUnknown(windows: Openings['windows']): boolean {
+  return Object.values(windows).every(isWindowUnknown)
+}
+
+export function areDoorsUnknown(doors: Openings['doors']): boolean {
+  return Object.values(doors).every(value => value === undefined)
+}
+
+/**
+ * Verdadeiro quando o carro não reportou UMA ÚNICA abertura. Existe porque
+ * `openCount` é um número e um zero não distingue «nada aberto» de «nada
+ * sabido»: sem esta pergunta, um carro que não reportou nada afirmava «tudo
+ * fechado», que é precisamente o que o card não pode saber. Ver spec §9.
+ */
+export function areOpeningsUnknown(o: Openings): boolean {
+  return areDoorsUnknown(o.doors) && areWindowsUnknown(o.windows)
+    && o.trunk === undefined && o.roof === undefined
 }

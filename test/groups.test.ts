@@ -210,6 +210,56 @@ describe('summaryFor — estado', () => {
   })
 })
 
+/** As catorze leituras de abertura do carro real, todas indisponíveis. */
+const NO_OPENINGS: Record<string, string> = {
+  'binary_sensor/driver_door_open': 'unavailable',
+  'binary_sensor/passenger_door_open': 'unavailable',
+  'binary_sensor/rear_left_door_open': 'unavailable',
+  'binary_sensor/rear_right_door_open': 'unavailable',
+  'binary_sensor/front_left_window_open': 'unavailable',
+  'binary_sensor/front_right_window_open': 'unavailable',
+  'binary_sensor/rear_left_window_open': 'unavailable',
+  'binary_sensor/rear_right_window_open': 'unavailable',
+  'sensor/front_left_window_position_percent': 'unavailable',
+  'sensor/front_right_window_position_percent': 'unavailable',
+  'sensor/rear_left_window_position_percent': 'unavailable',
+  'sensor/rear_right_window_position_percent': 'unavailable',
+  'binary_sensor/trunk_open': 'unavailable',
+  'binary_sensor/skylight_open': 'unavailable',
+}
+
+describe('summaryFor — o que o card não sabe', () => {
+  it('não resume nada num carro offline', () => {
+    // Ausência de leitura não é um zero. Sem esta guarda o tile de estado
+    // afirmava "tudo fechado" a um carro que não reportou uma única abertura.
+    // Ver spec §4.2 e §9.
+    const state = { ...realState(), online: false }
+    for (const id of GROUP_ORDER) {
+      for (const summary of GROUP_CATALOGUE[id].summaries) {
+        expect(summaryFor(group(id, summary), state, t, 'en'), `${id}/${summary}`).toBe(DASH)
+      }
+    }
+  })
+
+  it('não afirma tudo fechado sem uma única leitura de abertura', () => {
+    const state = realState(NO_OPENINGS)
+    expect(state.openings.openCount).toBe(0)
+    expect(summaryFor(group('status', 'openings'), state, t, 'en')).toBe(DASH)
+  })
+
+  it('afirma tudo fechado com pelo menos uma leitura fechada', () => {
+    // Uma só leitura sustenta a afirmação: as portas continuam desconhecidas,
+    // mas a bagageira diz fechada e nada está aberto.
+    const state = realState({ ...NO_OPENINGS, 'binary_sensor/trunk_open': 'off' })
+    expect(summaryFor(group('status', 'openings'), state, t, 'en')).toBe(t('openings.all_closed'))
+  })
+
+  it('dá travessão, e não a etiqueta "Portas", a uma tranca desconhecida', () => {
+    const state = realState({ 'lock/vehicle_lock': 'unavailable' })
+    expect(summaryFor(group('status'), state, t, 'en')).toBe(DASH)
+  })
+})
+
 describe('summaryFor — clima, pneus, viagem e localização', () => {
   it('mostra a temperatura interior por omissão', () => {
     expect(summaryFor(group('climate'), realState(), t, 'en')).toMatch(/°C$/)

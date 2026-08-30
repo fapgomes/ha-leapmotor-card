@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { formatAgo, formatNumber, formatUpdated } from '../src/format'
+import {
+  areDoorsUnknown, areOpeningsUnknown, areWindowsUnknown, formatAgo, formatNumber, formatUpdated,
+} from '../src/format'
 import { createTranslator } from '../src/localize'
 
 const pt = createTranslator('pt')
@@ -42,5 +44,40 @@ describe('formatNumber', () => {
   })
   it('respeita as casas decimais pedidas', () => {
     expect(formatNumber(2.174, 2)).toBe('2.17')
+  })
+})
+
+describe('areOpeningsUnknown', () => {
+  const closed = {
+    doors: { driver: false, passenger: false, rearLeft: false, rearRight: false },
+    windows: { fl: { open: false }, fr: { open: false }, rl: { open: false }, rr: { open: false } },
+    trunk: false,
+    roof: false,
+    openCount: 0,
+  }
+  const nothing = {
+    doors: { driver: undefined, passenger: undefined, rearLeft: undefined, rearRight: undefined },
+    windows: { fl: {}, fr: {}, rl: {}, rr: {} },
+    trunk: undefined,
+    roof: undefined,
+    openCount: 0,
+  }
+
+  it('um carro que reportou tudo fechado é conhecido', () => {
+    expect(areOpeningsUnknown(closed)).toBe(false)
+    expect(areDoorsUnknown(closed.doors)).toBe(false)
+    expect(areWindowsUnknown(closed.windows)).toBe(false)
+  })
+
+  it('um carro que não reportou nada é desconhecido', () => {
+    expect(areOpeningsUnknown(nothing)).toBe(true)
+    expect(areDoorsUnknown(nothing.doors)).toBe(true)
+    expect(areWindowsUnknown(nothing.windows)).toBe(true)
+  })
+
+  it('uma única leitura basta para deixar de ser desconhecido', () => {
+    expect(areOpeningsUnknown({ ...nothing, roof: false })).toBe(false)
+    // A posição do vidro conta como leitura, mesmo sem o booleano de aberto.
+    expect(areWindowsUnknown({ ...nothing.windows, fl: { position: 0 } })).toBe(false)
   })
 })

@@ -1,4 +1,4 @@
-import { formatAgo, formatNumber, formatTimeOfDay } from './format'
+import { areOpeningsUnknown, formatAgo, formatNumber, formatTimeOfDay } from './format'
 import type { LogicalKey } from './keys'
 import { DASH, formatDuration, type TranslateFn } from './localize'
 import type { EntityMap, GridEntry, GroupId, LeapmotorCardConfig, PanelId, VehicleState } from './types'
@@ -206,6 +206,9 @@ function statusSummary(group: ResolvedGroup, state: VehicleState, t: TranslateFn
   switch (group.summary) {
     case 'openings': {
       const { openCount } = state.openings
+      // «Tudo fechado» é uma afirmação, e um zero não a sustenta sozinho: só
+      // vale se houver pelo menos uma leitura de abertura por trás dele.
+      if (openCount === 0 && areOpeningsUnknown(state.openings)) return DASH
       if (openCount === 0) return t('openings.all_closed')
       if (openCount === 1) return t('openings.open_one')
       return t('openings.open_count', { count: openCount })
@@ -215,7 +218,9 @@ function statusSummary(group: ResolvedGroup, state: VehicleState, t: TranslateFn
       return t(state.openings.trunk ? 'openings.open' : 'openings.closed')
     default: {
       const { locked } = state.lock
-      if (locked === undefined) return t('doors_unknown')
+      // `doors_unknown` é «Portas», uma etiqueta — servia de valor por
+      // acidente, e o resumo do tile pede um valor.
+      if (locked === undefined) return DASH
       return t(locked ? 'doors_locked' : 'doors_unlocked')
     }
   }
@@ -287,6 +292,12 @@ function locationSummary(group: ResolvedGroup, state: VehicleState, t: Translate
 export function summaryFor(
   group: ResolvedGroup, state: VehicleState, t: TranslateFn, language: string,
 ): string {
+  // Um carro que não reportou nada não tem resumos: sem esta guarda, cada
+  // secção inventava o seu próprio zero — «tudo fechado», «desligado» — e
+  // afirmava factos que o card não conhece. O `alertFor` já fazia o mesmo.
+  // Ver spec §4.2 e §9.
+  if (!state.online) return DASH
+
   switch (group.id) {
     case 'charging': return chargingSummary(group, state, t, language)
     case 'status': return statusSummary(group, state, t)
