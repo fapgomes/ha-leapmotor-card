@@ -5,6 +5,35 @@ Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [0.4.3] — 2026-08-30
+
+### Alterado
+
+- O botão do A/C, no painel de clima, passa a dizer o que o toque faz — «Ligar
+  climatização» ou «Desligar climatização» — em vez de um nome fixo ao lado de
+  três botões que só vão numa direção. Era um alternador desde sempre; só não o
+  dizia. O mesmo se aplica ao botão na fila de ações e ao pedido de confirmação.
+- A linha do teto mostra a posição da cortina onde ela se sabe: `Fechado · 0`.
+  Aberta, mostra só o estado — a posição não é exposta como entidade, e
+  inventá-la seria pior do que não a mostrar.
+- A sub-vista de Viagem passa a ter cabeçalhos, «Distância» e «Consumo». As
+  cinco linhas misturavam quilómetros e energia, e era o leitor que tinha de os
+  separar de cabeça.
+- «Desde sempre» absorve a linha da energia total: a média é a total a dividir
+  pelo conta-quilómetros, portanto eram o mesmo facto dito duas vezes. Com o
+  numerador ao lado do resultado, o qualificador «(calculada)» deixa de ser
+  preciso.
+- A energia dos últimos 7 dias ganha linha própria, chamada «Energia
+  registada». Na integração, a distância é um total que a API devolve somado e a
+  energia é uma soma feita dia a dia que salta os dias sem o campo — não são um
+  par comparável, e escrevê-las lado a lado prometia um período comum que não
+  têm. Por isso também não se deriva daí média nenhuma.
+
+### Corrigido
+
+- A página de cada release passa a trazer as notas da versão, extraídas do
+  CHANGELOG. A da 0.4.0, 0.4.1 e 0.4.2 saiu vazia.
+
 ## [0.4.2] — 2026-08-30
 
 ### Corrigido
