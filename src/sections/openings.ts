@@ -4,10 +4,18 @@ import {
   BLOCKED_WHILE_DRIVING, CONTROL_PANEL, actionIcon, actionLabel, isActionAvailable,
   type ActionEventDetail,
 } from '../actions'
-import { areDoorsUnknown, areWindowsUnknown, isWindowOpen } from '../format'
+import { areDoorsUnknown, areWindowsUnknown, formatNumber, isWindowOpen } from '../format'
 import { DASH, type TranslateFn } from '../localize'
 import { sharedStyles } from '../theme'
 import type { ActionId, EntityMap, VehicleState } from '../types'
+
+/**
+ * A posição em que a cortina fica com o teto fechado. É o mesmo 0 que o
+ * `resolveAction` traduz em `sunshade_close` e o mínimo do slider do painel da
+ * cortina; tem nome para a linha do teto e o comando não poderem discordar
+ * sobre o que «fechado» é.
+ */
+const SUNSHADE_CLOSED_POSITION = 0
 
 interface Row {
   key: string
@@ -76,6 +84,27 @@ export class LeapmotorOpenings extends LitElement {
     return this.t(v ? openKey : closedKey)
   }
 
+  /**
+   * O valor da linha do teto: a palavra de estado e, só com o teto fechado, a
+   * posição da cortina.
+   *
+   * O número aparece num ramo só porque só num ramo é que se sabe. A posição da
+   * cortina não é exposta como entidade (ver o `case 'sunshade'` em
+   * `actions.ts`); o que existe é o binário do teto. Com o teto fechado a
+   * posição é genuinamente 0 — é o que o `sunshade_close` deixa lá — e dizê-lo
+   * põe a linha a falar o mesmo vocabulário do controlo que ela abre, que é uma
+   * posição de 0 a 10. Com o teto aberto a posição pode ser qualquer uma de 1 a
+   * 10 e nenhuma delas se conhece: escrever um número ali era inventá-lo. Sem
+   * leitura nenhuma fica DASH, como em qualquer outra linha.
+   *
+   * O 0 passa pelo `formatNumber` e não vai escrito à mão: é um valor, e os
+   * valores desta secção formatam-se todos pelo mesmo sítio.
+   */
+  private roofValue(roof: boolean | undefined): string {
+    const word = this.boolValue(roof, 'openings.open', 'openings.closed')
+    return roof === false ? `${word} · ${formatNumber(SUNSHADE_CLOSED_POSITION)}` : word
+  }
+
   private rows(): Row[] {
     const o = this.state.openings
     const { locked } = this.state.lock
@@ -139,7 +168,7 @@ export class LeapmotorOpenings extends LitElement {
         key: 'roof',
         icon: 'mdi:window-shutter',
         label: this.t('openings.roof'),
-        value: this.boolValue(o.roof, 'openings.open', 'openings.closed'),
+        value: this.roofValue(o.roof),
         warn: o.roof === true,
         // A cortina comanda-se por posição absoluta (0–10) e o `resolveAction`
         // nem olha para esta leitura, ao contrário da bagageira, cujo comando
