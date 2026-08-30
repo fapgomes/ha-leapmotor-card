@@ -4,6 +4,16 @@ import type { TranslateFn } from '../localize'
 import { decideSwipe } from '../swipe'
 import { sharedStyles } from '../theme'
 
+/**
+ * Onde um arrasto NÃO é um deslize. Os sliders (limite de carga, ventoinha)
+ * vivem dentro do slot desta moldura e um arrasto horizontal do polegar é,
+ * pixel a pixel, indistinguível de um deslize entre sub-vistas — o card saltava
+ * de grupo a meio do gesto. Os botões da barra entram na mesma lista: antes só
+ * escapavam por o limiar de 48px ser maior que os seus 34px de largura, o que
+ * era coincidência e não regra.
+ */
+const INTERACTIVE = 'input, button, ha-icon-button, a, [role="slider"], [role="button"]'
+
 @customElement('leapmotor-group-detail')
 export class LeapmotorGroupDetail extends LitElement {
   @property({ attribute: false }) t!: TranslateFn
@@ -26,7 +36,9 @@ export class LeapmotorGroupDetail extends LitElement {
   override firstUpdated() {
     // O foco vai para a moldura, e não para o primeiro botão: sem isto, as
     // setas do teclado e o Esc só funcionavam depois de alguém dar Tab.
-    this.wrapEl?.focus()
+    // `preventScroll` porque num telefone o card pode estar meio fora do ecrã:
+    // sem isto, abrir a sub-vista arrancava a viewport para o foco.
+    this.wrapEl?.focus({ preventScroll: true })
 
     // Mede o CONTEÚDO, não o corpo. O corpo leva o `min-height` que o card
     // impõe: medi-lo era medir o próprio mínimo e o máximo nunca passava de
@@ -68,6 +80,10 @@ export class LeapmotorGroupDetail extends LitElement {
     // Só toque e caneta: com o rato, arrastar sobre o card é seleção de texto,
     // não um gesto.
     if (e.pointerType === 'mouse') return
+    // O caminho composto, e não o `e.target`: o conteúdo da sub-vista chega
+    // por `<slot>`, vem do DOM claro do card e o alvo re-alvejado pelo shadow
+    // não denuncia o controlo onde o dedo assentou.
+    if (e.composedPath().some(node => node instanceof Element && node.matches(INTERACTIVE))) return
     this.pointerId = e.pointerId
     this.startX = e.clientX
     this.startY = e.clientY
