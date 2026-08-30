@@ -2610,6 +2610,14 @@ O `ha-form` do Home Assistant não tem selector de reordenação, por isso a gre
 
   private renderGridEditor(t: (k: string) => string) {
     const rows = this.gridRows()
+    /*
+     * As setas só operam dentro do bloco dos grupos escolhidos, porque só esses
+     * são escritos no `grid:`. Mover uma linha desligada não persistia nada e a
+     * renderização seguinte recolocava-a — a seta parecia avariada. O mesmo
+     * valia para empurrar a última linha ligada para baixo da fronteira entre
+     * os dois blocos.
+     */
+    const onCount = rows.filter(row => row.on).length
     return html`<div class="grid-editor">
       <div class="grid-title">${t('editor.grid')}</div>
       ${rows.map((row, index) => html`
@@ -2622,12 +2630,12 @@ O `ha-form` do Home Assistant não tem selector de reordenação, por isso a gre
           </ha-formfield>
           <ha-icon-button
             .label=${t('editor.grid_up')}
-            .disabled=${index === 0}
+            .disabled=${!row.on || index === 0}
             @click=${() => this.moveGroup(row.id, -1)}
           ><ha-icon icon="mdi:arrow-up"></ha-icon></ha-icon-button>
           <ha-icon-button
             .label=${t('editor.grid_down')}
-            .disabled=${index === rows.length - 1}
+            .disabled=${!row.on || index >= onCount - 1}
             @click=${() => this.moveGroup(row.id, 1)}
           ><ha-icon icon="mdi:arrow-down"></ha-icon></ha-icon-button>
         </div>
