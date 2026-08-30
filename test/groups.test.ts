@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { GROUP_CATALOGUE, GROUP_ORDER, missingForGroups, resolveGrid, summaryFor } from '../src/groups'
+import { alertFor, GROUP_CATALOGUE, GROUP_ORDER, missingForGroups, resolveGrid, summaryFor } from '../src/groups'
 import { createTranslator, DASH } from '../src/localize'
 import { resolveEntities } from '../src/resolver'
-import type { EntityMap, GroupId, LeapmotorCardConfig } from '../src/types'
+import { DEFAULT_TIRE_RANGE, type EntityMap, type GroupId, type LeapmotorCardConfig } from '../src/types'
 import { buildVehicleState } from '../src/vehicle-state'
 import { REAL_NOW, realHass } from './fixtures/real-states'
 
 const CONFIG: LeapmotorCardConfig = { type: 'custom:leapmotor-card' }
 const t = createTranslator('en')
+const RANGE = DEFAULT_TIRE_RANGE
 
 /** O mapa de entidades do carro real das fixtures. */
 function realMap(): EntityMap {
@@ -255,5 +256,108 @@ describe('summaryFor — o resumo desconhecido nunca chega aqui', () => {
     const g = group('tires', 'odometer')
     expect(g.summary).toBe('range')
     expect(summaryFor(g, realState(), t, 'en')).not.toBe('odometer')
+  })
+})
+
+describe('alertFor — estado', () => {
+  it('não alerta com o carro trancado e tudo fechado', () => {
+    // Nas fixtures a leitura das trancas é `cloud_stale`, portanto obsoleta.
+    expect(alertFor(group('status'), realState(), RANGE)).toBe('none')
+  })
+
+  it('avisa com uma abertura aberta', () => {
+    expect(alertFor(group('status'), realState({ 'binary_sensor/trunk_open': 'on' }), RANGE)).toBe('warn')
+  })
+
+  it('avisa com o carro destrancado, quando a leitura é fresca', () => {
+    // A fixture tem a idade da leitura em 11930 s (muito acima dos 900 s do
+    // limiar); sem baixar também `lock_state_age_seconds` aqui, a leitura
+    // continuava obsoleta só por causa da idade e o teste não provava nada.
+    const state = realState({
+      'lock/vehicle_lock': 'unlocked', 'sensor/lock_state_source': 'cloud', 'sensor/lock_state_age_seconds': '60',
+    })
+    expect(alertFor(group('status'), state, RANGE)).toBe('warn')
+  })
+
+  it('não alerta com o carro destrancado numa leitura obsoleta', () => {
+    // Uma leitura velha não é um alerta, é uma leitura velha. Ver spec §4.2.
+    const state = realState({ 'lock/vehicle_lock': 'unlocked' })
+    expect(state.lock.stale).toBe(true)
+    expect(alertFor(group('status'), state, RANGE)).toBe('none')
+  })
+
+  it('avisa por abertura aberta mesmo com as trancas obsoletas', () => {
+    // A obsolescência é da leitura das trancas, não da bagageira.
+    const state = realState({ 'binary_sensor/trunk_open': 'on' })
+    expect(state.lock.stale).toBe(true)
+    expect(alertFor(group('status'), state, RANGE)).toBe('warn')
+  })
+})
+
+describe('alertFor — pneus', () => {
+  it('não alerta com todos dentro da faixa', () => {
+    // `as const` não é decoração: sem ele o literal é inferido como `number[]`
+    // e não é atribuível ao `readonly [number, number]` que a função pede.
+    expect(alertFor(group('tires'), realState(), [0, 99] as const)).toBe('none')
+  })
+
+  it('avisa com um fora da faixa', () => {
+    const state = realState({ 'sensor/tire_pressure_front_left_bar': '1.9' })
+    expect(alertFor(group('tires'), state, RANGE)).toBe('warn')
+  })
+
+  it('escala para alerta com dois ou mais fora da faixa', () => {
+    const state = realState({
+      'sensor/tire_pressure_front_left_bar': '1.9',
+      'sensor/tire_pressure_rear_right_bar': '1.8',
+    })
+    expect(alertFor(group('tires'), state, RANGE)).toBe('alert')
+  })
+
+  it('conta como fora tanto o abaixo do mínimo como o acima do máximo', () => {
+    const low = realState({ 'sensor/tire_pressure_front_left_bar': '1.9' })
+    const high = realState({ 'sensor/tire_pressure_front_left_bar': '3.1' })
+    expect(alertFor(group('tires'), low, RANGE)).toBe('warn')
+    expect(alertFor(group('tires'), high, RANGE)).toBe('warn')
+  })
+
+  it('respeita a faixa configurada em vez dos limiares antigos', () => {
+    // 2,8 bar é aviso na faixa por omissão e normal numa faixa mais larga.
+    // A faixa mais larga sobe só o máximo: os outros três pneus da fixture
+    // ficam a 2,17 bar, e subir também o mínimo para 2,4 tirava-os da faixa
+    // e o teste passava a acusar `alert` por causa deles, não pelo pneu em
+    // teste.
+    const state = realState({ 'sensor/tire_pressure_front_left_bar': '2.8' })
+    expect(alertFor(group('tires'), state, RANGE)).toBe('warn')
+    expect(alertFor(group('tires'), state, [2.0, 3.0] as const)).toBe('none')
+  })
+
+  it('não conta um pneu sem leitura como fora da faixa', () => {
+    const state = realState({ 'sensor/tire_pressure_front_left_bar': 'unavailable' })
+    expect(alertFor(group('tires'), state, RANGE)).toBe('none')
+  })
+})
+
+describe('alertFor — localização e os grupos sem alerta', () => {
+  it('avisa com a posição obsoleta, que é o caso das fixtures', () => {
+    expect(alertFor(group('location'), realState(), RANGE)).toBe('warn')
+  })
+
+  it('não alerta na carga, no clima nem na viagem', () => {
+    // A carga usa a cor da bateria, que já tem a semântica certa; o clima e a
+    // viagem não têm nada que se leia como problema.
+    for (const id of ['charging', 'climate', 'trip'] as const) {
+      expect(alertFor(group(id), realState(), RANGE), id).toBe('none')
+    }
+  })
+})
+
+describe('alertFor — carro offline', () => {
+  it('não alerta em nada quando o carro está offline', () => {
+    // Ausência de leitura não é alerta. Ver spec §4.2.
+    const state = { ...realState(), online: false }
+    for (const id of ['charging', 'status', 'climate', 'tires', 'trip', 'location'] as const) {
+      expect(alertFor(group(id), state, RANGE), id).toBe('none')
+    }
   })
 })

@@ -285,3 +285,47 @@ export function summaryFor(
     case 'location': return locationSummary(group, state, t)
   }
 }
+
+export type AlertLevel = 'none' | 'warn' | 'alert'
+
+/**
+ * O nível de alerta do tile de um grupo. Três regras que valem a pena fixar
+ * aqui, porque nenhuma delas é óbvia:
+ *
+ *  - **Offline não alerta.** Ausência de leitura não é problema; um card que
+ *    ficasse todo âmbar ao perder a ligação à cloud ensinava a ignorá-lo.
+ *  - **Trancas obsoletas não alertam.** O card já distingue `lock.stale`, e
+ *    uma leitura velha é uma leitura velha, não um carro aberto. As aberturas
+ *    são leituras independentes e continuam a avisar.
+ *  - **A carga não tem alerta.** Usa `batteryColor()`, que já dá verde, âmbar
+ *    e vermelho por percentagem — a semântica certa, já escrita.
+ */
+export function alertFor(
+  group: ResolvedGroup, state: VehicleState, tireRange: readonly [number, number],
+): AlertLevel {
+  if (!state.online) return 'none'
+
+  switch (group.id) {
+    case 'status': {
+      if (state.openings.openCount > 0) return 'warn'
+      if (state.lock.locked === false && !state.lock.stale) return 'warn'
+      return 'none'
+    }
+    case 'tires': {
+      const [min, max] = tireRange
+      const outside = Object.values(state.tires)
+        .filter((value): value is number => value !== undefined)
+        .filter(value => value < min || value > max)
+        .length
+      if (outside >= 2) return 'alert'
+      if (outside === 1) return 'warn'
+      return 'none'
+    }
+    case 'location':
+      return state.location?.stale === true ? 'warn' : 'none'
+    case 'charging':
+    case 'climate':
+    case 'trip':
+      return 'none'
+  }
+}
