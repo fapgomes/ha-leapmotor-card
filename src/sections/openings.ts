@@ -66,13 +66,16 @@ export class LeapmotorOpenings extends LitElement {
     return [
       {
         key: 'locks',
-        icon: locked === false ? 'mdi:lock-open-variant-outline' : 'mdi:lock-outline',
+        icon: locked === true ? 'mdi:lock-outline' : 'mdi:lock-open-variant-outline',
         label: this.t('openings.locks'),
         value: locked === undefined ? this.t('doors_unknown') : this.t(locked ? 'doors_locked' : 'doors_unlocked'),
         warn: locked === false && !this.state.lock.stale,
-        // A ação é a oposta do estado. Quando o estado é desconhecido oferece-se
-        // trancar, que é o lado seguro.
-        action: locked === false ? 'lock' : 'unlock',
+        // A ação é a oposta do estado, e o desconhecido conta como destrancado:
+        // trancar um carro já trancado não faz mal, destrancar um carro cujo
+        // estado se ignora faz. Daí a comparação ser contra `true` e não contra
+        // `false` — com `locked === false ? 'lock' : 'unlock'`, o estado
+        // desconhecido caía em destrancar, que é exactamente o lado errado.
+        action: locked === true ? 'unlock' : 'lock',
       },
       {
         key: 'windows',
