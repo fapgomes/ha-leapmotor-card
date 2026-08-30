@@ -1,36 +1,17 @@
 # Leapmotor Card
 
-A Lovelace custom card for Home Assistant that replicates the main vehicle
-screen of the Leapmotor mobile app, built for a Leapmotor B10 running the
+A Lovelace custom card for Home Assistant that shows a Leapmotor vehicle as a
+compact card: range, battery and lock state at the top, a row of action
+buttons, and a grid of groups — charging, status, climate, tyres, trip and
+location — each opening a navigable sub-view in place, so the card keeps its
+height instead of growing with every section you enable.
+
+Built for a Leapmotor B10 running the
 [kerniger/leapmotor-ha](https://github.com/kerniger/leapmotor-ha) integration.
 
-The card renders a single `ha-card`: range and battery at the top, a row of
-action buttons, then the sections you enable — charging, the interior/openings
-tiles with the expandable climate panel drawn over a top view of the cabin,
-tyres, trip, comfort, charging schedule and the map.
-
-![The Leapmotor Card on a real dashboard, in the Home Assistant dark theme](images/card-dark.png)
-
-That is the card on a real dashboard, in the Home Assistant dark theme, with
-the vehicle's name blurred out. The photograph of the car is not part of this
-card: it comes from the integration's own picture entity, and the card falls
-back to a drawn silhouette when no picture is available.
-
-The second image below is a headless render against this project's test
-fixtures — a synthetic vehicle called `Demo` — with every section enabled
-except the map. The map section is Home Assistant's own `map` card, which this
-card only borrows and which does not exist outside Home Assistant, so it is
-left out of the shot rather than faked.
-
-![The climate panel expanded over a top view of the cabin, with a comfort pill on each front seat](images/climate-panel-dark.png)
-
-Tapping the interior temperature tile opens the climate panel, above. It is
-drawn over a top view of the cabin: a heating and a ventilation pill on each
-front seat, the steering wheel and the two mirrors each in their own place,
-then the target temperature stepper, the fan speed, recirculation, and the
-four quick climate buttons. Same render, same fixtures, same dark theme as
-the first image — the panel was opened by clicking the tile in the render, so
-this is the state a tap really produces, not markup arranged to look like it.
+> **Screenshots pending.** The card's layout changed completely in 0.4.0 and
+> the previous captures showed the old one. New ones will be taken from a real
+> dashboard.
 
 ## Requirements
 
@@ -103,14 +84,15 @@ actions:
   - sunshade
 confirm_actions:
   - unlock
-sections:
-  location: true
-  charging: true
-  tiles: true
-  tires: true
-  trip: true
-  comfort: true
-  schedule: true
+grid:
+  - charging
+  - status
+  - climate
+  - tires
+  - group: trip
+    icon: mdi:road-variant
+    summary: last7
+tire_range: [2.0, 2.6]
 entities:
   rangeLive: sensor.my_car_live_remaining_range_km
 ```
@@ -123,8 +105,18 @@ entities:
 | `image` | `auto` \| `entity` \| `none` \| URL | `auto` | `auto` shows the vehicle's `entity_picture` when available and falls back to the built-in silhouette; `entity` shows only the picture from the vehicle's image entity (no silhouette fallback); `none` hides the image entirely; any other string is used as a literal image URL. |
 | `actions` | list of action IDs | `[unlock, lock, trunk, windows, findVehicle, sunshade]` | Which action buttons appear in the action row. Valid IDs: `unlock`, `lock`, `trunk`, `windows`, `sunshade`, `quickCool`, `quickHeat`, `defrost`, `findVehicle`, `unlockCharger`, `refresh`, `climate`, `steeringWheelHeat`, `mirrorHeat`, `batteryPreheat`. |
 | `confirm_actions` | list of action IDs | `[unlock]` | Subset of `actions` (or any of the same valid action IDs) that ask for confirmation before calling the service. |
-| `sections` | map of section id → boolean | `location: false, charging: true, tiles: true, tires: false, trip: false, comfort: false, schedule: false` | Toggles optional sections. Valid keys: `location`, `charging`, `tiles`, `tires`, `trip`, `comfort`, `schedule`. `location` shows the vehicle's position on the Home Assistant map, off by default, and displays the position's age because the integration flags it as stale. |
+| `grid` | list | *(all groups the car supports)* | Which groups the grid shows, in order. Each entry is either a group name (`charging`, `status`, `climate`, `tires`, `trip`, `location`) or a mapping with `group` plus any of `icon`, `title` and `summary`. An empty list hides the grid. With no `grid:` at all, every group whose entities the car reports is shown. |
+| `tire_range` | list of 2 numbers | `[2.0, 2.6]` | The tyre pressure range treated as normal, in bar. A pressure outside it marks the tyre, and the grid tile, as a warning. Check the sticker on the driver's door pillar for your car and tyre size — the default is narrow and a correctly inflated car may fall outside it. |
 | `entities` | map of logical name → entity ID | *(none)* | Overrides automatic entity resolution for individual logical names — see [Entity overrides](#entity-overrides) below. |
+
+| Group | `summary` values (first is the default) |
+| --- | --- |
+| `charging` | `battery`, `limit`, `phase`, `eta` |
+| `status` | `lock`, `openings`, `trunk` |
+| `climate` | `interior`, `target`, `state` |
+| `tires` | `range`, `min`, `worst` |
+| `trip` | `odometer`, `last7`, `consumption` |
+| `location` | `activity`, `zone`, `age` |
 
 `setChargeLimit` and `setClimate` are absent from the `actions`/
 `confirm_actions` list above: neither works as an action-row button, because
@@ -140,13 +132,15 @@ toggle — a toggle would have to lie about the current state. It opens a
 single position control (0–10) instead, and there is no way to stop the
 sunshade mid-travel, because the integration exposes no stop service.
 
-The visual editor (opened from Lovelace's card picker) covers all of the
-above except `entities`: it offers a device picker scoped to the
-`leapmotor` integration, plus fields for name, language, image, actions,
-confirm actions, and section toggles. Its action picker offers only 12 of
-the 15 action IDs — `steeringWheelHeat`, `mirrorHeat` and
-`batteryPreheat` belong to the comfort section rather than the quick-action
-row, so they can be added to `actions`/`confirm_actions` only via YAML.
+The visual editor (opened from Lovelace's card picker) covers device, name,
+language, image, actions, confirm actions, and a grid block: a checkbox per
+group plus up/down arrows to reorder the ones checked. `icon`, `title`,
+`summary` and `tire_range` are YAML-only — the editor preserves them on a
+group it already finds in long form, but has no fields of its own for them.
+Its action picker offers only 12 of the 15 action IDs — `steeringWheelHeat`,
+`mirrorHeat` and `batteryPreheat` belong to the comfort section rather than
+the quick-action row, so they can be added to `actions`/`confirm_actions`
+only via YAML. `entities` remains YAML-only too.
 
 ## Entity overrides
 

@@ -5,6 +5,54 @@ Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [0.4.0] — 2026-08-30
+
+### Rutura
+
+- A opção `sections` deixou de existir. A disposição do card passa a ser uma
+  grelha de grupos que abrem sub-vistas, e que secções são mostradas decorre
+  de que grupos estão na grelha. Substitui `sections:` por `grid:` — o card
+  mostra um aviso no lugar se ainda encontrar a chave antiga. Sem nenhum
+  `grid:` escrito, mostra-se cada grupo cujas entidades o carro reporta.
+
+### Adicionado
+
+- Uma grelha de grupos na vista principal — carga, estado, clima, pneus,
+  viagem e localização —, cada um com ícone, título e um resumo ao vivo, que
+  abre uma sub-vista no lugar com fecho e navegação anterior/seguinte.
+  Configurável e reordenável, em YAML ou no editor visual.
+- As linhas da sub-vista do estado do veículo comandam o que mostram: a das
+  trancas tranca ou destranca, a dos vidros fecha-os, a da bagageira abre-a.
+  As portas e o teto ficam sem ação, porque a integração não expõe comando
+  nenhum para eles. O `confirm_actions` aplica-se a estas linhas como às
+  restantes ações.
+- A cor do tile segue o estado: âmbar para destrancado ou uma abertura
+  aberta, vermelho para dois ou mais pneus fora da faixa, a cor da bateria
+  durante a carga.
+- As pressões dos pneus passam a estar dispostas à volta de uma vista de
+  topo do carro.
+- `tire_range` define a faixa de pressão considerada normal (por omissão
+  `[2.0, 2.6]`, os valores que já estavam fixos no código).
+- Navegação por teclado em toda a sub-vista: as setas alternam entre grupos,
+  Escape fecha e devolve o foco ao tile que a abriu. Deslize horizontal no
+  toque.
+- O card reserva a altura da sub-vista mais alta já visitada, para o
+  dashboard deixar de saltar entre elas.
+
+### Alterado
+
+- O mapa passa a construir-se quando a sua sub-vista abre, e não em cada
+  carregamento do dashboard.
+- O painel de climatização passa a ser o conteúdo da sub-vista de clima;
+  deixou de expandir a partir de um tile.
+- As cores de aviso dos pneus passam a usar `--leapmotor-warn` e
+  `--leapmotor-alert`, em vez de tomarem de empréstimo as cores da bateria.
+
+### Removido
+
+- O par de tiles interior/aberturas, substituído pela grelha.
+- As duas capturas do README, que mostravam a disposição anterior.
+
 ## [0.3.4] — 2026-08-28
 
 ### Adicionado
