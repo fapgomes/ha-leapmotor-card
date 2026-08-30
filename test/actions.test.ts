@@ -109,6 +109,24 @@ describe('actionLabel e actionIcon', () => {
     expect(actionLabel('windows', ctx({ 'binary_sensor/front_left_window_open': 'on' }).state, t)).toBe('Fechar vidros')
   })
 
+  it('a etiqueta da climatização diz o que o toque faz', () => {
+    expect(actionLabel('climate', ctx().state, t)).toBe('Ligar climatização')
+    expect(actionLabel('climate', ctx({ 'switch/climate_control': 'on' }).state, t)).toBe('Desligar climatização')
+  })
+
+  it('a etiqueta da climatização promete o serviço que vai mesmo ser chamado', () => {
+    // O defeito que isto fecha é uma etiqueta a dizer «desligar» e o serviço a
+    // ligar (ou o contrário): as duas decisões vivem em funções diferentes e
+    // têm de partir da mesma comparação contra `true`. Um estado desconhecido
+    // conta como desligado nas duas.
+    for (const climate of [undefined, 'off', 'on', 'unavailable']) {
+      const { map, state } = ctx(climate === undefined ? {} : { 'switch/climate_control': climate })
+      const turningOn = resolveAction('climate', state, map)?.service === 'turn_on'
+      expect(actionLabel('climate', state, t), String(climate))
+        .toBe(turningOn ? 'Ligar climatização' : 'Desligar climatização')
+    }
+  })
+
   it('devolve um ícone mdi para todas as ações', () => {
     const { state } = ctx()
     for (const a of ['unlock', 'lock', 'trunk', 'windows', 'climate', 'refresh'] as const) {

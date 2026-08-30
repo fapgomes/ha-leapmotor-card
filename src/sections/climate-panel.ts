@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
 import {
-  TARGET_TEMP_DECIMALS, nextStepTemperature, shownLevel,
+  TARGET_TEMP_DECIMALS, actionLabel, nextStepTemperature, shownLevel,
   type ActionEventDetail, type ActionPayload, type ClimateChange, type SeatLevels,
 } from '../actions'
 import { CABIN_TOPVIEW } from '../cabin-topview'
@@ -259,6 +259,13 @@ export class LeapmotorClimatePanel extends LitElement {
     // `set_climate` liga a climatização como efeito do comando; mexer na
     // recirculação com o A/C desligado ligá-lo-ia sem o utilizador o pedir.
     const climateOn = this.state.climate.on === true
+    // Dos quatro botões da fila de baixo só este é alternante, e a etiqueta
+    // fixa que tinha («Interruptor do A/C») não dizia para que lado ele ia: o
+    // estado só se lia no realce, e quem quisesse desligar a climatização não
+    // tinha como saber que era ali. Vem por isso do `actionLabel`, que é quem
+    // decide isso para a bagageira e os vidros — e assim a etiqueta e o
+    // serviço chamado não podem discordar.
+    const acLabel = actionLabel('climate', this.state, this.t)
     const recircLabel = this.t('climate.recirculation')
     const recircTitle = !climateOn
       ? this.t('climate.recirculation_off_hint')
@@ -311,7 +318,7 @@ export class LeapmotorClimatePanel extends LitElement {
       </div>
 
       <div class="grid">
-        ${this.button('climate', 'climateSwitch', 'mdi:air-conditioner', this.t('climate.ac'), climateOn)}
+        ${this.button('climate', 'climateSwitch', 'mdi:air-conditioner', acLabel, climateOn)}
         ${this.button('quickCool', 'quickCool', 'mdi:snowflake', this.t('action.quickCool'))}
         ${this.button('quickHeat', 'quickHeat', 'mdi:fire', this.t('action.quickHeat'))}
         ${this.button('defrost', 'windshieldDefrost', 'mdi:car-defrost-front', this.t('action.defrost'))}

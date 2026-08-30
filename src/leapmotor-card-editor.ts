@@ -36,6 +36,12 @@ const ALL_ACTIONS: ActionId[] = (Object.keys(OFFERED_IN_EDITOR) as ActionId[])
  * `action.windows_open`/`_close`. No editor mostramos a forma de abrir, que é
  * o rótulo que a app usa. Sem este mapa, `t('action.trunk')` devolveria a
  * própria chave e o dropdown mostraria "action.trunk".
+ *
+ * `climate` também é alternante desde que o `actionLabel` lhe passou a dar
+ * `action.climate_on`/`_off`, mas continua a ter chave neutra — e é ela que o
+ * editor usa, pelo caminho por omissão. Aqui escolhe-se a ação, não se executa
+ * nenhuma: um dropdown a oferecer «Ligar climatização» prometia um sentido que
+ * o botão configurado não tem.
  */
 const ACTION_LABEL_KEY: Partial<Record<ActionId, string>> = {
   trunk: 'action.trunk_open',

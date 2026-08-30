@@ -377,6 +377,14 @@ export function resolveAction(
 export function actionLabel(action: ActionId, state: VehicleState, t: TranslateFn): string {
   if (action === 'trunk') return t(state.openings.trunk === true ? 'action.trunk_close' : 'action.trunk_open')
   if (action === 'windows') return t(anyWindowOpen(state) ? 'action.windows_close' : 'action.windows_open')
+  // A climatização é o único alternante desta lista cuja etiqueta não dizia o
+  // que o toque faz: o estado só se lia no realce do botão, e um utilizador
+  // que a queria desligar não tinha por onde saber que era ali. A condição é a
+  // MESMA do `toggleSwitch` no `resolveAction` — comparação contra `true`, para
+  // o estado desconhecido prometer «ligar», que é o que ele vai mesmo fazer.
+  // A chave neutra `action.climate` fica-se pelo editor, onde a ação se escolhe
+  // e não se executa.
+  if (action === 'climate') return t(state.climate.on === true ? 'action.climate_off' : 'action.climate_on')
   return t(`action.${action}`)
 }
 
