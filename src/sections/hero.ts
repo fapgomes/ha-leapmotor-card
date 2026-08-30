@@ -82,11 +82,13 @@ export class LeapmotorHero extends LitElement {
     return html`<div class="compact-row">
       <div class="compact-name">${this.name || DASH}</div>
       <div class="compact-range">
-        ${range ? formatNumber(range.km) : DASH}<span class="unit muted"> ${range?.unit ?? ''}</span>
+        ${range ? formatNumber(range.km) : DASH}<span class="unit muted">${range ? ` ${range.unit}` : ''}</span>
       </div>
       ${this.bar()}
       <ha-icon
         class="compact-lock ${lock.stale ? 'stale' : ''}"
+        role="img"
+        aria-label=${this.lockLabel()}
         title=${this.lockLabel()}
         icon=${lock.locked === false ? 'mdi:lock-open-variant-outline' : 'mdi:lock-outline'}
       ></ha-icon>
@@ -172,10 +174,17 @@ export class LeapmotorHero extends LitElement {
     .compact-row .bar { flex: 0 0 64px; margin: 0; max-width: 64px; }
     .compact-lock { flex: 0 0 auto; --mdc-icon-size: 20px; }
     .compact-lock.stale { opacity: 0.55; }
+    /*
+     * Num ecrã estreito a barra ENCOLHE, não desaparece: é a única
+     * representação da bateria nesta forma — não há percentagem em texto — e o
+     * display: none levava também o role=img e o aria-label dela, deixando
+     * quem usa leitor de ecrã sem carga nenhuma. O aperto absorve-o o nome, que
+     * tem flex: 1 1 auto e ellipsis.
+     */
     @media (max-width: 360px) {
       .big { font-size: 2.1rem; }
       .lock-text { font-size: 0.9rem; }
-      .compact-row .bar { display: none; }
+      .compact-row .bar { flex-basis: 40px; max-width: 40px; }
     }
   `]
 }
