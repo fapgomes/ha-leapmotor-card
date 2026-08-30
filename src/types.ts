@@ -22,6 +22,7 @@ export interface LeapmotorCardConfig {
   sections?: Partial<Record<SectionId, boolean>>
   entities?: EntityMap
   map_zoom?: number
+  tire_range?: [number, number]
 }
 
 export type ChargingPhase = 'unplugged' | 'plugged' | 'charging' | 'complete' | 'scheduled'
@@ -90,6 +91,24 @@ export const MAP_ZOOM_MAX = 20
 export function clampMapZoom(zoom: number | undefined): number {
   if (typeof zoom !== 'number' || !Number.isFinite(zoom)) return DEFAULT_MAP_ZOOM
   return Math.min(MAP_ZOOM_MAX, Math.max(MAP_ZOOM_MIN, Math.round(zoom)))
+}
+
+/**
+ * A faixa de pressão considerada normal, em bar. A omissão são os valores que
+ * o `tires.ts` tinha fixos no código, para não mudar o comportamento de
+ * ninguém sem que o peça — mas são estreitos: um carro a 2,8 bar cai fora
+ * dela. Qual é a faixa certa depende da medida do pneu e da carga, não se
+ * verifica a partir do código, e é por isso que passou a ser configurável.
+ */
+export const DEFAULT_TIRE_RANGE: readonly [number, number] = [2.0, 2.6]
+
+export function clampTireRange(value: unknown): [number, number] {
+  const fallback = (): [number, number] => [DEFAULT_TIRE_RANGE[0], DEFAULT_TIRE_RANGE[1]]
+  if (!Array.isArray(value) || value.length !== 2) return fallback()
+  const [min, max] = value as unknown[]
+  if (typeof min !== 'number' || typeof max !== 'number') return fallback()
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min >= max) return fallback()
+  return [min, max]
 }
 
 /** O que identifica o pedido de mapa em curso: a que entidade e com que zoom. */

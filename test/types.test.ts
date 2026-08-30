@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_MAP_ZOOM, clampMapZoom, mapRequestChanged } from '../src/types'
+import { DEFAULT_MAP_ZOOM, clampMapZoom, mapRequestChanged, DEFAULT_TIRE_RANGE, clampTireRange } from '../src/types'
 
 describe('clampMapZoom', () => {
   it('deixa passar um valor válido sem alteração', () => {
@@ -56,5 +56,50 @@ describe('mapRequestChanged', () => {
   it('diz que mudou quando só a entidade muda', () => {
     const previous = { entityId: 'device_tracker.a', zoom: 16 }
     expect(mapRequestChanged(previous, { entityId: 'device_tracker.b', zoom: 16 })).toBe(true)
+  })
+})
+
+/**
+ * `tire_range` vem de YAML escrito à mão, sem validação de esquema, e alimenta
+ * um alerta visível na grelha: um par trocado ou um texto por engano pintava um
+ * tile de vermelho para sempre. O corte é aqui, na leitura, pela mesma razão do
+ * `clampMapZoom` — o editor não vê configurações escritas à mão.
+ */
+describe('clampTireRange', () => {
+  it('deixa passar uma faixa válida sem alteração', () => {
+    expect(clampTireRange([2.4, 3.0])).toEqual([2.4, 3.0])
+  })
+
+  it('usa a faixa por omissão quando não há configuração', () => {
+    expect(clampTireRange(undefined)).toEqual([...DEFAULT_TIRE_RANGE])
+  })
+
+  it('usa a omissão quando o mínimo não é menor que o máximo', () => {
+    expect(clampTireRange([2.6, 2.0])).toEqual([...DEFAULT_TIRE_RANGE])
+    expect(clampTireRange([2.4, 2.4])).toEqual([...DEFAULT_TIRE_RANGE])
+  })
+
+  it('usa a omissão perante valores não numéricos vindos de YAML escrito à mão', () => {
+    expect(clampTireRange(['2.0', '2.6'])).toEqual([...DEFAULT_TIRE_RANGE])
+    expect(clampTireRange([Number.NaN, 2.6])).toEqual([...DEFAULT_TIRE_RANGE])
+    expect(clampTireRange([2.0, Number.POSITIVE_INFINITY])).toEqual([...DEFAULT_TIRE_RANGE])
+  })
+
+  it('usa a omissão quando o comprimento não é dois', () => {
+    expect(clampTireRange([2.0])).toEqual([...DEFAULT_TIRE_RANGE])
+    expect(clampTireRange([2.0, 2.6, 3.0])).toEqual([...DEFAULT_TIRE_RANGE])
+    expect(clampTireRange([])).toEqual([...DEFAULT_TIRE_RANGE])
+  })
+
+  it('usa a omissão quando não é sequer uma lista', () => {
+    expect(clampTireRange(2.6)).toEqual([...DEFAULT_TIRE_RANGE])
+    expect(clampTireRange(null)).toEqual([...DEFAULT_TIRE_RANGE])
+    expect(clampTireRange({ min: 2, max: 3 })).toEqual([...DEFAULT_TIRE_RANGE])
+  })
+
+  it('devolve uma cópia, para ninguém escrever na constante por omissão', () => {
+    const first = clampTireRange(undefined)
+    first[0] = 99
+    expect(clampTireRange(undefined)).toEqual([...DEFAULT_TIRE_RANGE])
   })
 })
