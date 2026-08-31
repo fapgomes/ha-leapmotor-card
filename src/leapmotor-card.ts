@@ -37,7 +37,7 @@ import './sections/trip'
 import './sections/comfort'
 import './sections/schedule'
 
-export const CARD_VERSION = '0.4.6'
+export const CARD_VERSION = '0.4.7'
 
 /**
  * Wait time before sending the temperature. `leapmotor.set_climate` is not

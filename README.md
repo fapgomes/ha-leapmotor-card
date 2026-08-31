@@ -2,16 +2,25 @@
 
 A Lovelace custom card for Home Assistant that shows a Leapmotor vehicle as a
 compact card: range, battery and lock state at the top, a row of action
-buttons, and a grid of groups — charging, status, climate, tyres, trip and
-location — each opening a navigable sub-view in place, so the card keeps its
-height instead of growing with every section you enable.
+buttons, and a grid of groups — charging, status, climate, tires, trip and
+location — each opening a navigable sub-view in place of the grid rather than
+below it.
 
 Built for a Leapmotor B10 running the
 [kerniger/leapmotor-ha](https://github.com/kerniger/leapmotor-ha) integration.
 
-> **Screenshots pending.** The card's layout changed completely in 0.4.0 and
-> the previous captures showed the old one. New ones will be taken from a real
-> dashboard.
+![The Leapmotor Card on a real dashboard, in the Home Assistant dark theme](images/card-dark.png)
+
+That is the card on a real dashboard, in the Home Assistant dark theme, with
+the vehicle's name blurred out. The photograph of the car is not part of this
+card: it comes from the integration's own picture entity, and the card falls
+back to a drawn silhouette when no picture is available. The amber outline on
+the Location tile is the card reporting that the position it has is stale —
+which the integration flags, and which this card shows rather than hides.
+
+Tapping any tile replaces the grid with that group's sub-view, with a close
+button and previous/next arrows; the header shrinks to a single line while one
+is open.
 
 ## Requirements
 
@@ -106,7 +115,7 @@ entities:
 | `actions` | list of action IDs | `[unlock, lock, trunk, windows, findVehicle, sunshade]` | Which action buttons appear in the action row. Valid IDs: `unlock`, `lock`, `trunk`, `windows`, `sunshade`, `quickCool`, `quickHeat`, `defrost`, `findVehicle`, `unlockCharger`, `refresh`, `climate`, `steeringWheelHeat`, `mirrorHeat`, `batteryPreheat`. |
 | `confirm_actions` | list of action IDs | `[unlock]` | Subset of `actions` (or any of the same valid action IDs) that ask for confirmation before calling the service. |
 | `grid` | list | *(all groups the car supports)* | Which groups the grid shows, in order. Each entry is either a group name (`charging`, `status`, `climate`, `tires`, `trip`, `location`) or a mapping with `group` plus any of `icon`, `title` and `summary`. An empty list hides the grid. With no `grid:` at all, every group whose entities the car reports is shown. |
-| `tire_range` | list of 2 numbers | `[2.0, 2.6]` | The tyre pressure range treated as normal, in bar. A pressure outside it marks the tyre, and the grid tile, as a warning. Check the sticker on the driver's door pillar for your car and tyre size — the default is narrow and a correctly inflated car may fall outside it. |
+| `tire_range` | list of 2 numbers | `[2.0, 2.6]` | The tire pressure range treated as normal, in bar. A pressure outside it marks the tire, and the grid tile, as a warning. Check the sticker on the driver's door pillar for your car and tire size — the default is narrow and a correctly inflated car may fall outside it. |
 | `entities` | map of logical name → entity ID | *(none)* | Overrides automatic entity resolution for individual logical names — see [Entity overrides](#entity-overrides) below. |
 
 | Group | `summary` values (first is the default) |
@@ -163,7 +172,7 @@ entities:
   rangeLive: sensor.my_car_live_remaining_range_km
 ```
 
-The catalogue below lists all 88 logical names the card knows about, the
+The catalog below lists all 88 logical names the card knows about, the
 Home Assistant domain each one expects, and the `translation_key` it is
 matched against. Every key is valid as an override target under
 `entities:`.

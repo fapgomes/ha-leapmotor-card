@@ -279,16 +279,35 @@ function tripSummary(group: ResolvedGroup, state: VehicleState): string {
   }
 }
 
+/**
+ * The zone's display name. `home` is Home Assistant's own token for the home
+ * zone, in lowercase, and printing it raw put an internal symbol in front of
+ * the reader; every other value is already a zone's friendly name and passes
+ * through untouched. `not_home` never arrives here — `buildLocation` treats it
+ * as the absence of a zone, which is what it means.
+ */
+function zoneLabel(zone: string | undefined, t: TranslateFn): string | undefined {
+  if (zone === undefined) return undefined
+  return zone === 'home' ? t('location.home') : zone
+}
+
 function locationSummary(group: ResolvedGroup, state: VehicleState, t: TranslateFn): string {
+  const zone = zoneLabel(state.location?.zone, t)
   switch (group.summary) {
     case 'zone':
-      return state.location?.zone ?? t('location.unknown')
+      return zone ?? t('location.unknown')
     case 'age':
       return state.location?.ageSeconds === undefined ? DASH : formatAgo(state.location.ageSeconds, t)
-    default:
+    default: {
       // `activity.unknown` deliberately does not exist in the catalog: an
       // activity that is not known is not announced.
-      return state.activity === 'unknown' ? DASH : t(`activity.${state.activity}`)
+      const activity = state.activity === 'unknown' ? undefined : t(`activity.${state.activity}`)
+      // Both when both are known: "Parked" alone does not say where, and a zone
+      // alone does not say whether the car is sitting there or driving through
+      // it. Either one alone is still worth showing.
+      const parts = [activity, zone].filter((part): part is string => part !== undefined)
+      return parts.length > 0 ? parts.join(' · ') : DASH
+    }
   }
 }
 

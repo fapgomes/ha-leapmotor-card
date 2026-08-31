@@ -177,7 +177,12 @@ function buildLocation(hass: HomeAssistant, map: EntityMap): VehicleState['locat
   return {
     latitude,
     longitude,
-    zone: INVALID.has(st.state) ? undefined : st.state,
+    // `not_home` is Home Assistant's way of saying "in no zone at all", so it
+    // is an absence of a zone and not the name of one — without this it reached
+    // the UI verbatim, as the raw token. `home` survives, and the display layer
+    // localizes it: deciding WHETHER there is a zone belongs here, deciding
+    // what to call it does not.
+    zone: INVALID.has(st.state) || st.state === 'not_home' ? undefined : st.state,
     ageSeconds,
     stale: st.attributes.location_is_stale === true
       || (source?.includes('stale') ?? false)

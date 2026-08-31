@@ -555,7 +555,7 @@ export class LeapmotorClimatePanel extends LitElement {
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 8px; margin-top: 14px; }
     button.plain.tile-btn { flex-direction: column; }
     /* button.plain (theme.ts) sits at specificity (0,1,1); a bare .on class
-       (0,1,0) cannot override it, so the on/off colour needs the same
+       (0,1,0) cannot override it, so the on/off color needs the same
        compound-selector treatment as the grid tile's button.tile.plain.warn
        (group-grid.ts). */
     button.plain.tile-btn.on { color: var(--primary-color); }

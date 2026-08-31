@@ -41,6 +41,7 @@
   "confirm": "Confirm: {action}?",
   "location.title": "Location",
   "location.unknown": "Position unknown",
+  "location.home": "Home",
   "location.map_unavailable": "Map unavailable",
   "charging.title": "Charged to {percent}%",
   "charging.limit": "Limit {percent}%",
@@ -144,7 +145,7 @@
   "editor.grid": "Grid",
   "editor.grid_up": "Move up",
   "editor.grid_down": "Move down",
-  "editor.tire_range": "Tyre pressure range (bar)",
+  "editor.tire_range": "Tire pressure range (bar)",
   "detail.close": "Close",
   "detail.previous": "Previous",
   "detail.next": "Next"

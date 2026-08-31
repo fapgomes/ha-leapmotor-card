@@ -5,6 +5,31 @@ Every notable change to this project is recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.7] — 2026-08-31
+
+### Changed
+
+- The location tile names the zone the car is in: "Parked · Home" rather than
+  "Parked" alone. Either fact on its own is incomplete — "Parked" does not say
+  where, and a zone does not say whether the car is sitting there or driving
+  through it.
+- The README has a screenshot again, of the current layout, and its opening no
+  longer claims the card "keeps its height instead of growing": that was true of
+  0.4.0 and stopped being true in 0.4.2, when the height reservation was
+  removed.
+
+### Fixed
+
+- `not_home` no longer reaches the interface as a raw token. It is Home
+  Assistant's way of saying the car is in no zone at all, so it is an absence of
+  a zone rather than the name of one; the `zone` summary showed the token
+  verbatim.
+- `home` is shown localized rather than as the lowercase token Home Assistant
+  uses internally.
+- Spelling is now consistent: the repository mixed `tyre` with `tire` — both
+  appeared in `en.json` — and `colour`/`catalogue` with American forms elsewhere.
+  Everything is American now.
+
 ## [0.4.6] — 2026-08-31
 
 ### Changed
@@ -135,8 +160,8 @@ Nothing a user of the card can see has changed in this release.
   locks or unlocks, the windows row closes them, the trunk row opens it. Doors
   and roof carry no action, because the integration exposes no command for them.
   `confirm_actions` applies to these rows as it does to the other actions.
-- Tile colour follows state: amber for unlocked or an opening open, red for two
-  or more tires out of range, the battery colour while charging.
+- Tile color follows state: amber for unlocked or an opening open, red for two
+  or more tires out of range, the battery color while charging.
 - Tire pressures are laid out around a top view of the car.
 - `tire_range` sets the pressure range treated as normal (default `[2.0, 2.6]`,
   the values previously hardcoded).

@@ -302,9 +302,32 @@ describe('summaryFor — climate, tires, trip and location', () => {
     expect(summaryFor(group('trip'), realState(), t, 'en')).toMatch(/ km$/)
   })
 
-  it('shows the activity by default in the location', () => {
-    const summary = summaryFor(group('location'), realState(), t, 'en')
-    expect(summary === DASH || summary.length > 0).toBe(true)
+  /*
+   * This assertion used to read `summary === DASH || summary.length > 0`, which
+   * is true of every string and therefore pinned nothing. It is now the actual
+   * text, because the joining of the two facts is the behavior worth pinning.
+   */
+  it('joins the activity and the zone by default in the location', () => {
+    expect(summaryFor(group('location'), realState(), t, 'en'))
+      .toBe(`${t('activity.parked')} · ${t('location.home')}`)
+  })
+
+  it("localizes Home Assistant's `home` token instead of printing it raw", () => {
+    expect(summaryFor(group('location', 'zone'), realState(), t, 'en')).toBe(t('location.home'))
+    expect(summaryFor(group('location', 'zone'), realState(), t, 'en')).not.toBe('home')
+  })
+
+  it('passes a custom zone through under its own name', () => {
+    const state = realState({ 'device_tracker/location': 'Garagem' })
+    expect(summaryFor(group('location', 'zone'), state, t, 'en')).toBe('Garagem')
+  })
+
+  it('shows the activity alone when the car is in no zone', () => {
+    // `not_home` means "in no zone at all", so there is no place to name — and
+    // it must not leak as a raw token either.
+    const state = realState({ 'device_tracker/location': 'not_home' })
+    expect(state.location?.zone).toBeUndefined()
+    expect(summaryFor(group('location'), state, t, 'en')).toBe(t('activity.parked'))
   })
 
   it('shows the position\'s age, which in the fixtures is stale', () => {

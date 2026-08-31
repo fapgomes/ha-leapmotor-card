@@ -41,6 +41,7 @@
   "confirm": "Confirmar: {action}?",
   "location.title": "Localização",
   "location.unknown": "Posição desconhecida",
+  "location.home": "Casa",
   "location.map_unavailable": "Mapa indisponível",
   "charging.title": "Carregado a {percent}%",
   "charging.limit": "Limite {percent}%",
