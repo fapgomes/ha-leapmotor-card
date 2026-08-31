@@ -163,7 +163,7 @@ entities:
   rangeLive: sensor.my_car_live_remaining_range_km
 ```
 
-The catalogue below lists all 86 logical names the card knows about, the
+The catalogue below lists all 88 logical names the card knows about, the
 Home Assistant domain each one expects, and the `translation_key` it is
 matched against. Every key is valid as an override target under
 `entities:`.
@@ -281,9 +281,11 @@ matched against. Every key is valid as an override target under
 | `odometer` | sensor | `odometer_km` |
 | `totalMileage` | sensor | `total_mileage_km` |
 | `last7DaysKm` | sensor | `last_7_days_mileage_km` |
-| `last7DaysKwh` | sensor | `last_7_days_energy_kwh` |
 | `avgConsumption6w` | sensor | `average_consumption_6w_kwh_100km` |
 | `totalEnergy` | sensor | `total_energy_kwh` |
+| `lastWeekDrivingPercent` | sensor | `last_week_driving_energy_percent` |
+| `lastWeekClimatePercent` | sensor | `last_week_climate_energy_percent` |
+| `lastWeekOtherPercent` | sensor | `last_week_other_energy_percent` |
 
 #### Comfort
 

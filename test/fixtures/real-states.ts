@@ -97,9 +97,41 @@ export const REAL_SPECS: FakeEntitySpec[] = [
   { key: 'sensor/odometer_km', entity_id: `sensor.${P}_odometer`, state: '659', unit: 'km' },
   { key: 'sensor/total_mileage_km', entity_id: `sensor.${P}_total_mileage`, state: '661', unit: 'km' },
   { key: 'sensor/last_7_days_mileage_km', entity_id: `sensor.${P}_last_7_days_mileage`, state: '642', unit: 'km' },
-  { key: 'sensor/last_7_days_energy_kwh', entity_id: `sensor.${P}_last_7_days_energy_consumption`, state: '118.0', unit: 'kWh' },
-  { key: 'sensor/average_consumption_6w_kwh_100km', entity_id: `sensor.${P}_6_week_average_consumption_kwh_100_km`, state: '20.6', unit: 'kWh/100 km' },
+  {
+    key: 'sensor/average_consumption_6w_kwh_100km',
+    entity_id: `sensor.${P}_6_week_average_consumption_kwh_100_km`,
+    state: '20.6',
+    unit: 'kWh/100 km',
+    // A série semana a semana, do mais antigo para o mais recente. As quatro
+    // primeiras a zero são reais: o carro era novo e não andou. Repare-se que
+    // o `hundredKmEC` vem número e o `hundredMiKwhEC` vem texto no MESMO
+    // objeto — a inconsistência é da API e é isso que a fixture tem de guardar.
+    attributes: {
+      weekly_consumption: [
+        { weekStart: '2026-07-20', weekEnd: '2026-07-26', hundredKmEC: 0.0, hundredMiKwhEC: '0.0', xWeekStart: 1784505600000, xWeekEnd: 1785110399000 },
+        { weekStart: '2026-07-27', weekEnd: '2026-08-02', hundredKmEC: 0.0, hundredMiKwhEC: '0.0', xWeekStart: 1785110400000, xWeekEnd: 1785715199000 },
+        { weekStart: '2026-08-03', weekEnd: '2026-08-09', hundredKmEC: 0.0, hundredMiKwhEC: '0.0', xWeekStart: 1785715200000, xWeekEnd: 1786319999000 },
+        { weekStart: '2026-08-10', weekEnd: '2026-08-16', hundredKmEC: 0.0, hundredMiKwhEC: '0.0', xWeekStart: 1786320000000, xWeekEnd: 1786924799000 },
+        { weekStart: '2026-08-17', weekEnd: '2026-08-23', hundredKmEC: 20.7, hundredMiKwhEC: '6.2', xWeekStart: 1786924800000, xWeekEnd: 1787529599000 },
+        { weekStart: '2026-08-24', weekEnd: '2026-08-30', hundredKmEC: 14.2, hundredMiKwhEC: '4.3', xWeekStart: 1787529600000, xWeekEnd: 1788134399000 },
+      ],
+    },
+  },
   { key: 'sensor/total_energy_kwh', entity_id: `sensor.${P}_total_energy_consumption`, state: '131.0', unit: 'kWh' },
+
+  /*
+   * As três fatias da energia da última semana. O `state` é a percentagem e os
+   * kWh vêm nos atributos — repetidos, os MESMOS três em cada uma das três
+   * entidades. A repetição não é um erro da fixture: é o que a integração
+   * produz, e é o que justifica o card poder ler os kWh de qualquer uma delas.
+   */
+  ...(['driving', 'climate', 'other'] as const).map((slice, i) => ({
+    key: `sensor/last_week_${slice}_energy_percent`,
+    entity_id: `sensor.${P}_last_week_${slice}_energy`,
+    state: ['96.3', '0.9', '2.8'][i]!,
+    unit: '%',
+    attributes: { driving_energy_kwh: 10.4, climate_energy_kwh: 0.1, other_energy_kwh: 0.3 },
+  })),
 
   { key: 'number/driver_seat_heating', entity_id: `number.${P}_driver_seat_heating`, state: '0', attributes: { min: 0, max: 3, step: 1 } },
   { key: 'number/driver_seat_ventilation', entity_id: `number.${P}_driver_seat_ventilation`, state: '0', attributes: { min: 0, max: 3, step: 1 } },

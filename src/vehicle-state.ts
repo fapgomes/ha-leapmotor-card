@@ -1,7 +1,9 @@
 import { isWindowOpen } from './format'
 import type { HassEntity, HomeAssistant } from './ha-types'
 import type { LogicalKey } from './keys'
-import type { Activity, ChargingPhase, EntityMap, VehicleState } from './types'
+import type {
+  Activity, ChargingPhase, EntityMap, VehicleState, WeekEnergy, WeeklyConsumption,
+} from './types'
 
 const INVALID = new Set(['unknown', 'unavailable', 'none', ''])
 const STALE_AFTER_SECONDS = 900
@@ -182,6 +184,111 @@ function buildLocation(hass: HomeAssistant, map: EntityMap): VehicleState['locat
   }
 }
 
+/**
+ * Coage para número só o que é número ou texto. O `Number()` sozinho não serve
+ * de guarda: perante um `Symbol` atira, e perante um objeto ou um `null` devolve
+ * `NaN` ou `0` — e o zero passaria por leitura válida onde ela não existe.
+ */
+function coerceNumber(value: unknown): number | undefined {
+  if (typeof value !== 'number' && typeof value !== 'string') return undefined
+  const n = Number(value)
+  return Number.isFinite(n) ? n : undefined
+}
+
+/** Uma data que se lê: dia de calendário que o `Date` consegue interpretar. */
+function isReadableDate(value: unknown): value is string {
+  return typeof value === 'string' && value !== '' && !Number.isNaN(new Date(value).getTime())
+}
+
+/**
+ * A série semanal do atributo `weekly_consumption` do sensor da média de 6
+ * semanas, na ordem em que a API a manda — da semana mais antiga para a mais
+ * recente. Devolve `[]` para tudo o que não se aproveite, e nunca atira.
+ *
+ * É a primeira coisa estruturada que este card lê de um atributo, e a API da
+ * cloud já se mostrou inconsistente com os tipos — no MESMO objeto, o
+ * `hundredKmEC` vem número e o `hundredMiKwhEC` vem texto. Daí ser uma função
+ * pura, exportada e testada à parte, em vez de estar embutida no
+ * `buildVehicleState`: a forma vem de fora, ninguém a controla, e o que a
+ * defende tem de ser verificável sem montar um `hass` inteiro. Agora que TODAS
+ * as entradas viram linha, e não só uma, cada entrada malformada é uma linha
+ * errada à vista — o que sobe o valor destas guardas, não o baixa.
+ *
+ * Duas regras, e a fronteira entre elas é o que interessa:
+ *
+ *  - **Sem período, a entrada CAI.** Uma linha sem datas não se consegue
+ *    etiquetar, e uma linha com um número que não se sabe a que semana pertence
+ *    é exactamente o defeito que esta versão veio corrigir. Exige-se que as duas
+ *    datas se leiam, e não só que não estejam vazias: uma data que o `Date` não
+ *    interpreta também não dá etiqueta nenhuma.
+ *  - **Sem consumo, a entrada FICA, com o consumo a `undefined`.** Um
+ *    `hundredKmEC` a zero é a maneira de a API dizer «não andei nesta semana» —
+ *    as primeiras semanas de um carro entregue de fresco vêm todas a zero — e
+ *    com as datas ao lado o leitor entende-o. O que não se pode escrever é
+ *    «0,0», que afirmava uma eficiência que o carro nunca teve. Um valor
+ *    negativo ou ilegível dá no mesmo: há semana, não há número.
+ */
+export function parseWeeklyConsumption(value: unknown): WeeklyConsumption[] {
+  if (!Array.isArray(value)) return []
+
+  const weeks: WeeklyConsumption[] = []
+  for (const entry of value as unknown[]) {
+    if (entry === null || typeof entry !== 'object') continue
+    const { weekStart, weekEnd, hundredKmEC } = entry as Record<string, unknown>
+    if (!isReadableDate(weekStart) || !isReadableDate(weekEnd)) continue
+
+    const parsed = coerceNumber(hundredKmEC)
+    weeks.push({
+      kwhPer100Km: parsed !== undefined && parsed > 0 ? parsed : undefined,
+      start: weekStart,
+      end: weekEnd,
+    })
+  }
+  return weeks
+}
+
+/**
+ * As três entidades da repartição, pela ordem em que se procuram os kWh.
+ * Qualquer uma serve — carregam todas os mesmos três atributos — e a ordem só
+ * decide quem responde primeiro. Percorrem-se as três, e não só a da condução,
+ * porque quem sobrepôs `entities:` à mão pode ter mapeado apenas uma.
+ */
+const WEEK_ENERGY_KEYS: readonly LogicalKey[] = [
+  'lastWeekDrivingPercent', 'lastWeekClimatePercent', 'lastWeekOtherPercent',
+]
+
+/** Os kWh de uma fatia, da primeira das três entidades que os traga. */
+function weekEnergyKwh(hass: HomeAssistant, map: EntityMap, name: string): number | undefined {
+  for (const key of WEEK_ENERGY_KEYS) {
+    const value = coerceNumber(attr<unknown>(hass, map, key, name))
+    if (value !== undefined) return value
+  }
+  return undefined
+}
+
+function buildWeekEnergy(hass: HomeAssistant, map: EntityMap): WeekEnergy {
+  const driving = {
+    kwh: weekEnergyKwh(hass, map, 'driving_energy_kwh'),
+    percent: num(hass, map, 'lastWeekDrivingPercent'),
+  }
+  const climate = {
+    kwh: weekEnergyKwh(hass, map, 'climate_energy_kwh'),
+    percent: num(hass, map, 'lastWeekClimatePercent'),
+  }
+  const other = {
+    kwh: weekEnergyKwh(hass, map, 'other_energy_kwh'),
+    percent: num(hass, map, 'lastWeekOtherPercent'),
+  }
+
+  // A soma é das fatias que existem, e não uma soma com zeros pelo meio: uma
+  // fatia em falta é uma leitura que não veio, e somá-la como zero fazia o
+  // total afirmar mais do que se sabe. Sem nenhuma fatia não há total.
+  const present = [driving.kwh, climate.kwh, other.kwh].filter((v): v is number => v !== undefined)
+  const totalKwh = present.length > 0 ? present.reduce((a, b) => a + b, 0) : undefined
+
+  return { driving, climate, other, totalKwh }
+}
+
 export function buildVehicleState(hass: HomeAssistant, map: EntityMap, now: Date): VehicleState {
   const battery = num(hass, map, 'batteryPrecise') ?? num(hass, map, 'battery')
 
@@ -216,9 +323,12 @@ export function buildVehicleState(hass: HomeAssistant, map: EntityMap, now: Date
     trip: {
       odometerKm: num(hass, map, 'odometer') ?? num(hass, map, 'totalMileage'),
       last7DaysKm: num(hass, map, 'last7DaysKm'),
-      last7DaysKwh: num(hass, map, 'last7DaysKwh'),
       avgConsumption: num(hass, map, 'avgConsumption6w'),
       totalEnergyKwh: num(hass, map, 'totalEnergy'),
+      // O `state` deste sensor é a média das 6 semanas; a série semana a semana,
+      // que é o que sustenta a média, vem no atributo.
+      weeklyConsumption: parseWeeklyConsumption(attr<unknown>(hass, map, 'avgConsumption6w', 'weekly_consumption')),
+      weekEnergy: buildWeekEnergy(hass, map),
       // Não existe como sensor: deriva-se da energia acumulada a dividir pela
       // quilometragem acumulada. Só quando ambas existem e a distância não é
       // zero — um carro acabado de entregar dividiria por zero.

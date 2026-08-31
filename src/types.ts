@@ -48,6 +48,44 @@ export interface LeapmotorCardConfig {
 export type ChargingPhase = 'unplugged' | 'plugged' | 'charging' | 'complete' | 'scheduled'
 export type Activity = 'parked' | 'driving' | 'ready' | 'unknown'
 
+/**
+ * O consumo reportado de uma semana, com o período que ele cobre. As datas
+ * ficam como as strings do dia que a API manda (`2026-08-24`) e não como
+ * `Date`: quem as escreve é a secção, que já sabe o idioma, e converter aqui
+ * obrigava a escolher um fuso — estas datas são dias de calendário, sem hora.
+ *
+ * **O período é obrigatório; o consumo não.** É ao contrário do que a intuição
+ * sugere, e é de propósito: uma semana sem período não se consegue etiquetar e
+ * não chega a existir como linha — era outra vez um número que o card mostra sem
+ * conseguir explicar, que é o problema que esta versão veio corrigir. Já uma
+ * semana com período e sem consumo tem tudo o que precisa para ser uma linha
+ * honesta: as datas dizem qual é a semana, e o travessão diz que o carro não
+ * andou nela.
+ */
+export interface WeeklyConsumption {
+  kwhPer100Km?: number
+  start: string
+  end: string
+}
+
+/** Uma fatia da energia da semana: os kWh e a percentagem que ela vale. */
+export interface EnergySlice {
+  kwh?: number
+  percent?: number
+}
+
+/**
+ * A energia da última semana repartida. O total é a soma das fatias presentes,
+ * e fica `undefined` — não zero — quando nenhuma delas veio: um zero afirmava
+ * uma semana sem consumo nenhum, que não é o que a ausência de leitura diz.
+ */
+export interface WeekEnergy {
+  driving: EnergySlice
+  climate: EnergySlice
+  other: EnergySlice
+  totalKwh?: number
+}
+
 export interface VehicleState {
   online: boolean
   lastUpdate?: Date
@@ -81,7 +119,20 @@ export interface VehicleState {
   }
   climate: { on?: boolean; interiorC?: number; targetC?: number; mode?: string; recirculating?: boolean }
   tires: Record<'fl' | 'fr' | 'rl' | 'rr', number | undefined>
-  trip: { odometerKm?: number; last7DaysKm?: number; last7DaysKwh?: number; avgConsumption?: number; totalEnergyKwh?: number; lifetimeConsumption?: number }
+  trip: {
+    odometerKm?: number
+    last7DaysKm?: number
+    avgConsumption?: number
+    totalEnergyKwh?: number
+    lifetimeConsumption?: number
+    /**
+     * A série semanal do atributo `weekly_consumption`, na ordem em que a API a
+     * manda: da semana mais antiga para a mais recente. Vazia quando não há
+     * série nenhuma que se consiga ler.
+     */
+    weeklyConsumption: WeeklyConsumption[]
+    weekEnergy: WeekEnergy
+  }
   comfort: {
     driverSeatHeat?: number; driverSeatVent?: number
     passengerSeatHeat?: number; passengerSeatVent?: number

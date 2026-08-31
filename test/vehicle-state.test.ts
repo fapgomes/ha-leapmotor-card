@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { resolveEntities } from '../src/resolver'
-import { buildVehicleState } from '../src/vehicle-state'
-import { fakeHass } from './helpers/fake-hass'
+import { buildVehicleState, parseWeeklyConsumption } from '../src/vehicle-state'
+import { fakeHass, type FakeEntitySpec } from './helpers/fake-hass'
 import { REAL_NOW, realHass } from './fixtures/real-states'
 
 const CONFIG = { type: 'custom:leapmotor-card' }
@@ -299,8 +299,22 @@ describe('buildVehicleState — pneus, viagem, conforto, agendamento', () => {
 
   it('lê a viagem', () => {
     expect(build().trip).toEqual({
-      odometerKm: 659, last7DaysKm: 642, last7DaysKwh: 118, avgConsumption: 20.6, totalEnergyKwh: 131,
+      odometerKm: 659, last7DaysKm: 642, avgConsumption: 20.6, totalEnergyKwh: 131,
       lifetimeConsumption: (131.0 / 661) * 100,
+      weeklyConsumption: [
+        { kwhPer100Km: undefined, start: '2026-07-20', end: '2026-07-26' },
+        { kwhPer100Km: undefined, start: '2026-07-27', end: '2026-08-02' },
+        { kwhPer100Km: undefined, start: '2026-08-03', end: '2026-08-09' },
+        { kwhPer100Km: undefined, start: '2026-08-10', end: '2026-08-16' },
+        { kwhPer100Km: 20.7, start: '2026-08-17', end: '2026-08-23' },
+        { kwhPer100Km: 14.2, start: '2026-08-24', end: '2026-08-30' },
+      ],
+      weekEnergy: {
+        driving: { kwh: 10.4, percent: 96.3 },
+        climate: { kwh: 0.1, percent: 0.9 },
+        other: { kwh: 0.3, percent: 2.8 },
+        totalKwh: 10.4 + 0.1 + 0.3,
+      },
     })
   })
 
@@ -409,5 +423,218 @@ describe('buildVehicleState — recirculação e consumo de sempre', () => {
 
   it('não divide por zero', () => {
     expect(build({ 'sensor/total_mileage_km': '0' }).trip.lifetimeConsumption).toBeUndefined()
+  })
+})
+
+/*
+ * A série `weekly_consumption` é a primeira coisa ESTRUTURADA que este card lê
+ * de um atributo, e vem de uma API da cloud que já se mostrou inconsistente com
+ * os tipos — no mesmo objeto, o `hundredKmEC` vem número e o `hundredMiKwhEC`
+ * vem texto. Daí o parser ser uma função pura testada aqui à parte, com entradas
+ * que nenhum `hass` de teste conseguia produzir de propósito. E como agora
+ * TODAS as entradas da série viram linha, cada uma malformada é uma linha
+ * errada à vista — o que sobe o valor destas guardas, não o baixa.
+ */
+describe('parseWeeklyConsumption', () => {
+  /** A série real do utilizador: carro novo, quatro semanas a zero, duas com uso. */
+  const REAL_SERIES = [
+    { weekStart: '2026-07-20', weekEnd: '2026-07-26', hundredKmEC: 0.0, hundredMiKwhEC: '0.0' },
+    { weekStart: '2026-07-27', weekEnd: '2026-08-02', hundredKmEC: 0.0, hundredMiKwhEC: '0.0' },
+    { weekStart: '2026-08-03', weekEnd: '2026-08-09', hundredKmEC: 0.0, hundredMiKwhEC: '0.0' },
+    { weekStart: '2026-08-10', weekEnd: '2026-08-16', hundredKmEC: 0.0, hundredMiKwhEC: '0.0' },
+    { weekStart: '2026-08-17', weekEnd: '2026-08-23', hundredKmEC: 20.7, hundredMiKwhEC: '6.2' },
+    { weekStart: '2026-08-24', weekEnd: '2026-08-30', hundredKmEC: 14.2, hundredMiKwhEC: '4.3' },
+  ]
+
+  it('devolve as seis semanas da série real, com as quatro primeiras sem consumo', () => {
+    // As quatro primeiras a zero são reais: o carro era novo e não andou. Ficam
+    // como linha — as datas dizem qual é a semana — mas sem número.
+    expect(parseWeeklyConsumption(REAL_SERIES)).toEqual([
+      { kwhPer100Km: undefined, start: '2026-07-20', end: '2026-07-26' },
+      { kwhPer100Km: undefined, start: '2026-07-27', end: '2026-08-02' },
+      { kwhPer100Km: undefined, start: '2026-08-03', end: '2026-08-09' },
+      { kwhPer100Km: undefined, start: '2026-08-10', end: '2026-08-16' },
+      { kwhPer100Km: 20.7, start: '2026-08-17', end: '2026-08-23' },
+      { kwhPer100Km: 14.2, start: '2026-08-24', end: '2026-08-30' },
+    ])
+  })
+
+  it('mantém a ordem da API, do mais antigo para o mais recente', () => {
+    // A ordem é informação: a série lê-se como uma progressão, e invertê-la ou
+    // ordená-la por valor destruía-a.
+    const weeks = parseWeeklyConsumption(REAL_SERIES)
+    expect(weeks.map(w => w.start)).toEqual([
+      '2026-07-20', '2026-07-27', '2026-08-03', '2026-08-10', '2026-08-17', '2026-08-24',
+    ])
+  })
+
+  it('devolve lista vazia para uma lista vazia', () => {
+    expect(parseWeeklyConsumption([])).toEqual([])
+  })
+
+  it('devolve lista vazia para o que não é lista', () => {
+    // O atributo pode simplesmente não existir, ou a API pode mudar de forma
+    // sem avisar — nenhuma destas entradas pode chegar a `render()`.
+    for (const value of [undefined, null, 0, 14.2, 'weekly', {}, { weekly_consumption: [] }, true]) {
+      expect(parseWeeklyConsumption(value), String(value)).toEqual([])
+    }
+  })
+
+  it('mantém as semanas a zero como linhas sem consumo', () => {
+    // Zero é a maneira de a API dizer «não andei nesta semana». A linha fica,
+    // porque tem período; o número não, porque «0,0 kWh/100 km» afirmava uma
+    // eficiência que o carro nunca teve.
+    const weeks = parseWeeklyConsumption(REAL_SERIES.slice(0, 4))
+    expect(weeks).toHaveLength(4)
+    expect(weeks.every(w => w.kwhPer100Km === undefined)).toBe(true)
+  })
+
+  it('a semana corrente a zero não apaga as anteriores', () => {
+    // A semana corrente entra na série antes de o carro andar nela.
+    const series = [...REAL_SERIES, { weekStart: '2026-08-31', weekEnd: '2026-09-06', hundredKmEC: 0.0 }]
+    const weeks = parseWeeklyConsumption(series)
+    expect(weeks).toHaveLength(7)
+    expect(weeks[5]).toEqual({ kwhPer100Km: 14.2, start: '2026-08-24', end: '2026-08-30' })
+    expect(weeks[6]?.kwhPer100Km).toBeUndefined()
+  })
+
+  it('aceita o consumo em texto', () => {
+    // A API já manda o `hundredMiKwhEC` em texto no mesmo objeto em que manda o
+    // `hundredKmEC` em número. Nada garante que não troque os dois.
+    expect(parseWeeklyConsumption([{ weekStart: '2026-08-24', weekEnd: '2026-08-30', hundredKmEC: '14.2' }]))
+      .toEqual([{ kwhPer100Km: 14.2, start: '2026-08-24', end: '2026-08-30' }])
+  })
+
+  it('deixa cair as entradas sem duas datas que se leiam', () => {
+    // Uma linha sem período não se consegue etiquetar, e é essa — um número que
+    // o card mostra sem saber a que semana pertence — a linha que esta versão
+    // veio remover. Exige-se que as datas se LEIAM, e não só que existam.
+    for (const row of [
+      { hundredKmEC: 14.2 },
+      { weekStart: '2026-08-24', hundredKmEC: 14.2 },
+      { weekEnd: '2026-08-30', hundredKmEC: 14.2 },
+      { weekStart: '', weekEnd: '2026-08-30', hundredKmEC: 14.2 },
+      { weekStart: '2026-08-24', weekEnd: '', hundredKmEC: 14.2 },
+      { weekStart: 20260824, weekEnd: 20260830, hundredKmEC: 14.2 },
+      { weekStart: 'a semana passada', weekEnd: '2026-08-30', hundredKmEC: 14.2 },
+    ]) {
+      expect(parseWeeklyConsumption([row]), JSON.stringify(row)).toEqual([])
+    }
+  })
+
+  it('deixa cair as entradas malformadas sem levar as boas atrás', () => {
+    // Agora que TODAS as entradas viram linha, uma entrada malformada é uma
+    // linha errada à vista de quem lê — e não pode calar as vizinhas válidas.
+    const series = [
+      null,
+      'nada',
+      42,
+      { weekStart: '2026-08-17', weekEnd: '2026-08-23', hundredKmEC: 20.7 },
+      { weekStart: 'sem data', weekEnd: 'sem data', hundredKmEC: 9.9 },
+      { weekStart: '2026-08-24', weekEnd: '2026-08-30', hundredKmEC: 14.2 },
+      [],
+    ]
+    expect(parseWeeklyConsumption(series)).toEqual([
+      { kwhPer100Km: 20.7, start: '2026-08-17', end: '2026-08-23' },
+      { kwhPer100Km: 14.2, start: '2026-08-24', end: '2026-08-30' },
+    ])
+  })
+
+  it('um consumo ilegível deixa a linha, mas sem número', () => {
+    // As datas são o que faz a linha; o número é o que ela mostra. Um valor que
+    // não se lê não vale mais do que um zero, e escreve-se da mesma maneira.
+    for (const value of [null, 'muito', { valor: 9 }, Number.NaN, -14.2, []]) {
+      expect(parseWeeklyConsumption([
+        { weekStart: '2026-08-24', weekEnd: '2026-08-30', hundredKmEC: value },
+      ]), String(value)).toEqual([{ kwhPer100Km: undefined, start: '2026-08-24', end: '2026-08-30' }])
+    }
+  })
+
+  it('não atira perante valores que o `Number()` sozinho não aguenta', () => {
+    // `Number(Symbol())` atira, e `Number(null)` devolve 0 — que passaria por
+    // leitura válida se a guarda fosse só `Number.isFinite`. Daí o parser exigir
+    // número ou texto antes de coagir.
+    expect(() => parseWeeklyConsumption([
+      { weekStart: '2026-08-24', weekEnd: '2026-08-30', hundredKmEC: Symbol('14.2') },
+    ])).not.toThrow()
+    expect(parseWeeklyConsumption([
+      { weekStart: '2026-08-24', weekEnd: '2026-08-30', hundredKmEC: Symbol('14.2') },
+    ])[0]?.kwhPer100Km).toBeUndefined()
+  })
+})
+
+describe('buildVehicleState — energia da semana', () => {
+  const SLICE_KWH = { driving_energy_kwh: 10.4, climate_energy_kwh: 0.1, other_energy_kwh: 0.3 }
+
+  /** Um `hass` só com as entidades que o teste nomeia. */
+  function trip(specs: FakeEntitySpec[]) {
+    const hass = fakeHass(specs)
+    return buildVehicleState(hass, resolveEntities(hass, CONFIG).map, REAL_NOW).trip
+  }
+
+  it('lê os kWh de outra das três entidades quando a da condução não está mapeada', () => {
+    // Os três atributos vêm repetidos nas três entidades, e quem sobrepôs
+    // `entities:` à mão pode ter mapeado só uma. A percentagem da condução
+    // falta, mas os kWh dela não: estão no atributo da entidade do clima.
+    const { weekEnergy } = trip([{
+      key: 'sensor/last_week_climate_energy_percent',
+      entity_id: 'sensor.demo_last_week_climate_energy',
+      state: '0.9',
+      unit: '%',
+      attributes: SLICE_KWH,
+    }])
+    expect(weekEnergy.driving).toEqual({ kwh: 10.4, percent: undefined })
+    expect(weekEnergy.climate).toEqual({ kwh: 0.1, percent: 0.9 })
+    expect(weekEnergy.totalKwh).toBeCloseTo(10.8, 10)
+  })
+
+  it('deixa o total undefined, e não zero, quando nenhuma fatia traz kWh', () => {
+    // Zero afirmava uma semana sem consumo nenhum. A ausência de leitura não
+    // afirma isso — nem o contrário.
+    const { weekEnergy } = trip([{
+      key: 'sensor/last_week_driving_energy_percent',
+      entity_id: 'sensor.demo_last_week_driving_energy',
+      state: '96.3',
+      unit: '%',
+    }])
+    expect(weekEnergy.totalKwh).toBeUndefined()
+    expect(weekEnergy.driving).toEqual({ kwh: undefined, percent: 96.3 })
+  })
+
+  it('soma só as fatias que existem', () => {
+    const { weekEnergy } = trip([{
+      key: 'sensor/last_week_driving_energy_percent',
+      entity_id: 'sensor.demo_last_week_driving_energy',
+      state: '96.3',
+      unit: '%',
+      attributes: { driving_energy_kwh: 10.4, other_energy_kwh: 0.3 },
+    }])
+    expect(weekEnergy.climate.kwh).toBeUndefined()
+    expect(weekEnergy.totalKwh).toBeCloseTo(10.7, 10)
+  })
+
+  it('sem nenhuma das três entidades a repartição fica toda vazia', () => {
+    expect(build({
+      'sensor/last_week_driving_energy_percent': 'unavailable',
+      'sensor/last_week_climate_energy_percent': 'unavailable',
+      'sensor/last_week_other_energy_percent': 'unavailable',
+    }).trip.weekEnergy.driving.percent).toBeUndefined()
+  })
+
+  it('uma percentagem indisponível não apaga os kWh dessa fatia', () => {
+    // `unavailable` é o estado da entidade; os atributos continuam lá, e as
+    // outras duas entidades trazem os mesmos kWh de qualquer maneira.
+    const { weekEnergy } = build({ 'sensor/last_week_driving_energy_percent': 'unavailable' }).trip
+    expect(weekEnergy.driving.percent).toBeUndefined()
+    expect(weekEnergy.driving.kwh).toBe(10.4)
+  })
+
+  it('não lê série nenhuma sem o atributo', () => {
+    expect(trip([{
+      key: 'sensor/average_consumption_6w_kwh_100km',
+      entity_id: 'sensor.demo_6_week_average',
+      state: '20.6',
+      unit: 'kWh/100 km',
+    }]).weeklyConsumption).toEqual([])
   })
 })

@@ -1,9 +1,9 @@
-import { LitElement, css, html } from 'lit'
+import { LitElement, css, html, nothing } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
-import { formatNumber } from '../format'
+import { formatNumber, formatWeekRange } from '../format'
 import { DASH, type TranslateFn } from '../localize'
 import { sharedStyles } from '../theme'
-import type { VehicleState } from '../types'
+import type { EnergySlice, VehicleState } from '../types'
 
 interface Row {
   label: string
@@ -11,13 +11,28 @@ interface Row {
 }
 
 /**
- * Um cabeçalho e as linhas que ele cobre. As cinco linhas desta sub-vista
- * misturavam duas coisas — quilómetros andados e energia gasta — e sem a
- * separação era o leitor que tinha de a fazer de cabeça, o que se via sobretudo
- * na linha dos 7 dias, que juntava uma de cada.
+ * Um cabeçalho e as linhas que ele cobre. As linhas desta sub-vista misturavam
+ * coisas de natureza diferente — quilómetros andados e energia gasta — e sem a
+ * separação era o leitor que tinha de a fazer de cabeça.
+ *
+ * O `value` opcional serve o cabeçalho da energia, que leva o total da semana à
+ * direita. Vai no cabeçalho e não numa linha própria porque as três fatias
+ * abaixo são partes dele: uma linha «Total» a fechar repetia, como soma, o que o
+ * título da secção já nomeia, e punha o número mais longe das partes que o
+ * compõem. Os outros dois cabeçalhos não têm total porque não têm um: um
+ * conta-quilómetros e uma média não se somam.
+ *
+ * O `unit` serve o cabeçalho da série semanal, cujas linhas são números nus.
+ * Ocupa a mesma direita, mas com estilo próprio: um total é um valor, uma
+ * unidade é o rótulo da coluna abaixo — e o cabeçalho passa por
+ * `text-transform: uppercase`, que num símbolo de unidade estraga a grafia
+ * («KWH/100 KM»). Por isso é um campo à parte e não texto dentro do `heading`:
+ * a maiúscula é do CSS e não se consegue desligar em parte de um nó de texto.
  */
 interface Section {
   heading: string
+  value?: string
+  unit?: string
   rows: Row[]
 }
 
@@ -25,6 +40,12 @@ interface Section {
 export class LeapmotorTrip extends LitElement {
   @property({ attribute: false }) state!: VehicleState
   @property({ attribute: false }) t!: TranslateFn
+  @property({ type: String }) language = 'en'
+
+  /** As partes que existem, com o separador do card. Nenhuma parte, DASH. */
+  private joined(parts: string[]): string {
+    return parts.length > 0 ? parts.join(' · ') : DASH
+  }
 
   /**
    * A média desde sempre e a energia total são o MESMO facto dito duas vezes: a
@@ -45,11 +66,62 @@ export class LeapmotorTrip extends LitElement {
     const parts: string[] = []
     if (lifetimeConsumption !== undefined) parts.push(`${formatNumber(lifetimeConsumption, 1)} kWh/100 km`)
     if (totalEnergyKwh !== undefined) parts.push(`${formatNumber(totalEnergyKwh, 1)} kWh`)
-    return parts.length > 0 ? parts.join(' · ') : DASH
+    return this.joined(parts)
+  }
+
+  /**
+   * Uma fatia da energia da semana: os kWh e a percentagem, lado a lado. Os dois
+   * números vêm de sítios diferentes — a percentagem é o `state` da entidade, os
+   * kWh são um atributo — e ambos fazem falta: a percentagem diz o peso da fatia
+   * sem dizer quanto é, e os kWh dizem quanto é sem dizer se é muito.
+   */
+  private sliceValue(slice: EnergySlice): string {
+    const parts: string[] = []
+    if (slice.kwh !== undefined) parts.push(`${formatNumber(slice.kwh, 1)} kWh`)
+    if (slice.percent !== undefined) parts.push(`${formatNumber(slice.percent, 1)} %`)
+    return this.joined(parts)
+  }
+
+  /**
+   * A série semanal: uma linha por semana, com o período por etiqueta e o
+   * consumo por valor.
+   *
+   * Ao contrário dos outros três, este bloco não tem um conjunto FIXO de linhas:
+   * as suas linhas são os próprios dados. Isso muda o que fazer quando não há
+   * nada — sem série não há bloco. Um cabeçalho sozinho, sem linha nenhuma
+   * debaixo dele, é o cabeçalho órfão que a doutrina das linhas sempre visíveis
+   * existe para evitar, e não há onde escrever o travessão: uma linha sem
+   * período não se consegue etiquetar. Nos outros três blocos cada linha é uma
+   * pergunta que o card sabe fazer sempre, e o travessão é uma resposta válida.
+   *
+   * A unidade vai no cabeçalho e não em cada linha: repetida seis vezes era
+   * ruído, e é o que o card já faz nos cantos dos pneus, onde o «bar» aparece
+   * uma vez por canto ao lado do número em vez de estar escrito por extenso.
+   * Fica alinhada à direita, em cima da coluna de números que ela rotula.
+   */
+  private weeklySection(): Section | undefined {
+    const weeks = this.state.trip.weeklyConsumption
+    if (weeks.length === 0) return undefined
+
+    return {
+      heading: this.t('trip.heading_weekly'),
+      unit: 'kWh/100 km',
+      rows: weeks.map(week => ({
+        // O travessão nunca deve acontecer: o parser deixa cair as semanas com
+        // datas que não se leem, precisamente para toda a linha ter etiqueta.
+        // Fica como rede, porque é a resposta do card para «não há nada aqui».
+        label: formatWeekRange(week.start, week.end, this.language) ?? DASH,
+        // Uma semana a zero é uma semana em que o carro não andou, e é isso que
+        // o travessão diz. «0,0» dizia que ele andou sem gastar nada.
+        value: week.kwhPer100Km !== undefined ? formatNumber(week.kwhPer100Km, 1) : DASH,
+      })),
+    }
   }
 
   private sections(): Section[] {
     const trip = this.state.trip
+    const energy = trip.weekEnergy
+    const weekly = this.weeklySection()
     return [
       {
         heading: this.t('trip.heading_distance'),
@@ -72,31 +144,20 @@ export class LeapmotorTrip extends LitElement {
             value: trip.avgConsumption !== undefined ? `${formatNumber(trip.avgConsumption, 1)} kWh/100 km` : DASH,
           },
           { label: this.t('trip.lifetime'), value: this.lifetimeValue() },
-          {
-            /*
-             * NÃO juntar esta energia aos 84 km dos «Últimos 7 dias», e NÃO
-             * dividir uma pela outra para tirar uma média do período. Os dois
-             * números não são um par: na integração, o
-             * `last_7_days_mileage_km` é o `totalAccumulatedMileage` que a API
-             * devolve já somado, enquanto o `last_7_days_energy_kwh` é uma soma
-             * feita sobre a lista `detail`, dia a dia, por um ajudante que SALTA
-             * os dias em que o campo não vem (`if value is None: continue`).
-             *
-             * Os números do utilizador confirmam-no: 4,0 kWh ao ritmo de 19,6
-             * kWh/100 km dele dão cerca de 20 km, contra os 84 km da mesma
-             * semana. A energia cobre um subconjunto dos dias. Escrita ao lado
-             * dos quilómetros — «84 km · 4,0 kWh» — prometia um período comum
-             * que ela não tem, e dividi-las fabricaria uma média que nenhum dos
-             * dois lados sustenta.
-             *
-             * Daí a linha própria, sob CONSUMO, e uma etiqueta que não promete
-             * período nenhum: «Energia registada» é tudo o que se sabe dela.
-             */
-            label: this.t('trip.energy_logged'),
-            value: trip.last7DaysKwh !== undefined ? `${formatNumber(trip.last7DaysKwh, 1)} kWh` : DASH,
-          },
         ],
       },
+      {
+        heading: this.t('trip.heading_week_energy'),
+        value: energy.totalKwh !== undefined ? `${formatNumber(energy.totalKwh, 1)} kWh` : DASH,
+        rows: [
+          { label: this.t('trip.energy_driving'), value: this.sliceValue(energy.driving) },
+          { label: this.t('trip.energy_climate'), value: this.sliceValue(energy.climate) },
+          { label: this.t('trip.energy_other'), value: this.sliceValue(energy.other) },
+        ],
+      },
+      // A série vai em último: é a coisa mais detalhada e menos urgente da
+      // sub-vista, e são seis linhas onde as outras são duas ou três.
+      ...(weekly ? [weekly] : []),
     ]
   }
 
@@ -106,11 +167,28 @@ export class LeapmotorTrip extends LitElement {
      * linhas também aparecem sempre — um valor em falta escreve-se DASH, não se
      * esconde — e um cabeçalho existe para dizer o que as linhas abaixo dele
      * são. Escondê-lo deixava linhas órfãs, que é o problema que ele resolve.
+     *
+     * Vale também para o bloco da energia, que num carro que não reporte a
+     * repartição são quatro linhas seguidas em DASH. Esconder só este bloco
+     * fazia da sub-vista duas coisas ao mesmo tempo: uma que diz o que não sabe
+     * e outra que cala. E o argumento para o esconder — poupar linhas vazias —
+     * vale exactamente o mesmo para os outros dois, que o card já decidiu
+     * mostrar. Quem não tem estas entidades já é avisado pelo aviso de entidades
+     * em falta, e um grupo sem entidade nenhuma resolvida nem chega à grelha.
+     *
+     * O bloco da série semanal é a única excepção, e é-o por não ter linhas
+     * fixas: sem série não há linha nenhuma para escrever o travessão, e a
+     * regra passa a produzir um cabeçalho órfão em vez de evitar um. Ver o
+     * `weeklySection`.
      */
     return html`<div class="panel">
       <div class="title">${this.t('trip.title')}</div>
       ${this.sections().map(section => html`
-        <div class="heading muted">${section.heading}</div>
+        <div class="heading muted">
+          <span>${section.heading}</span>
+          ${section.value !== undefined ? html`<span class="total">${section.value}</span>` : nothing}
+          ${section.unit !== undefined ? html`<span class="unit">${section.unit}</span>` : nothing}
+        </div>
         ${section.rows.map(row => html`
           <div class="line"><span class="muted">${row.label}</span><span>${row.value}</span></div>
         `)}
@@ -134,10 +212,27 @@ export class LeapmotorTrip extends LitElement {
      * comentários, que não contam para a adjacência.
      */
     .heading {
+      display: flex; justify-content: space-between; gap: 12px; align-items: baseline;
       font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em;
       font-weight: 600; margin: 12px 0 2px;
     }
     .title + .heading { margin-top: 0; }
+    /*
+     * O total sai da escala do cabeçalho que o transporta: em maiúsculas,
+     * minúsculo e esbatido, «10,8 kWh» lia-se como um adorno do título e não
+     * como o número que ele é. Fica com o corpo e a cor das linhas de valor
+     * abaixo, que é o que ele é — a soma delas.
+     */
+    .heading .total {
+      font-size: 0.9rem; text-transform: none; letter-spacing: normal;
+      font-weight: 600; color: var(--lm-text);
+    }
+    /*
+     * A unidade fica na escala do cabeçalho — é rótulo, não valor — mas sem a
+     * maiúscula, que num símbolo de unidade estraga a grafia: kWh não é KWH.
+     * (Sem acentos graves nesta zona: o bloco é um template literal de CSS.)
+     */
+    .heading .unit { text-transform: none; letter-spacing: normal; font-weight: 400; }
     .line { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 0.9rem; }
   `]
 }

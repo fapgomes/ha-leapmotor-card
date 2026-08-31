@@ -16,6 +16,32 @@ export function formatDayLabel(d: Date, now: Date, t: TranslateFn, language: str
   return new Intl.DateTimeFormat(language, { day: '2-digit', month: 'short' }).format(d)
 }
 
+/**
+ * O período de uma semana, escrito no idioma do card: `24 – 30 de ago.` em
+ * português, `Aug 24 – 30` em inglês. Devolve `undefined` quando alguma das
+ * datas não se lê, para que quem chama possa etiquetar sem período em vez de
+ * escrever um `Invalid Date`.
+ *
+ * Duas escolhas que não são óbvias:
+ *
+ *  - **`formatRange`, e não duas datas coladas.** É ele que sabe colapsar o mês
+ *    repetido — juntar `Intl.format()` de cada ponta dava `Aug 24 – Aug 30` em
+ *    inglês e um mês a mais em português. As opções são as do `formatDayLabel`
+ *    logo acima, dia e mês curto, para o card não inventar aqui uma escala de
+ *    data que não usa em mais sítio nenhum.
+ *  - **`timeZone: 'UTC'`.** A API manda dias de calendário (`2026-08-24`), que
+ *    o `Date` lê como meia-noite UTC. Formatados no fuso do leitor, num fuso a
+ *    ocidente de Greenwich passavam todos para o dia anterior — a semana de
+ *    24–30 aparecia a alguém como 23–29.
+ */
+export function formatWeekRange(start: string, end: string, language: string): string | undefined {
+  const from = new Date(start)
+  const to = new Date(end)
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return undefined
+  return new Intl.DateTimeFormat(language, { day: '2-digit', month: 'short', timeZone: 'UTC' })
+    .formatRange(from, to)
+}
+
 export function formatUpdated(d: Date | undefined, now: Date, t: TranslateFn, language: string): string {
   if (!d) return DASH
   return t('updated', { time: `${formatTimeOfDay(d, language)} ${formatDayLabel(d, now, t, language)}` })

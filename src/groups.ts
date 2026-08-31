@@ -67,7 +67,10 @@ export const GROUP_CATALOGUE: Record<GroupId, GroupDef> = {
     titleKey: 'group.trip',
     summaries: ['odometer', 'last7', 'consumption'],
     panels: ['trip'],
-    keys: ['odometer', 'last7DaysKm', 'last7DaysKwh', 'avgConsumption6w', 'totalEnergy'],
+    keys: [
+      'odometer', 'last7DaysKm', 'avgConsumption6w', 'totalEnergy',
+      'lastWeekDrivingPercent', 'lastWeekClimatePercent', 'lastWeekOtherPercent',
+    ],
   },
   location: {
     id: 'location',

@@ -585,7 +585,7 @@ export class LeapmotorCard extends LitElement {
         case 'tires':
           return html`<leapmotor-tires .state=${state} .t=${t} .limits=${tireRange}></leapmotor-tires>`
         case 'trip':
-          return html`<leapmotor-trip .state=${state} .t=${t}></leapmotor-trip>`
+          return html`<leapmotor-trip .state=${state} .t=${t} .language=${language}></leapmotor-trip>`
         case 'location':
           return html`<leapmotor-location
             .state=${state} .t=${t} .mapElement=${this._mapElement}

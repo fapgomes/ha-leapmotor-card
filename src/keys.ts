@@ -85,9 +85,18 @@ export const ENTITY_KEYS = {
   odometer: { domain: 'sensor', tk: 'odometer_km' },
   totalMileage: { domain: 'sensor', tk: 'total_mileage_km' },
   last7DaysKm: { domain: 'sensor', tk: 'last_7_days_mileage_km' },
-  last7DaysKwh: { domain: 'sensor', tk: 'last_7_days_energy_kwh' },
   avgConsumption6w: { domain: 'sensor', tk: 'average_consumption_6w_kwh_100km' },
   totalEnergy: { domain: 'sensor', tk: 'total_energy_kwh' },
+  /*
+   * As três fatias da energia da última semana. O `state` de cada uma é a sua
+   * percentagem do total, mas os kWh não estão repartidos por entidade: as três
+   * carregam TODAS os mesmos três atributos (`driving_energy_kwh`,
+   * `climate_energy_kwh`, `other_energy_kwh`). Daí o card precisar das três
+   * chaves — uma por percentagem — e de qualquer uma delas para os kWh.
+   */
+  lastWeekDrivingPercent: { domain: 'sensor', tk: 'last_week_driving_energy_percent' },
+  lastWeekClimatePercent: { domain: 'sensor', tk: 'last_week_climate_energy_percent' },
+  lastWeekOtherPercent: { domain: 'sensor', tk: 'last_week_other_energy_percent' },
 
   // conforto
   driverSeatHeat: { domain: 'number', tk: 'driver_seat_heating' },
