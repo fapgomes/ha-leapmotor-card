@@ -5,6 +5,29 @@ Every notable change to this project is recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.4] — 2026-08-31
+
+### Added
+
+- The Trip sub-view shows where the week's energy went: driving, climate and
+  everything else, each in kWh and as a share of the total, with the total
+  itself in the heading. Those figures were already in the integration — the
+  percentages as entity states, the kWh as attributes on the same entities —
+  and the card had never read them.
+- A weekly consumption series, one row per week with its own dates. It comes
+  from an attribute on the six-week average entity, so it is what the car
+  reports rather than anything the card derives. A week the car did not move
+  shows `—`: the API reports zero for it, and printing 0.0 kWh/100 km would
+  claim an efficiency no car achieved.
+
+### Removed
+
+- The "Energy logged" row. It showed a figure the integration builds by summing
+  a per-day list while skipping the days where the field is absent — for a real
+  car it covered about two days out of seven — and the number of days it
+  actually spans is not exposed, so the row could not be labelled truthfully.
+  The `last7DaysKwh` logical name goes with it; `last7DaysKm` stays.
+
 ## [0.4.3] — 2026-08-30
 
 ### Changed
