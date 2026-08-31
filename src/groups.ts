@@ -4,22 +4,22 @@ import { DASH, formatDuration, type TranslateFn } from './localize'
 import type { EntityMap, GridEntry, GroupId, LeapmotorCardConfig, PanelId, VehicleState } from './types'
 
 /**
- * O que define um grupo da grelha. Vive em código, e não na configuração: um
- * grupo é um conjunto das secções que já existem, e o utilizador escolhe quais
- * e em que ordem — não inventa grupos novos. Ver spec §3.1.
+ * What defines a grid group. Lives in code, not in configuration: a group
+ * is a set of the sections that already exist, and the user chooses which
+ * ones and in what order — they do not invent new groups. See spec §3.1.
  */
 export interface GroupDef {
   id: GroupId
   icon: string
   titleKey: string
-  /** Os resumos possíveis. **O primeiro é o da omissão.** */
+  /** The possible summaries. **The first one is the default.** */
   summaries: readonly string[]
-  /** As secções que a sub-vista instancia, pela ordem em que aparecem. */
+  /** The sections the sub-view instantiates, in the order they appear. */
   panels: readonly PanelId[]
   /**
-   * As chaves lógicas que o grupo consome. Servem duas perguntas: o grupo tem
-   * alguma coisa para mostrar (pelo menos uma resolvida), e que chaves em falta
-   * vale a pena reportar (`missingForGroups`).
+   * The logical keys the group consumes. They serve two questions: does the
+   * group have anything to show (at least one resolved), and which missing
+   * keys are worth reporting (`missingForGroups`).
    */
   keys: readonly LogicalKey[]
 }
@@ -82,28 +82,28 @@ export const GROUP_CATALOGUE: Record<GroupId, GroupDef> = {
   },
 }
 
-/** A ordem da grelha por omissão. */
+/** The default grid order. */
 export const GROUP_ORDER: readonly GroupId[] = [
   'charging', 'status', 'climate', 'tires', 'trip', 'location',
 ]
 
 export interface ResolvedGroup {
   id: GroupId
-  /** Já com a sobreposição do utilizador aplicada, se houver. */
+  /** Already with the user's override applied, if any. */
   icon: string
   titleKey: string
-  /** Um título literal escrito pelo utilizador. Não passa por `t()`. */
+  /** A literal title written by the user. Does not go through `t()`. */
   titleOverride?: string
-  /** O resumo a mostrar, já validado contra os do grupo. */
+  /** The summary to show, already validated against the group's. */
   summary: string
   def: GroupDef
 }
 
 export interface GridResolution {
   groups: ResolvedGroup[]
-  /** Os nomes escritos no `grid:` que não são grupos. */
+  /** The names written in `grid:` that are not groups. */
   unknown: string[]
-  /** Verdadeiro quando o `grid:` foi escrito, falso quando é a omissão. */
+  /** True when `grid:` was written, false when it is the default. */
   explicit: boolean
 }
 
@@ -125,11 +125,12 @@ export function resolveGrid(config: LeapmotorCardConfig, map: EntityMap): GridRe
     if (seen.has(def.id)) continue
     seen.add(def.id)
 
-    // Um grupo da grelha POR OMISSÃO sem nenhuma entidade resolvível não
-    // aparece: configuração zero mostra o que este carro dá, e não uma lista
-    // de sub-vistas vazias. Escrito à mão no `grid:`, fica — e o aviso de
-    // entidades em falta encarrega-se de dizer que está vazio, porque sumir
-    // com ele era esconder um erro de quem configurou. Ver spec §5.6.
+    // A grid group by DEFAULT with no resolvable entity does not appear:
+    // zero configuration shows what this car offers, and not a list of
+    // empty sub-views. Written by hand in `grid:`, it stays — and the
+    // missing-entities warning takes care of saying it is empty, because
+    // making it disappear would hide a mistake by whoever configured it.
+    // See spec §5.6.
     if (!explicit && !def.keys.some(key => map[key] !== undefined)) continue
 
     const summary = entry.summary !== undefined && def.summaries.includes(entry.summary)
@@ -150,9 +151,9 @@ export function resolveGrid(config: LeapmotorCardConfig, map: EntityMap): GridRe
 }
 
 /**
- * Das chaves em falta que o resolvedor reportou, as que algum grupo da grelha
- * pede de facto. Sem este filtro, o aviso nomeava entidades de secções que o
- * utilizador não pôs na grelha.
+ * Of the missing keys the resolver reported, the ones some grid group
+ * actually asks for. Without this filter, the warning named entities from
+ * sections the user did not put in the grid.
  */
 export function missingForGroups(groups: ResolvedGroup[], missing: LogicalKey[]): LogicalKey[] {
   const wanted = new Set<LogicalKey>(groups.flatMap(group => [...group.def.keys]))
@@ -160,11 +161,11 @@ export function missingForGroups(groups: ResolvedGroup[], missing: LogicalKey[])
 }
 
 /**
- * A altura do card em unidades de masonry do Home Assistant (~50px cada), a
- * partir do número de grupos na grelha. A base de 6 é o hero com foto mais a
- * fila de ações; cada linha da grelha leva dois tiles e mede ~70px, ou seja 1,5
- * unidades — contá-la como 1 subestimava o card, e o HA equilibra as colunas
- * uma só vez com este número.
+ * The card's height in Home Assistant masonry units (~50px each), from the
+ * number of groups in the grid. The base of 6 is the hero with photo plus
+ * the actions row; each grid row carries two tiles and measures ~70px, that
+ * is 1.5 units — counting it as 1 underestimated the card, and HA balances
+ * the columns only once, using this number.
  */
 export function estimateCardSize(groupCount: number): number {
   return 6 + Math.ceil(Math.ceil(groupCount / 2) * 1.5)
@@ -177,12 +178,12 @@ const TIRE_CORNERS = [
   { key: 'rr', labelKey: 'tires.corner_rr' },
 ] as const
 
-/** Os pneus com leitura válida, do mais baixo para o mais alto. */
+/** The tires with a valid reading, from lowest to highest. */
 function sortedTires(state: VehicleState): { value: number; labelKey: string }[] {
   return TIRE_CORNERS
-    // O `labelKey` explícito como `string` larga a união de literais do
-    // `as const`: sem isto o predicado do `filter` seguinte não tipifica —
-    // não pode estreitar `labelKey` de um literal para `string`.
+    // The explicit `labelKey` as `string` drops the `as const`'s literal
+    // union: without this the following `filter`'s predicate does not
+    // typecheck — it cannot narrow `labelKey` from a literal to `string`.
     .map((corner): { value: number | undefined; labelKey: string } => ({ value: state.tires[corner.key], labelKey: corner.labelKey }))
     .filter((entry): entry is { value: number; labelKey: string } => entry.value !== undefined)
     .sort((a, b) => a.value - b.value)
@@ -209,8 +210,9 @@ function statusSummary(group: ResolvedGroup, state: VehicleState, t: TranslateFn
   switch (group.summary) {
     case 'openings': {
       const { openCount } = state.openings
-      // «Tudo fechado» é uma afirmação, e um zero não a sustenta sozinho: só
-      // vale se houver pelo menos uma leitura de abertura por trás dele.
+      // "Tudo fechado" is an assertion, and a zero does not support it on
+      // its own: it only holds if there is at least one opening reading
+      // behind it.
       if (openCount === 0 && areOpeningsUnknown(state.openings)) return DASH
       if (openCount === 0) return t('openings.all_closed')
       if (openCount === 1) return t('openings.open_one')
@@ -218,14 +220,15 @@ function statusSummary(group: ResolvedGroup, state: VehicleState, t: TranslateFn
     }
     case 'trunk':
       if (state.openings.trunk === undefined) return DASH
-      // A bagageira é feminina: «Aberta», e não o «Aberto» que serve o teto. O
-      // par `_fem` existe só por isto, e em inglês diz a mesma palavra que o
-      // masculino — ver o comentário do `boolValue` em `sections/openings.ts`.
+      // The trunk is grammatically feminine in Portuguese: "Aberta", and not
+      // the "Aberto" that serves the roof. The `_fem` pair exists only for
+      // this, and in English it says the same word as the masculine form —
+      // see the `boolValue` comment in `sections/openings.ts`.
       return t(state.openings.trunk ? 'openings.open_fem' : 'openings.closed_fem')
     default: {
       const { locked } = state.lock
-      // `doors_unknown` é «Portas», uma etiqueta — servia de valor por
-      // acidente, e o resumo do tile pede um valor.
+      // `doors_unknown` is "Portas", a label — it served as a value by
+      // accident, and the tile's summary calls for a value.
       if (locked === undefined) return DASH
       return t(locked ? 'doors_locked' : 'doors_unlocked')
     }
@@ -252,9 +255,9 @@ function tiresSummary(group: ResolvedGroup, state: VehicleState, t: TranslateFn)
     case 'min':
       return `${formatNumber(lowest.value, 1)} bar`
     case 'worst':
-      // O canto vai com o número: saber que está baixo sem saber qual é
-      // obriga a abrir a sub-vista, que é precisamente o que o resumo
-      // existe para evitar.
+      // The corner goes with the number: knowing it is low without knowing
+      // which one forces opening the sub-view, which is precisely what the
+      // summary exists to avoid.
       return `${formatNumber(lowest.value, 1)} bar ${t(lowest.labelKey)}`
     default: {
       const highest = sorted[sorted.length - 1]!
@@ -283,25 +286,25 @@ function locationSummary(group: ResolvedGroup, state: VehicleState, t: Translate
     case 'age':
       return state.location?.ageSeconds === undefined ? DASH : formatAgo(state.location.ageSeconds, t)
     default:
-      // `activity.unknown` não existe no catálogo, de propósito: não se anuncia
-      // uma atividade que não se conhece.
+      // `activity.unknown` deliberately does not exist in the catalog: an
+      // activity that is not known is not announced.
       return state.activity === 'unknown' ? DASH : t(`activity.${state.activity}`)
   }
 }
 
 /**
- * O texto que o tile do grupo mostra debaixo do título. O `group.summary` já
- * vem validado pelo `resolveGrid` — nenhum destes `switch` precisa de tratar um
- * resumo que não seja do grupo, e o `default` de cada um é o resumo por
- * omissão, que é o primeiro da lista do catálogo.
+ * The text the group's tile shows below the title. `group.summary` already
+ * comes validated by `resolveGrid` — none of these `switch` statements need
+ * to handle a summary that is not the group's, and each one's `default` is
+ * the default summary, which is the first one in the catalog's list.
  */
 export function summaryFor(
   group: ResolvedGroup, state: VehicleState, t: TranslateFn, language: string,
 ): string {
-  // Um carro que não reportou nada não tem resumos: sem esta guarda, cada
-  // secção inventava o seu próprio zero — «tudo fechado», «desligado» — e
-  // afirmava factos que o card não conhece. O `alertFor` já fazia o mesmo.
-  // Ver spec §4.2 e §9.
+  // A car that has not reported anything has no summaries: without this
+  // guard, each section invented its own zero — "tudo fechado", "desligado"
+  // — and asserted facts the card does not know. `alertFor` already did the
+  // same. See spec §4.2 and §9.
   if (!state.online) return DASH
 
   switch (group.id) {
@@ -317,16 +320,18 @@ export function summaryFor(
 export type AlertLevel = 'none' | 'warn' | 'alert'
 
 /**
- * O nível de alerta do tile de um grupo. Três regras que valem a pena fixar
- * aqui, porque nenhuma delas é óbvia:
+ * A group tile's alert level. Three rules worth pinning down here, because
+ * none of them is obvious:
  *
- *  - **Offline não alerta.** Ausência de leitura não é problema; um card que
- *    ficasse todo âmbar ao perder a ligação à cloud ensinava a ignorá-lo.
- *  - **Trancas obsoletas não alertam.** O card já distingue `lock.stale`, e
- *    uma leitura velha é uma leitura velha, não um carro aberto. As aberturas
- *    são leituras independentes e continuam a avisar.
- *  - **A carga não tem alerta.** Usa `batteryColor()`, que já dá verde, âmbar
- *    e vermelho por percentagem — a semântica certa, já escrita.
+ *  - **Offline does not alert.** Absence of a reading is not a problem; a
+ *    card that turned all amber upon losing its connection to the cloud
+ *    would teach people to ignore it.
+ *  - **Stale locks do not alert.** The card already distinguishes
+ *    `lock.stale`, and an old reading is an old reading, not an unlocked
+ *    car. The openings are independent readings and keep warning.
+ *  - **Charging has no alert.** Uses `batteryColor()`, which already gives
+ *    green, amber and red by percentage — the right semantics, already
+ *    written.
  */
 export function alertFor(
   group: ResolvedGroup, state: VehicleState, tireRange: readonly [number, number],

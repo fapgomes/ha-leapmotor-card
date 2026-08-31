@@ -37,15 +37,15 @@ import './sections/trip'
 import './sections/comfort'
 import './sections/schedule'
 
-export const CARD_VERSION = '0.4.5'
+export const CARD_VERSION = '0.4.6'
 
 /**
- * Tempo de espera antes de enviar a temperatura. `leapmotor.set_climate` não é
- * um setpoint: cada envio é um comando que liga a climatização. Sem este
- * agrupamento, três toques no «+» seriam três chamadas à cloud. Vive aqui, não
- * no painel de clima, porque o card sobrevive ao colapso do painel — o painel
- * é destruído no toque seguinte no tile e um `setTimeout` seu nunca chegaria a
- * disparar (spec v2, achado 3).
+ * Wait time before sending the temperature. `leapmotor.set_climate` is not
+ * a setpoint: each send is a command that turns on the climate control.
+ * Without this grouping, three taps on the "+" would be three calls to the
+ * cloud. It lives here, not in the climate panel, because the card survives
+ * the panel's collapse — the panel is destroyed on the next tap on the tile,
+ * and a `setTimeout` of its own would never get to fire (spec v2, finding 3).
  */
 const CLIMATE_SEND_DELAY_MS = 1200
 
@@ -65,9 +65,9 @@ console.info(
 })
 
 /**
- * As chaves cuja falta se reporta sempre, independentemente da grelha: sem
- * bateria e sem trancas o card não tem nada para dizer, mesmo com a grelha
- * vazia. As chaves de cada grupo vêm do catálogo, via `missingForGroups`.
+ * The keys whose absence is always reported, regardless of the grid: without
+ * battery and without locks the card has nothing to say, even with an empty
+ * grid. Each group's keys come from the catalog, via `missingForGroups`.
  */
 const CORE_KEYS: LogicalKey[] = ['battery', 'lock']
 
@@ -79,28 +79,30 @@ export class LeapmotorCard extends LitElement {
   @internalState() private _fallback?: HassEntityDisplayEntry[]
   @internalState() private _expanded?: ExpandPanel
   @internalState() private _openGroup?: GroupId
-  /** O grupo a quem devolver o foco depois de fechar. Ver spec §4.5. */
+  /** The group to return focus to after closing. See spec §4.5. */
   private _focusGroup?: GroupId
   /**
-   * Tudo o que o card sabe sobre a climatização e o carro não reporta: o que o
-   * utilizador pediu e ainda não foi confirmado (com a leitura que o carro dava
-   * em cada pedido, ver `pendingValue`) e a velocidade da ventoinha, que a
-   * integração não expõe de todo. Vive aqui, e não no painel, porque o painel é
-   * destruído sempre que o tile colapsa: um pedido guardado lá desaparecia com
-   * ele, o comando seguinte caía na leitura antiga e desfazia em silêncio o que
-   * o utilizador tinha acabado de pedir — e a ventoinha voltava a 3, que é o
-   * defeito com que o `set_climate` repõe o que não for enviado. Não é limpo
-   * depois de enviado: só o carro resolve um pedido, confirmando-o ou
-   * reportando outra coisa.
+   * Everything the card knows about climate control that the car does not
+   * report: what the user requested and has not yet been confirmed (along
+   * with the reading the car gave at the moment of each request, see
+   * `pendingValue`) and the fan speed, which the integration does not expose
+   * at all. It lives here, and not in the panel, because the panel is
+   * destroyed every time the tile collapses: a request stored there would
+   * vanish with it, the next command would fall back on the stale reading
+   * and silently undo what the user had just asked for — and the fan would
+   * go back to 3, which is the default `set_climate` restores for whatever
+   * is not sent. It is not cleared after being sent: only the car resolves a
+   * request, either confirming it or reporting something else.
    */
   private _climateIntent: ClimateIntent = { fanSpeed: DEFAULT_FAN_SPEED }
   /**
-   * Os níveis de assento pedidos e ainda não confirmados, pela mesma razão e
-   * com a mesma disciplina do `_climateIntent`: quem os guardava era o painel,
-   * e nada os apagava depois de resolvidos — um aquecimento que se desligasse
-   * sozinho fazia o pedido antigo voltar a valer, o pino ficava a mostrar um
-   * nível que o banco já não tinha, e o toque seguinte saltava um nível. A
-   * regra de vida de um pedido é uma só, e vive num sítio só.
+   * The seat levels requested and not yet confirmed, for the same reason and
+   * with the same discipline as `_climateIntent`: the panel used to store
+   * them, and nothing cleared them once resolved — a heating that switched
+   * itself off made the old request take effect again, the pin ended up
+   * showing a level the seat no longer had, and the next tap skipped a
+   * level. A request's lifecycle rule is a single one, and it lives in a
+   * single place.
    */
   private _seatRequests: SeatRequests = {}
 
@@ -113,9 +115,9 @@ export class LeapmotorCard extends LitElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback()
-    // O card só é destruído com a vista inteira do dashboard, ao contrário do
-    // painel de clima (destruído a cada colapso do tile) — um envio pendente
-    // aqui é muito menos provável de se perder. Mesmo assim, cancela-o.
+    // The card is only destroyed along with the whole dashboard view, unlike
+    // the climate panel (destroyed on every tile collapse) — a pending send
+    // here is much less likely to be lost. Even so, cancel it.
     if (this._climateTimer !== undefined) {
       window.clearTimeout(this._climateTimer)
       this._climateTimer = undefined
@@ -145,12 +147,13 @@ export class LeapmotorCard extends LitElement {
     this._fallbackRequested = false
     this._fallback = undefined
     this._resolveCache = undefined
-    // Tudo o que se segue pertencia ao carro anterior. Sem isto, mudar `device`
-    // no editor deixava o mapa a marcar o carro de antes (o `ensureMap` sai
-    // logo à entrada por causa do `_mapRequested`) e mostrava os pedidos por
-    // confirmar de um carro como se fossem do outro.
+    // Everything that follows belonged to the previous car. Without this,
+    // changing `device` in the editor left the map pinning the old car
+    // (`ensureMap` bails out right at the start because of `_mapRequested`)
+    // and showed one car's unconfirmed requests as if they belonged to the
+    // other.
     if (this._climateTimer !== undefined) {
-      // Um «+» dado no carro A tinha 1200 ms para disparar contra o carro B.
+      // A "+" tapped on car A had 1200 ms in which to fire against car B.
       window.clearTimeout(this._climateTimer)
       this._climateTimer = undefined
     }
@@ -167,17 +170,19 @@ export class LeapmotorCard extends LitElement {
   }
 
   /**
-   * A altura que a vista de secções do HA reserva. Já não soma secção a secção
-   * porque já não há uma coluna de secções: a conta vive no `estimateCardSize`,
-   * que é puro e testado, e aqui fica só a contagem dos grupos.
+   * The height that the HA sections view reserves. It no longer adds section
+   * by section because there is no longer a column of sections: the
+   * calculation lives in `estimateCardSize`, which is pure and tested, and
+   * here only the group count remains.
    */
   public getCardSize(): number {
     const config = this._config
     const result = this.resolved()
     const resolved = config && result && !result.error && !result.needsFallback
-    // Sem resolução ainda não se sabe que grupos o carro dá, mas sabe-se
-    // quantos foram pedidos — e responder pela linha de carregamento fazia o
-    // masonry equilibrar as colunas com um card que ia crescer.
+    // Without a resolution yet, it isn't known which groups the car exposes,
+    // but it is known how many were requested — and reporting the size of
+    // the loading line made the masonry balance the columns around a card
+    // that was about to grow.
     const count = resolved
       ? resolveGrid(config, result.map).groups.length
       : (config?.grid?.length ?? GROUP_ORDER.length)
@@ -185,18 +190,19 @@ export class LeapmotorCard extends LitElement {
   }
 
   /**
-   * Cria o card `map` do Home Assistant e guarda-o. Só o elemento principal
-   * pode fazer isto, porque um card do HA precisa de `hass` e as secções não o
-   * podem ver. A secção recebe o elemento já construído.
+   * Creates the Home Assistant `map` card and stores it. Only the main
+   * element can do this, because an HA card needs `hass` and the sections
+   * cannot see it. The section receives the already-built element.
    *
-   * `loadCardHelpers` é um global semi-público do frontend do HA. Se não
-   * existir, ou se falhar, ficamos sem `_mapElement` e a secção mostra o seu
-   * texto de recurso — o card não parte por causa disto.
+   * `loadCardHelpers` is a semi-public global of the HA frontend. If it does
+   * not exist, or if it fails, we are left without `_mapElement` and the
+   * section shows its fallback text — the card does not break because of
+   * this.
    *
-   * Chamado a cada `render()`, por isso o `_mapRequested` só pode cair quando
-   * o pedido realmente muda — entidade ou zoom — nunca a cada actualização de
-   * estado, ou o mapa seria destruído e reconstruído sem necessidade nenhuma
-   * (ver `mapRequestChanged`, testada sem DOM em `types.ts`).
+   * Called on every `render()`, so `_mapRequested` may only fall when the
+   * request actually changes — entity or zoom — never on every state
+   * update, or the map would be destroyed and rebuilt for no reason at all
+   * (see `mapRequestChanged`, tested without a DOM in `types.ts`).
    */
   private ensureMap(entityId: string): void {
     const request: MapRequest = { entityId, zoom: clampMapZoom(this._config?.map_zoom) }
@@ -213,10 +219,11 @@ export class LeapmotorCard extends LitElement {
     if (!loader) return
     loader()
       .then(helpers => {
-        // Um pedido mais recente pode ter chegado enquanto este estava no ar
-        // (ex.: o zoom mudou outra vez antes deste `then` correr). Sem este
-        // guarda, a resposta atrasada do pedido antigo substituía o mapa
-        // correcto pelo mapa com o zoom de há um momento.
+        // A more recent request may have arrived while this one was in
+        // flight (e.g., the zoom changed again before this `then` ran).
+        // Without this guard, the delayed response from the old request
+        // would replace the correct map with the map at the zoom from a
+        // moment ago.
         if (this._mapRequest !== request) return
         const el = helpers.createCardElement({
           type: 'map',
@@ -229,7 +236,7 @@ export class LeapmotorCard extends LitElement {
         this._mapElement = el
         this.requestUpdate()
       })
-      .catch(() => { /* a secção mostra location.map_unavailable */ })
+      .catch(() => { /* the section shows location.map_unavailable */ })
   }
 
   private resolved(): ResolveResult | undefined {
@@ -262,17 +269,19 @@ export class LeapmotorCard extends LitElement {
     t: TranslateFn,
     payload?: ActionPayload,
   ) {
-    // Quem decide é o `decideAction`, que é puro e testado: o bloqueio em
-    // andamento, a disponibilidade e a necessidade de confirmação não podem
-    // viver aqui, onde nenhum teste os alcança. O que fica é a ligação ao DOM.
+    // The decision is made by `decideAction`, which is pure and tested: an
+    // in-progress lock, availability, and the need for confirmation cannot
+    // live here, where no test can reach them. What remains here is the DOM
+    // wiring.
     const decision = decideAction(action, state, map, this._config?.confirm_actions, payload)
     if (decision.kind === 'blocked' || decision.kind === 'unavailable') return
 
-    // `answer` exige a resposta do utilizador como argumento, e é a única forma
-    // de obter a chamada num caso que pede confirmação: saltar o `confirm` não
-    // compila. `actionLabel` e não `t(\`action.${action}\`)` porque `trunk` e
-    // `windows` são alternantes e as suas chaves são `action.trunk_open` /
-    // `action.trunk_close` e `action.windows_open` / `action.windows_close`.
+    // `answer` requires the user's response as an argument, and it is the
+    // only way to obtain the call in a case that requires confirmation:
+    // skipping `confirm` does not compile. `actionLabel`, and not
+    // `t(\`action.${action}\`)`, because `trunk` and `windows` are
+    // alternating and their keys are `action.trunk_open` / `action.trunk_close`
+    // and `action.windows_open` / `action.windows_close`.
     const call = decision.kind === 'confirm'
       ? decision.answer(window.confirm(t('confirm', { action: actionLabel(action, state, t) })))
       : decision.call
@@ -287,15 +296,17 @@ export class LeapmotorCard extends LitElement {
   }
 
   /**
-   * Guarda a mudança na intenção e arma o temporizador. Agrupa uma rajada de
-   * toques e manda um comando só, depois de `CLIMATE_SEND_DELAY_MS` — ver o
-   * comentário dessa constante. O que se acumula é a intenção, campo a campo,
-   * e não o último payload: os controlos do painel mudam campos diferentes do
-   * mesmo comando e substituir perdia o que o toque anterior tinha mudado.
+   * Stores the change in the intent and arms the timer. It groups a burst of
+   * taps and sends a single command, after `CLIMATE_SEND_DELAY_MS` — see the
+   * comment on that constant. What accumulates is the intent, field by
+   * field, and not the last payload: the panel's controls change different
+   * fields of the same command, and replacing it would lose what the
+   * previous tap had changed.
    */
   private queueClimate(change: ClimateChange, state: VehicleState) {
-    // A leitura guardada com o pedido é a do momento do toque — é ela que diz,
-    // mais tarde, se o carro já reagiu (ver `pendingValue`).
+    // The reading stored with the request is the one from the moment of the
+    // tap — it is what tells, later on, whether the car has already reacted
+    // (see `pendingValue`).
     const intent = this._climateIntent
     if (change.temperature !== undefined) {
       intent.temperature = { wanted: change.temperature, reading: state.climate.targetC }
@@ -303,9 +314,10 @@ export class LeapmotorCard extends LitElement {
     if (change.recirculate !== undefined) {
       intent.recirculate = { wanted: change.recirculate, reading: state.climate.recirculating }
     }
-    // A intenção não é `@internalState` de propósito: o `render` também a limpa,
-    // e um campo reactivo escrito no `render` agendaria uma actualização em
-    // cadeia. Quem precisa de pedir o re-render é este caminho, o do toque.
+    // The intent is deliberately not `@internalState`: `render` also clears
+    // it, and a reactive field written from within `render` would schedule
+    // a cascading update. The one that needs to request the re-render is
+    // this path, the tap's.
     this.requestUpdate()
     if (this._climateTimer !== undefined) window.clearTimeout(this._climateTimer)
     this._climateTimer = window.setTimeout(() => {
@@ -315,15 +327,17 @@ export class LeapmotorCard extends LitElement {
   }
 
   /**
-   * O `set_climate` repõe pelos defeitos o que não for enviado, por isso o
-   * comando sai sempre completo: cada campo vem do pedido por confirmar, ou da
-   * leitura do carro, ou — só quando não há nem uma coisa nem outra — do
-   * defeito do próprio serviço. O 24 e o `false` finais não são leituras.
+   * `set_climate` resets to defaults whatever is not sent, so the command
+   * always goes out complete: each field comes from the unconfirmed request,
+   * or from the car's reading, or — only when there is neither one nor the
+   * other — from the service's own default. The final 24 and `false` are
+   * not readings.
    */
   private sendClimate() {
-    // Estado lido agora, e não no toque: entre o toque e o envio passam-se
-    // 1200 ms em que o carro (ou a app) pode ter mudado alguma coisa, e o que
-    // ninguém pediu deve sair com o valor actual, não com o de há um segundo.
+    // State read now, and not at the moment of the tap: between the tap and
+    // the send, 1200 ms pass during which the car (or the app) may have
+    // changed something, and whatever nobody requested should go out with
+    // the current value, not the one from a second ago.
     const result = this.resolved()
     if (!result || result.error || !this._hass) return
     const map = result.map
@@ -331,9 +345,9 @@ export class LeapmotorCard extends LitElement {
     const intent = this._climateIntent
     const call = resolveAction('setClimate', state, map, { climate: composeClimateCommand(intent, state) })
     if (!call || !this._hass) return
-    // Os mesmos pedidos que este comando levava, guardados por identidade: se a
-    // chamada falhar, desistimos deles — mas só se entretanto não tiverem sido
-    // substituídos por um toque novo, que ainda é válido.
+    // The same requests this command carried, kept by identity: if the call
+    // fails, we give up on them — but only if in the meantime they have not
+    // been replaced by a new tap, which is still valid.
     const sent = { temperature: intent.temperature, recirculate: intent.recirculate }
     void this.doCall(call).catch(err => {
       let dropped = false
@@ -353,18 +367,18 @@ export class LeapmotorCard extends LitElement {
   private async doCall(call: ServiceCall, extra?: Record<string, unknown>) {
     const data = { ...call.data, ...extra }
     if (call.entityIdAsField) {
-      // Os serviços `leapmotor.*` recebem o veículo como campo, não como
-      // target. Ver spec v2 §2.5.
+      // The `leapmotor.*` services receive the vehicle as a field, not as a
+      // target. See spec v2 §2.5.
       await this._hass!.callService(call.domain, call.service, { ...data, entity_id: call.entityId })
     } else {
       await this._hass!.callService(call.domain, call.service, data, { entity_id: call.entityId })
     }
   }
 
-  // `hass.callService` rejeita silenciosamente numa custom card — o HA não
-  // mostra nada por si. `hass-notification` é o evento que a frontend do HA
-  // escuta para apresentar uma toast, por isso é o único sítio onde um erro
-  // de serviço (ex.: um unlock falhado) fica visível ao utilizador.
+  // `hass.callService` rejects silently in a custom card — HA does not show
+  // anything on its own. `hass-notification` is the event the HA frontend
+  // listens for to present a toast, so it is the only place where a service
+  // error (e.g., a failed unlock) becomes visible to the user.
   private notifyError(err: unknown): void {
     this.dispatchEvent(new CustomEvent('hass-notification', {
       detail: { message: String((err as Error)?.message ?? err) },
@@ -383,11 +397,11 @@ export class LeapmotorCard extends LitElement {
   }
 
   /**
-   * Um grupo aberto pode deixar de existir sem ninguém o fechar: a
-   * configuração muda, ou as entidades dele desaparecem. Fecha-se aqui, no
-   * `willUpdate`, que é o sítio onde o Lit permite mexer em estado antes do
-   * render — fazê-lo dentro do `render()` era pedir um segundo render a partir
-   * do primeiro.
+   * An open group can stop existing without anyone closing it: the
+   * configuration changes, or its entities disappear. It is closed here, in
+   * `willUpdate`, which is where Lit allows touching state before the
+   * render — doing it inside `render()` would be asking for a second render
+   * triggered by the first.
    */
   override willUpdate() {
     if (!this._openGroup || !this._config) return
@@ -398,13 +412,13 @@ export class LeapmotorCard extends LitElement {
   }
 
   /**
-   * Troca de vista, fechando sempre o painel expansível. Só duas vistas o
-   * mostram: a grelha, por baixo da fila de ações, e a sub-vista de estado, por
-   * baixo da linha do teto. Um painel que sobrevivesse à troca reaparecia onde
-   * ninguém o pediu — na grelha ao fechar a sub-vista, ou na sub-vista de
-   * estado ao voltar a ela pelas setas — e um painel órfão do controlo que o
-   * abriu é lixo no ecrã. A regra vale nos dois sentidos, por isso vive aqui e
-   * não num dos lados.
+   * Switches view, always closing the expandable panel. Only two views show
+   * it: the grid, below the actions row, and the status sub-view, below the
+   * roof line. A panel that survived the switch would reappear where nobody
+   * asked for it — in the grid when closing the sub-view, or in the status
+   * sub-view when returning to it via the arrows — and a panel orphaned
+   * from the control that opened it is clutter on screen. The rule holds in
+   * both directions, so it lives here and not on one side.
    */
   private showGroup(group: GroupId | undefined): void {
     this._expanded = undefined
@@ -412,8 +426,9 @@ export class LeapmotorCard extends LitElement {
   }
 
   /**
-   * Devolve o foco ao tile que abriu a sub-vista que se acabou de fechar. Tem
-   * de ser depois do render: o tile só existe outra vez quando a grelha volta.
+   * Returns focus to the tile that opened the sub-view that just closed. It
+   * has to be after the render: the tile only exists again once the grid
+   * comes back.
    */
   override updated() {
     const id = this._focusGroup
@@ -452,9 +467,10 @@ export class LeapmotorCard extends LitElement {
     const name = config.name ?? result.deviceName ?? ''
     const imageMode = config.image ?? 'auto'
     const imageUrl = this.imageUrl(map)
-    // Spec §6: no modo `entity` não há recurso à silhueta — o espaço fica vazio
-    // quer por falta de URL (showImage=false), quer por a URL falhar depois de
-    // montada (allowSilhouette=false, ver leapmotor-hero).
+    // Spec §6: in `entity` mode there is no fallback to the silhouette — the
+    // space stays empty whether due to a missing URL (showImage=false), or
+    // because the URL fails after being mounted (allowSilhouette=false, see
+    // leapmotor-hero).
     const showImage = imageMode !== 'none' && !(imageMode === 'entity' && !imageUrl)
     const allowSilhouette = imageMode !== 'entity'
 
@@ -462,10 +478,10 @@ export class LeapmotorCard extends LitElement {
       void this.callAction(e.detail.action, state, map, t, e.detail.payload)
     }
     const onExpand = (e: CustomEvent<{ panel: ExpandPanel | null }>) => {
-      // Sobrou um único painel expansível, a cortina: `leapmotor-actions-row`
-      // envia sempre 'sunshade' e `leapmotor-sunshade-control` envia sempre
-      // null. Alternar aqui é o que permite fechar o painel a partir do mesmo
-      // botão que o abriu.
+      // Only a single expandable panel remains, the sunshade:
+      // `leapmotor-actions-row` always sends 'sunshade' and
+      // `leapmotor-sunshade-control` always sends null. Toggling here is
+      // what allows closing the panel from the same button that opened it.
       const panel = e.detail.panel
       this._expanded = panel === this._expanded ? undefined : (panel ?? undefined)
     }
@@ -477,9 +493,10 @@ export class LeapmotorCard extends LitElement {
       const { key, value } = e.detail
       const entityId = map[key]
       if (!entityId || !this._hass) return
-      // Registado aqui e não na secção que o emitiu: qualquer das duas (o painel
-      // de clima, a secção de conforto) pode desaparecer entre o pedido e a
-      // confirmação, e o pedido não deve desaparecer com ela.
+      // Recorded here and not in the section that emitted it: either of the
+      // two (the climate panel, the comfort section) can disappear between
+      // the request and the confirmation, and the request must not
+      // disappear with it.
       const seatKey = isSeatLevelKey(key) ? key : undefined
       const request = seatKey ? { wanted: value, reading: state.comfort[seatKey] } : undefined
       if (seatKey && request) {
@@ -488,9 +505,10 @@ export class LeapmotorCard extends LitElement {
       }
       void this._hass.callService('number', 'set_value', { value }, { entity_id: entityId })
         .catch(err => {
-          // A chamada falhou: nenhuma leitura vai resolver este pedido, porque o
-          // carro nunca chegou a saber dele. Deixá-lo era mostrar um nível que o
-          // banco não tem, e fazer o toque seguinte partir dele.
+          // The call failed: no reading will ever resolve this request,
+          // because the car never got to know about it. Leaving it would
+          // show a level the seat does not have, and make the next tap
+          // start from it.
           if (seatKey && request && forgetRequest(this._seatRequests, seatKey, request)) this.requestUpdate()
           this.notifyError(err)
         })
@@ -499,8 +517,8 @@ export class LeapmotorCard extends LitElement {
       this.queueClimate(e.detail, state)
     }
     const onFanSpeed = (e: CustomEvent<{ value: number }>) => {
-      // Guardada, não enviada: a velocidade só chega ao carro no próximo
-      // `set_climate`, junto com a temperatura e a recirculação.
+      // Stored, not sent: the speed only reaches the car on the next
+      // `set_climate`, together with the temperature and the recirculation.
       this._climateIntent.fanSpeed = e.detail.value
       this.requestUpdate()
     }
@@ -522,30 +540,33 @@ export class LeapmotorCard extends LitElement {
       const index = grid.groups.findIndex(group => group.id === this._openGroup)
       if (index < 0) return
       const size = grid.groups.length
-      // Dá a volta: do último para o primeiro, e ao contrário.
+      // Wraps around: from the last to the first, and back.
       this.showGroup(grid.groups[(index + e.detail.delta + size) % size]!.id)
     }
 
-    // O pedido que o carro já resolveu — confirmando-o ou contrariando-o —
-    // deixa de existir aqui, e não só de ser mostrado: se ficasse guardado,
-    // ressuscitava assim que a leitura voltasse a ser a que era no momento do
-    // pedido, e num booleano como a recirculação «voltar ao que era» é o caso
-    // normal. É uma limpeza de cache, não estado reactivo: o que ela apaga já
-    // está fora deste render.
+    // A request the car has already resolved — either confirming it or
+    // contradicting it — stops existing here, and not merely being shown:
+    // if it stayed stored, it would come back to life the moment the
+    // reading returned to what it was at the time of the request, and for a
+    // boolean like recirculation, "returning to what it was" is the normal
+    // case. This is a cache clear, not reactive state: what it erases is
+    // already outside this render.
     const pendingTemp = pendingValue(this._climateIntent.temperature, state.climate.targetC)
     const pendingRecirc = pendingValue(this._climateIntent.recirculate, state.climate.recirculating)
     if (pendingTemp === undefined) this._climateIntent.temperature = undefined
     if (pendingRecirc === undefined) this._climateIntent.recirculate = undefined
 
-    // A mesma limpeza para os níveis de assento, e no mesmo sítio. Aqui cabe
-    // num helper porque os quatro pedidos têm a mesma forma; os dois campos da
-    // intenção de clima têm tipos diferentes e ficam nas duas linhas acima.
+    // The same cleanup for the seat levels, and in the same place. Here it
+    // fits into a helper because the four requests have the same shape; the
+    // two climate-intent fields have different types and stay in the two
+    // lines above.
     const shownLevels: SeatLevels = pruneRequests(this._seatRequests, SEAT_LEVEL_KEYS, key => state.comfort[key])
 
     /**
-     * Instancia as secções de um grupo. Função local, e não um método, para
-     * fechar sobre `state`, `map`, `t` e o resto sem passar um contexto de dez
-     * campos. Quem as instancia é o card; a sub-vista recebe-as pelo `slot`.
+     * Instantiates a group's sections. A local function, not a method, so
+     * it can close over `state`, `map`, `t` and the rest without passing a
+     * ten-field context. The card is what instantiates them; the sub-view
+     * receives them through the `slot`.
      */
     const panelsFor = (group: ResolvedGroup): TemplateResult => {
       switch (group.id) {
@@ -560,9 +581,10 @@ export class LeapmotorCard extends LitElement {
             ></leapmotor-charging>
             <leapmotor-schedule .state=${state} .t=${t} .map=${map}></leapmotor-schedule>`
         case 'status':
-          // O painel da cortina vem à sub-vista de estado pela mesma razão que
-          // já vinha à grelha: é ele que escolhe a posição que o comando exige,
-          // e sem ele a linha do teto tinha um botão sem para onde ir.
+          // The sunshade panel comes to the status sub-view for the same
+          // reason it already came to the grid: it is what chooses the
+          // position the command requires, and without it the roof line
+          // would have a button with nowhere to go.
           return html`
             <leapmotor-openings
               .state=${state} .t=${t} .map=${map} .pending=${this._pending}
@@ -593,8 +615,8 @@ export class LeapmotorCard extends LitElement {
       }
     }
 
-    // O mapa só se constrói quando a sua sub-vista está aberta, em vez de a
-    // cada carregamento do dashboard. Ver spec §5.5.
+    // The map is only built when its sub-view is open, instead of on every
+    // dashboard load. See spec §5.5.
     if (this._openGroup === 'location' && map.location) this.ensureMap(map.location)
 
     return html`<ha-card
@@ -608,10 +630,10 @@ export class LeapmotorCard extends LitElement {
     >
       <div class="body">
         ${/*
-           * O `sections` já não é um campo de `LeapmotorCardConfig`, por isso a
-           * leitura tem de passar por um índice: é uma chave que já não existe
-           * no tipo mas que ainda existe no YAML de quem não migrou, e é
-           * precisamente por isso que se lê.
+           * `sections` is no longer a field of `LeapmotorCardConfig`, so
+           * reading it has to go through an index: it is a key that no
+           * longer exists in the type but still exists in the YAML of
+           * whoever has not migrated, and that is precisely why it is read.
            */
           (config as unknown as Record<string, unknown>).sections !== undefined
           ? html`<ha-alert alert-type="warning">${t('error.sections_removed')}</ha-alert>`
@@ -661,10 +683,10 @@ export class LeapmotorCard extends LitElement {
             >${panelsFor(openGroup)}</leapmotor-group-detail>`}
 
         ${(() => {
-          // As chaves do núcleo reportam-se sempre; as dos grupos, só com o
-          // `grid:` escrito à mão. Numa grelha por omissão um grupo sem
-          // entidades é simplesmente omitido, e avisar do que não se mostra era
-          // ruído — ver `resolveGrid`.
+          // The core keys are always reported; the groups' keys, only with a
+          // hand-written `grid:`. In a default grid a group without entities
+          // is simply omitted, and warning about what is not shown would be
+          // noise — see `resolveGrid`.
           const missing = [
             ...CORE_KEYS.filter(key => result.missing.includes(key)),
             ...(grid.explicit ? missingForGroups(grid.groups, result.missing) : []),

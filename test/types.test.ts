@@ -2,102 +2,103 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_MAP_ZOOM, clampMapZoom, mapRequestChanged, DEFAULT_TIRE_RANGE, clampTireRange } from '../src/types'
 
 describe('clampMapZoom', () => {
-  it('deixa passar um valor válido sem alteração', () => {
+  it('lets a valid value pass through unchanged', () => {
     expect(clampMapZoom(12)).toBe(12)
   })
 
-  it('corta para o mínimo do Leaflet quando o valor é demasiado baixo', () => {
+  it('clamps to Leaflet\'s minimum when the value is too low', () => {
     expect(clampMapZoom(0)).toBe(1)
     expect(clampMapZoom(-5)).toBe(1)
   })
 
-  it('corta para o máximo do Leaflet quando o valor é demasiado alto', () => {
+  it('clamps to Leaflet\'s maximum when the value is too high', () => {
     expect(clampMapZoom(25)).toBe(20)
     expect(clampMapZoom(100)).toBe(20)
   })
 
-  it('usa o valor por omissão quando não há configuração', () => {
+  it('uses the default value when there is no configuration', () => {
     expect(clampMapZoom(undefined)).toBe(DEFAULT_MAP_ZOOM)
   })
 
-  it('usa o valor por omissão perante um valor não numérico vindo de YAML escrito à mão', () => {
+  it('uses the default value for a non-numeric value coming from hand-written YAML', () => {
     expect(clampMapZoom(Number.NaN)).toBe(DEFAULT_MAP_ZOOM)
     expect(clampMapZoom('16' as unknown as number)).toBe(DEFAULT_MAP_ZOOM)
   })
 
-  it('arredonda um valor fraccionário', () => {
+  it('rounds a fractional value', () => {
     expect(clampMapZoom(14.6)).toBe(15)
   })
 })
 
 /**
- * `mapRequestChanged` é a decisão que evita que o `ensureMap` do card
- * reconstrua o mapa a cada `render()` — só entidade ou zoom diferentes é que
- * contam. Testável sem DOM porque é pura; o resto do `ensureMap` (o `then` da
- * promessa, o `loadCardHelpers`, o `_mapElement`) vive numa `LitElement` e este
- * projeto corre os testes em `environment: 'node'`, sem harness de DOM — por
- * isso essa parte fica sem teste, e não com um teste que não afirma nada.
+ * `mapRequestChanged` is the decision that keeps the card's `ensureMap` from
+ * rebuilding the map on every `render()` — only a different entity or zoom
+ * counts. Testable without DOM because it's pure; the rest of `ensureMap`
+ * (the promise's `then`, `loadCardHelpers`, `_mapElement`) lives in a
+ * `LitElement`, and this project runs its tests in `environment: 'node'`,
+ * with no DOM harness — so that part is left untested, rather than covered
+ * by a test that asserts nothing.
  */
 describe('mapRequestChanged', () => {
-  it('diz que mudou quando não havia pedido anterior', () => {
+  it('says it changed when there was no previous request', () => {
     expect(mapRequestChanged(undefined, { entityId: 'device_tracker.a', zoom: 16 })).toBe(true)
   })
 
-  it('diz que não mudou quando entidade e zoom se mantêm', () => {
+  it('says it did not change when entity and zoom stay the same', () => {
     const previous = { entityId: 'device_tracker.a', zoom: 16 }
     expect(mapRequestChanged(previous, { entityId: 'device_tracker.a', zoom: 16 })).toBe(false)
   })
 
-  it('diz que mudou quando só o zoom muda', () => {
+  it('says it changed when only the zoom changes', () => {
     const previous = { entityId: 'device_tracker.a', zoom: 16 }
     expect(mapRequestChanged(previous, { entityId: 'device_tracker.a', zoom: 18 })).toBe(true)
   })
 
-  it('diz que mudou quando só a entidade muda', () => {
+  it('says it changed when only the entity changes', () => {
     const previous = { entityId: 'device_tracker.a', zoom: 16 }
     expect(mapRequestChanged(previous, { entityId: 'device_tracker.b', zoom: 16 })).toBe(true)
   })
 })
 
 /**
- * `tire_range` vem de YAML escrito à mão, sem validação de esquema, e alimenta
- * um alerta visível na grelha: um par trocado ou um texto por engano pintava um
- * tile de vermelho para sempre. O corte é aqui, na leitura, pela mesma razão do
- * `clampMapZoom` — o editor não vê configurações escritas à mão.
+ * `tire_range` comes from hand-written YAML, with no schema validation, and
+ * feeds a visible alert in the grid: a swapped pair or a typo would paint a
+ * tile red forever. The clamp happens here, on read, for the same reason as
+ * `clampMapZoom` — the editor doesn't see hand-written configurations.
  */
 describe('clampTireRange', () => {
-  it('deixa passar uma faixa válida sem alteração', () => {
+  it('lets a valid range pass through unchanged', () => {
     expect(clampTireRange([2.4, 3.0])).toEqual([2.4, 3.0])
   })
 
-  it('usa a faixa por omissão quando não há configuração', () => {
+  it('uses the default range when there is no configuration', () => {
     expect(clampTireRange(undefined)).toEqual([...DEFAULT_TIRE_RANGE])
   })
 
-  it('usa a omissão quando o mínimo não é menor que o máximo', () => {
+  it('uses the default when the minimum is not less than the maximum', () => {
     expect(clampTireRange([2.6, 2.0])).toEqual([...DEFAULT_TIRE_RANGE])
     expect(clampTireRange([2.4, 2.4])).toEqual([...DEFAULT_TIRE_RANGE])
   })
 
-  it('usa a omissão perante valores não numéricos vindos de YAML escrito à mão', () => {
+  it('uses the default for non-numeric values coming from hand-written YAML', () => {
     expect(clampTireRange(['2.0', '2.6'])).toEqual([...DEFAULT_TIRE_RANGE])
     expect(clampTireRange([Number.NaN, 2.6])).toEqual([...DEFAULT_TIRE_RANGE])
     expect(clampTireRange([2.0, Number.POSITIVE_INFINITY])).toEqual([...DEFAULT_TIRE_RANGE])
   })
 
-  it('usa a omissão quando o comprimento não é dois', () => {
+  it('uses the default when the length is not two', () => {
     expect(clampTireRange([2.0])).toEqual([...DEFAULT_TIRE_RANGE])
     expect(clampTireRange([2.0, 2.6, 3.0])).toEqual([...DEFAULT_TIRE_RANGE])
     expect(clampTireRange([])).toEqual([...DEFAULT_TIRE_RANGE])
   })
 
-  it('usa a omissão quando não é sequer uma lista', () => {
+  it('uses the default when it is not even a list', () => {
     expect(clampTireRange(2.6)).toEqual([...DEFAULT_TIRE_RANGE])
     expect(clampTireRange(null)).toEqual([...DEFAULT_TIRE_RANGE])
     expect(clampTireRange({ min: 2, max: 3 })).toEqual([...DEFAULT_TIRE_RANGE])
   })
 
-  it('devolve uma cópia, para ninguém escrever na constante por omissão', () => {
+  it('returns a copy, so nobody writes into the default constant', () => {
     const first = clampTireRange(undefined)
     first[0] = 99
     expect(clampTireRange(undefined)).toEqual([...DEFAULT_TIRE_RANGE])

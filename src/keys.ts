@@ -1,5 +1,5 @@
 export const ENTITY_KEYS = {
-  // identidade e autonomia
+  // identity and range
   battery: { domain: 'sensor', tk: 'battery_percent' },
   batteryPrecise: { domain: 'sensor', tk: 'battery_percent_precise' },
   range: { domain: 'sensor', tk: 'remaining_range_km' },
@@ -11,12 +11,12 @@ export const ENTITY_KEYS = {
   vehiclePicture: { domain: 'image', tk: 'vehicle_picture' },
   location: { domain: 'device_tracker', tk: 'location' },
 
-  // trancas
+  // locks
   lock: { domain: 'lock', tk: 'vehicle_lock' },
   lockStateSource: { domain: 'sensor', tk: 'lock_state_source' },
   lockStateAge: { domain: 'sensor', tk: 'lock_state_age_seconds' },
 
-  // atividade
+  // activity
   vehicleState: { domain: 'sensor', tk: 'vehicle_state' },
   gear: { domain: 'sensor', tk: 'gear' },
   speed: { domain: 'sensor', tk: 'speed_kmh' },
@@ -24,7 +24,7 @@ export const ENTITY_KEYS = {
   parkingBrake: { domain: 'binary_sensor', tk: 'parking_brake_active' },
   vehicleReady: { domain: 'binary_sensor', tk: 'vehicle_ready' },
 
-  // carregamento
+  // charging
   chargeLimit: { domain: 'sensor', tk: 'charge_limit_percent' },
   chargeLimitSet: { domain: 'number', tk: 'charge_limit_setting' },
   isCharging: { domain: 'binary_sensor', tk: 'is_charging' },
@@ -40,7 +40,7 @@ export const ENTITY_KEYS = {
   schedulePlanned: { domain: 'binary_sensor', tk: 'charging_planned_enabled' },
   unlockCharger: { domain: 'button', tk: 'unlock_charger' },
 
-  // aberturas
+  // openings
   doorDriver: { domain: 'binary_sensor', tk: 'driver_door_open' },
   doorPassenger: { domain: 'binary_sensor', tk: 'passenger_door_open' },
   doorRearLeft: { domain: 'binary_sensor', tk: 'rear_left_door_open' },
@@ -56,7 +56,7 @@ export const ENTITY_KEYS = {
   trunk: { domain: 'binary_sensor', tk: 'trunk_open' },
   roof: { domain: 'binary_sensor', tk: 'skylight_open' },
 
-  // clima
+  // climate
   climateSwitch: { domain: 'switch', tk: 'climate_control' },
   climateOn: { domain: 'binary_sensor', tk: 'climate_on' },
   interiorTemp: { domain: 'sensor', tk: 'interior_temp_c' },
@@ -64,7 +64,7 @@ export const ENTITY_KEYS = {
   climateMode: { domain: 'sensor', tk: 'climate_mode' },
   recirculation: { domain: 'binary_sensor', tk: 'air_recirculation' },
 
-  // botões
+  // buttons
   openTrunk: { domain: 'button', tk: 'open_trunk' },
   closeTrunk: { domain: 'button', tk: 'close_trunk' },
   openWindows: { domain: 'button', tk: 'open_windows' },
@@ -75,30 +75,30 @@ export const ENTITY_KEYS = {
   findVehicle: { domain: 'button', tk: 'find_vehicle' },
   refreshData: { domain: 'button', tk: 'refresh_data' },
 
-  // pneus
+  // tires
   tireFL: { domain: 'sensor', tk: 'tire_pressure_front_left_bar' },
   tireFR: { domain: 'sensor', tk: 'tire_pressure_front_right_bar' },
   tireRL: { domain: 'sensor', tk: 'tire_pressure_rear_left_bar' },
   tireRR: { domain: 'sensor', tk: 'tire_pressure_rear_right_bar' },
 
-  // viagem
+  // trip
   odometer: { domain: 'sensor', tk: 'odometer_km' },
   totalMileage: { domain: 'sensor', tk: 'total_mileage_km' },
   last7DaysKm: { domain: 'sensor', tk: 'last_7_days_mileage_km' },
   avgConsumption6w: { domain: 'sensor', tk: 'average_consumption_6w_kwh_100km' },
   totalEnergy: { domain: 'sensor', tk: 'total_energy_kwh' },
   /*
-   * As três fatias da energia da última semana. O `state` de cada uma é a sua
-   * percentagem do total, mas os kWh não estão repartidos por entidade: as três
-   * carregam TODAS os mesmos três atributos (`driving_energy_kwh`,
-   * `climate_energy_kwh`, `other_energy_kwh`). Daí o card precisar das três
-   * chaves — uma por percentagem — e de qualquer uma delas para os kWh.
+   * The three slices of the last week's energy. Each one's `state` is its
+   * percentage of the total, but the kWh are not split per entity: all three
+   * carry the SAME three attributes (`driving_energy_kwh`,
+   * `climate_energy_kwh`, `other_energy_kwh`). Hence the card needing all
+   * three keys — one per percentage — and any one of them for the kWh.
    */
   lastWeekDrivingPercent: { domain: 'sensor', tk: 'last_week_driving_energy_percent' },
   lastWeekClimatePercent: { domain: 'sensor', tk: 'last_week_climate_energy_percent' },
   lastWeekOtherPercent: { domain: 'sensor', tk: 'last_week_other_energy_percent' },
 
-  // conforto
+  // comfort
   driverSeatHeat: { domain: 'number', tk: 'driver_seat_heating' },
   driverSeatVent: { domain: 'number', tk: 'driver_seat_ventilation' },
   passengerSeatHeat: { domain: 'number', tk: 'passenger_seat_heating' },
@@ -108,7 +108,7 @@ export const ENTITY_KEYS = {
   mirrorHeat: { domain: 'switch', tk: 'rearview_mirror_heat' },
   batteryPreheat: { domain: 'switch', tk: 'battery_preheat' },
 
-  // agendamento
+  // scheduling
   scheduleSwitch: { domain: 'switch', tk: 'charging_schedule' },
   scheduleStart: { domain: 'sensor', tk: 'charging_planned_start' },
   scheduleEnd: { domain: 'sensor', tk: 'charging_planned_end' },
@@ -120,10 +120,11 @@ export const ENTITY_KEYS = {
 export type LogicalKey = keyof typeof ENTITY_KEYS
 
 /**
- * Os quatro níveis de assento. Estão aqui, e não numa secção, porque o card
- * também precisa deles: é ele que guarda os pedidos por confirmar. Os nomes são
- * de propósito os mesmos dos campos de `VehicleState['comfort']`, o que deixa
- * ler o nível reportado de cada um sem tabela de conversão.
+ * The four seat levels. They live here, and not in a section, because the
+ * card also needs them: it is the card that stores the requests pending
+ * confirmation. The names are deliberately the same as the fields of
+ * `VehicleState['comfort']`, which lets each one's reported level be read
+ * with no conversion table.
  */
 export const SEAT_LEVEL_KEYS = [
   'driverSeatHeat', 'driverSeatVent', 'passengerSeatHeat', 'passengerSeatVent',

@@ -34,7 +34,7 @@ export interface HomeAssistant {
   callWS: <T>(msg: Record<string, unknown>) => Promise<T>
 }
 
-/** Entrada de `config/entity_registry/list`, usada só no fallback do resolver. */
+/** Entry of `config/entity_registry/list`, used only in the resolver's fallback. */
 export interface EntityRegistryEntry {
   entity_id: string
   device_id: string | null

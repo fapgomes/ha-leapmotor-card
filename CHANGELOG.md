@@ -5,6 +5,24 @@ Every notable change to this project is recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.6] — 2026-08-31
+
+### Changed
+
+- The repository is now written in English throughout: code comments, test
+  descriptions, assertion messages and commit messages. Around 1,700 comment
+  lines and 349 test descriptions were translated, guided by a shared glossary
+  so that five parallel translators would not render the same term five ways.
+  American spelling (`color`, `catalog`, `tire`).
+- Portuguese survives in exactly two places, both deliberate: the `pt.json`
+  catalog, which is the Portuguese UI; and Portuguese strings quoted inside a
+  comment or a test as the data being reasoned about — a comment explaining why
+  "1 aberta" is right and "1 abertos" is wrong needs both forms, and a parity
+  test exists precisely because the English values of a masculine and a
+  feminine key are identical.
+
+Nothing a user of the card can see has changed in this release.
+
 ## [0.4.5] — 2026-08-31
 
 ### Changed

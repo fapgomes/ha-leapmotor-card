@@ -1,8 +1,8 @@
 import { html, type TemplateResult } from 'lit'
 
 /**
- * Silhueta genérica de SUV, usada quando não há imagem do veículo.
- * Desenho original; o repositório não distribui renders da Leapmotor.
+ * Generic SUV silhouette, used when there is no image of the vehicle.
+ * Original drawing; the repository does not distribute Leapmotor renders.
  */
 export const CAR_SILHOUETTE: TemplateResult = html`
   <svg viewBox="0 0 320 120" role="img" aria-hidden="true" part="silhouette">

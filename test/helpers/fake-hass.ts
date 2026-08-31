@@ -1,7 +1,7 @@
 import type { HassEntity, HassEntityDisplayEntry, HomeAssistant } from '../../src/ha-types'
 
 export interface FakeEntitySpec {
-  /** `dominio/translation_key`, ex. `sensor/battery_percent` */
+  /** `domain/translation_key`, e.g. `sensor/battery_percent` */
   key: string
   entity_id: string
   device_id?: string

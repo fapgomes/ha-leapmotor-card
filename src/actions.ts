@@ -8,9 +8,9 @@ export interface ServiceCall {
   service: string
   entityId: string
   /**
-   * Os serviços de domínio `leapmotor` recebem o veículo como CAMPO
-   * (`data.entity_id`), não como target de serviço. Ver spec v2 §2.5. Todo o
-   * resto do card usa target, que é a forma normal do Home Assistant.
+   * The `leapmotor` domain services receive the vehicle as a FIELD
+   * (`data.entity_id`), not as a service target. See spec v2 §2.5. The rest
+   * of the card uses target, which is the normal Home Assistant form.
    */
   entityIdAsField?: boolean
   data?: Record<string, unknown>
@@ -33,9 +33,9 @@ function anyWindowOpen(state: VehicleState): boolean {
 type ClimateMode = 'cold' | 'hot' | 'wind' | 'nohotcold'
 
 /**
- * `mode` é obrigatório no `leapmotor.set_climate` e o utilizador não o deve ter
- * de escolher. Usa o modo que o carro reporta quando é um dos aceites; senão
- * arrefece se o interior está acima do alvo, aquece se está abaixo.
+ * `mode` is mandatory in `leapmotor.set_climate` and the user should not have
+ * to choose it. Use the mode the car reports when it's one of the accepted
+ * ones; otherwise cool if the interior is above target, heat if it's below.
  */
 function climateMode(state: VehicleState, target: number): ClimateMode {
   const reported = state.climate.mode?.toLowerCase()
@@ -49,7 +49,7 @@ function climateMode(state: VehicleState, target: number): ClimateMode {
   return 'nohotcold'
 }
 
-/** Qualquer entidade do carro serve para identificar o veículo num serviço `leapmotor.*`. */
+/** Any of the car's entities can identify the vehicle in a `leapmotor.*` service. */
 function vehicleAnchor(map: EntityMap): string | undefined {
   return map.battery ?? map.lock ?? map.range
 }
@@ -58,7 +58,7 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, Math.round(n)))
 }
 
-/** Um comando de climatização completo. A integração repõe o que não for enviado. */
+/** A complete climate command. The integration resets to defaults whatever isn't sent. */
 export interface ClimateCommand {
   temperature: number
   fanSpeed: number
@@ -66,12 +66,12 @@ export interface ClimateCommand {
 }
 
 /**
- * O que um controlo do painel de clima acabou de mudar. Não é um comando: é uma
- * intenção parcial, e viaja no evento `leapmotor-climate-change` — nunca no
- * `ActionPayload` — precisamente para que não haja forma de a entregar ao
- * `resolveAction`, que só sabe trabalhar com comandos completos. A ventoinha
- * não está aqui porque também tem evento próprio (`leapmotor-fan-speed`) e o
- * seu valor vive no card.
+ * What a climate panel control just changed. It's not a command: it's a
+ * partial intent, and it travels in the `leapmotor-climate-change` event —
+ * never in `ActionPayload` — precisely so there's no way to deliver it to
+ * `resolveAction`, which only knows how to work with complete commands. The
+ * fan isn't here because it also has its own event (`leapmotor-fan-speed`)
+ * and its value lives in the card.
  */
 export interface ClimateChange {
   temperature?: number
@@ -79,8 +79,8 @@ export interface ClimateChange {
 }
 
 /**
- * Um pedido do utilizador que o carro ainda não confirmou, com a leitura que o
- * carro dava no momento em que foi feito.
+ * A user request the car hasn't confirmed yet, along with the reading the
+ * car was giving at the moment it was made.
  */
 export interface PendingRequest<T> {
   wanted: T
@@ -88,74 +88,78 @@ export interface PendingRequest<T> {
 }
 
 /**
- * O valor de um pedido enquanto ele ainda importa, ou `undefined` quando já não
- * importa. A regra é a de sempre — o pedido deixa de ser relevante quando o
- * carro confirma o valor pedido ou reporta outro qualquer (a app, o próprio
- * carro) — mas escrita contra a leitura guardada com o pedido, e não contra a
- * leitura do render anterior. É o que a deixa ser uma função pura, avaliável em
- * qualquer sítio e a qualquer altura, e é isso que permite ao pedido viver no
- * card e sobreviver à destruição do painel.
+ * The value of a request while it still matters, or `undefined` once it no
+ * longer does. The rule is the usual one — the request stops being relevant
+ * once the car confirms the requested value or reports some other one (from
+ * the app, or the car itself) — but written against the reading stored with
+ * the request, not against the previous render's reading. That's what keeps
+ * this a pure function, evaluable anywhere and at any time, and it's what
+ * lets the request live in the card and survive the panel being destroyed.
  */
 export function pendingValue<T>(request: PendingRequest<T> | undefined, reported: T | undefined): T | undefined {
   if (request === undefined) return undefined
-  // Sem leitura nenhuma não há como saber se o carro reagiu: o pedido mantém-se.
+  // With no reading at all there's no way to know if the car reacted: the request stands.
   if (reported === undefined) return request.wanted
-  // O carro reporta o valor pedido: pedido cumprido. Tem de vir antes da
-  // comparação com a leitura de origem, senão um pedido que nasce igual à
-  // leitura — tocar duas vezes na recirculação dentro da janela, subir e voltar
-  // a descer a temperatura, ciclar um banco até ao ponto de partida — nunca se
-  // resolvia e ficava marcado como pendente para sempre.
+  // The car reports the requested value: request fulfilled. This has to come
+  // before the comparison with the origin reading, otherwise a request that's
+  // born equal to the reading — tapping recirculation twice within the
+  // window, raising and then lowering the temperature back, cycling a seat
+  // back to its starting point — would never resolve and would stay marked
+  // as pending forever.
   if (reported === request.wanted) return undefined
-  // O carro continua a reportar o que reportava quando o pedido foi feito, logo
-  // ainda não reagiu. Qualquer outra leitura resolve o pedido; uma leitura nova
-  // depois de um pedido feito às escuras (`reading` indefinida) também, por ser
-  // a melhor informação que existe.
+  // The car is still reporting what it was reporting when the request was
+  // made, so it hasn't reacted yet. Any other reading resolves the request;
+  // so does a new reading after a request made blind (`reading` undefined),
+  // since it's the best information there is.
   return reported === request.reading ? request.wanted : undefined
 }
 
 /**
- * Os pedidos de nível de assento por confirmar (o que o card guarda) e os níveis
- * já resolvidos que as secções mostram. São dois tipos e dois nomes de propósito:
- * o mesmo nome para as duas formas já produziu, neste projeto, seis defeitos da
- * mesma família — e aqui a ligação entre o card e as secções é uma property
- * binding da Lit, que o TypeScript não verifica.
+ * The unconfirmed seat level requests (what the card stores) and the already
+ * resolved levels the sections display. Two types and two names on purpose:
+ * the same name for both shapes has already produced, in this project, six
+ * defects of the same family — and here the link between the card and the
+ * sections is a Lit property binding, which TypeScript doesn't check.
  */
 export type SeatRequests = Partial<Record<SeatLevelKey, PendingRequest<number>>>
 export type SeatLevels = Partial<Record<SeatLevelKey, number>>
 
 /**
- * Tudo o que o card sabe sobre a climatização e que o carro não reporta: os
- * pedidos ainda por confirmar e a velocidade da ventoinha, que a integração não
- * expõe de todo. Vive no card e não no painel, que é destruído a cada colapso.
+ * Everything the card knows about climate control that the car doesn't
+ * report: the still-unconfirmed requests and the fan speed, which the
+ * integration doesn't expose at all. Lives in the card, not the panel, which
+ * is destroyed on every collapse.
  */
 export interface ClimateIntent {
-  /** O que o card escolheu por último. Não há leitura nenhuma que a confirme. */
+  /** What the card last chose. There's no reading at all that confirms it. */
   fanSpeed: number
   temperature?: PendingRequest<number>
   recirculate?: PendingRequest<boolean>
 }
 
-/** O que a integração usa quando ninguém escolhe — e o que o card mostra ao abrir. */
+/** What the integration uses when nobody chooses — and what the card shows on open. */
 export const DEFAULT_FAN_SPEED = 3
 
-/** Alvo de recurso quando o carro não reporta temperatura nenhuma. */
+/** Fallback target when the car doesn't report any temperature. */
 const FALLBACK_TARGET_C = 24
 
 export const TEMP_MIN = 18
 export const TEMP_MAX = 32
 
 /**
- * Casas decimais do alvo de temperatura, onde quer que ele apareça. É zero
- * porque o comando é inteiro — o `resolveAction` arredonda — e porque o stepper
- * anda de grau em grau: mostrar 23,5 num sítio e 24 noutro, e depois saltar
- * para 25 num toque, era o que o tile e o painel faziam um contra o outro.
+ * Decimal places for the temperature target, wherever it appears. It's zero
+ * because the command is an integer — `resolveAction` rounds it — and
+ * because the stepper moves degree by degree: showing 23.5 in one place and
+ * 24 in another, then jumping to 25 in one tap, is what the tile and the
+ * panel used to do against each other.
  */
 export const TARGET_TEMP_DECIMALS = 0
 
 /**
- * O alvo a pedir quando o utilizador toca no «+» ou no «−». Parte do valor que
- * ele **vê** — o mostrado, já arredondado às `TARGET_TEMP_DECIMALS` — e não do
- * valor cru, para um toque valer exactamente um grau a partir do ecrã.
+ * The target to request when the user taps "+" or "−". Starts from the value
+ * they **see** — the displayed one, already rounded to `TARGET_TEMP_DECIMALS`
+ * — and not from the raw value, so that one tap is worth exactly one degree
+ * from what's on screen.
  */
 export function nextStepTemperature(shown: number | undefined, delta: number): number {
   const base = Math.round(shown ?? FALLBACK_TARGET_C)
@@ -163,14 +167,15 @@ export function nextStepTemperature(shown: number | undefined, delta: number): n
 }
 
 /**
- * Compõe o comando completo de climatização. É sempre completo porque o
- * `leapmotor.set_climate` repõe pelos defeitos tudo o que não for enviado:
- * mandar só a temperatura punha a ventoinha em 3 e desligava a recirculação —
- * o defeito silencioso que este plano inteiro existe para acabar.
+ * Composes the complete climate command. It's always complete because
+ * `leapmotor.set_climate` resets to defaults whatever isn't sent: sending
+ * only the temperature would put the fan at 3 and turn recirculation off —
+ * the silent defect this whole plan exists to end.
  *
- * Cada campo vem, por esta ordem: do pedido do utilizador que o carro ainda não
- * confirmou, da leitura do carro, e só depois de falharem os dois é que vem um
- * defeito. A ventoinha não tem leitura nenhuma, por isso vem sempre da intenção.
+ * Each field comes, in this order: from the user's request that the car
+ * hasn't confirmed yet, from the car's reading, and only after both fail does
+ * a default come. The fan has no reading at all, so it always comes from the
+ * intent.
  */
 export function composeClimateCommand(intent: ClimateIntent, state: VehicleState): ClimateCommand {
   return {
@@ -183,12 +188,13 @@ export function composeClimateCommand(intent: ClimateIntent, state: VehicleState
 }
 
 /**
- * O que fazer com um toque numa ação, decidido sem tocar no DOM nem no `hass`.
+ * What to do with a tap on an action, decided without touching the DOM or
+ * `hass`.
  *
- * O `confirm` não traz a chamada: traz uma função que **exige** a resposta do
- * utilizador para a devolver. É de propósito — assim não há forma de saltar a
- * confirmação sem partir a compilação, e o mesmo vale para os dois primeiros
- * casos, que não têm `call` nenhum para ler.
+ * The `confirm` variant doesn't carry the call: it carries a function that
+ * **requires** the user's answer to return it. This is on purpose — this way
+ * there's no way to skip confirmation without breaking the build, and the
+ * same goes for the first two cases, which have no `call` at all to read.
  */
 export type CommandDecision =
   | { kind: 'blocked' }
@@ -203,9 +209,9 @@ export function decideAction(
   confirmActions: ActionId[] | undefined,
   payload?: ActionPayload,
 ): CommandDecision {
-  // O bloqueio em andamento tem de ser decidido aqui, e não só no botão: um
-  // painel já aberto, ou um render obsoleto, contornariam uma verificação que
-  // apenas desactivasse controlos.
+  // The while-driving block has to be decided here, not only in the button: a
+  // panel that's already open, or a stale render, would bypass a check that
+  // only disabled controls.
   if (state.activity === 'driving' && BLOCKED_WHILE_DRIVING.includes(action)) return { kind: 'blocked' }
   const call = resolveAction(action, state, map, payload)
   if (!call) return { kind: 'unavailable' }
@@ -214,12 +220,13 @@ export function decideAction(
 }
 
 /**
- * Aplica o `pendingValue` a um conjunto de pedidos com a mesma forma: devolve os
- * que ainda valem e **apaga** do próprio registo os que já não valem. O apagar
- * não é arrumação: um pedido resolvido que ficasse guardado voltava a valer
- * assim que a leitura regressasse ao valor que tinha quando ele foi feito — num
- * nível de assento, «voltar a 0» é o que o carro faz sozinho ao fim de algum
- * tempo, e o pino ficava a mostrar um nível que o banco já não tinha.
+ * Applies `pendingValue` to a set of requests with the same shape: returns
+ * the ones that still hold and **deletes** from the registry itself the ones
+ * that no longer do. The deletion isn't housekeeping: a resolved request left
+ * in storage would become valid again as soon as the reading went back to
+ * the value it had when it was made — for a seat level, "going back to 0" is
+ * what the car does on its own after some time, and the pin would end up
+ * showing a level the seat no longer had.
  */
 export function pruneRequests<K extends string, T>(
   requests: Partial<Record<K, PendingRequest<T>>>,
@@ -236,15 +243,15 @@ export function pruneRequests<K extends string, T>(
 }
 
 /**
- * Desiste de um pedido cuja chamada de serviço falhou. Sem isto o pedido ficava
- * para sempre: a leitura do carro nunca chega a mexer-se, portanto o
- * `pendingValue` continuava a devolvê-lo — o controlo mostrava um valor que o
- * carro nunca teve, e o toque seguinte partia desse valor fantasma.
+ * Gives up on a request whose service call failed. Without this the request
+ * would stay forever: the car's reading never gets to move, so `pendingValue`
+ * would keep returning it — the control would show a value the car never
+ * had, and the next tap would start from that phantom value.
  *
- * Só apaga se ainda for o MESMO pedido: entre a chamada e a rejeição o
- * utilizador pode ter tocado outra vez, e esse pedido novo é válido e ainda não
- * falhou. Devolve se apagou alguma coisa, para quem chama saber se precisa de
- * pedir um render.
+ * Only deletes if it's still the SAME request: between the call and the
+ * rejection the user may have tapped again, and that new request is valid
+ * and hasn't failed yet. Returns whether it deleted anything, so the caller
+ * knows whether it needs to request a render.
  */
 export function forgetRequest<K extends string, T>(
   requests: Partial<Record<K, PendingRequest<T>>>,
@@ -257,13 +264,15 @@ export function forgetRequest<K extends string, T>(
 }
 
 /**
- * O que uma secção mostra para um nível de assento: o pedido por confirmar ganha
- * à leitura do carro, e fica marcado como pendente. As duas secções que mostram
- * níveis — o pino do painel de clima e a linha da secção de conforto — passam
- * por aqui, para não poderem discordar sobre o mesmo banco no mesmo ecrã.
+ * What a section shows for a seat level: the unconfirmed request wins over
+ * the car's reading, and gets marked as pending. The two sections that show
+ * levels — the climate panel's pin and the comfort section's row — go
+ * through here, so they can't disagree about the same seat on the same
+ * screen.
  *
- * `pending === undefined` e não um valor falsy: um pedido de nível **0** é um
- * pedido como os outros, e um `||` aqui fazia-o passar por «sem pedido».
+ * `pending === undefined` and not a falsy value: a level **0** request is a
+ * request like any other, and a `||` here would make it pass as "no
+ * request".
  */
 export function shownLevel(
   pending: number | undefined,
@@ -273,28 +282,29 @@ export function shownLevel(
 }
 
 /**
- * O que uma ação precisa além do estado do veículo, com um campo por ação em
- * vez de um número solto. O `value: number` anterior significava coisas
- * diferentes conforme a ação, e essa ambiguidade produziu os piores defeitos
- * deste projeto.
+ * What an action needs beyond the vehicle state, with one field per action
+ * instead of a loose number. The previous `value: number` meant different
+ * things depending on the action, and that ambiguity produced this project's
+ * worst defects.
  */
 export interface ActionPayload {
-  /** Posição alvo da cortina, 0–10. */
+  /** Target sunshade position, 0–10. */
   position?: number
   /**
-   * Comando de climatização, sempre completo — é o que o `resolveAction` exige
-   * e o que o serviço recebe. Quem o compõe é o card, a partir da intenção que
-   * vai acumulando; nenhum controlo escreve aqui.
+   * Climate command, always complete — it's what `resolveAction` requires
+   * and what the service receives. The card composes it, from the intent it
+   * keeps accumulating; no control writes here.
    */
   climate?: ClimateCommand
 }
 
 /**
- * O `detail` do evento `leapmotor-action`. As secções não chamam serviços: o
- * que emitem é este objeto, e `leapmotor-card.ts` é quem o resolve. Existe como
- * tipo — e não como literal repetido em cada emissor — porque um `value:` ou um
- * `payload:` trocado num deles compilava, passava os testes, e só se via no
- * dashboard de um utilizador com um controlo que deixou de comandar o carro.
+ * The `detail` of the `leapmotor-action` event. Sections don't call
+ * services: what they emit is this object, and `leapmotor-card.ts` is what
+ * resolves it. It exists as a type — and not as a literal repeated in every
+ * emitter — because a swapped `value:` or `payload:` in one of them would
+ * compile, pass the tests, and only show up on a user's dashboard with a
+ * control that stopped commanding the car.
  */
 export interface ActionEventDetail {
   action: ActionId
@@ -318,8 +328,8 @@ export function resolveAction(
     case 'windows':
       return press(map, anyWindowOpen(state) ? 'closeWindows' : 'openWindows')
     case 'sunshade': {
-      // A posição da cortina não é exposta como entidade (spec v2 §2.4), logo
-      // não há estado para alternar: o utilizador escolhe a posição alvo.
+      // The sunshade position isn't exposed as an entity (spec v2 §2.4), so
+      // there's no state to toggle: the user picks the target position.
       const entityId = vehicleAnchor(map)
       const position = payload?.position
       if (!entityId || position === undefined) return undefined
@@ -342,9 +352,9 @@ export function resolveAction(
         service: 'set_climate',
         entityId,
         entityIdAsField: true,
-        // Sempre os três: o `set_climate` repõe pelos defeitos o que não for
-        // enviado, pelo que mandar só a temperatura poria a ventoinha em 3 e
-        // desligaria a recirculação.
+        // Always all three: `set_climate` resets to defaults whatever isn't
+        // sent, so sending only the temperature would put the fan at 3 and
+        // turn recirculation off.
         data: {
           mode: climateMode(state, temperature),
           temperature,
@@ -364,10 +374,10 @@ export function resolveAction(
     case 'mirrorHeat': return toggleSwitch(map, 'mirrorHeat', state.comfort.mirrorHeat)
     case 'batteryPreheat': return toggleSwitch(map, 'batteryPreheat', state.comfort.batteryPreheat)
     case 'setChargeLimit': {
-      // Devolve a chamada sem `data` de propósito: o valor vem do slider do painel
-      // de carregamento, que o `onLimit` passa como `extra` ao `doCall`. Está em
-      // PAYLOAD_ACTIONS para não ser utilizável como botão da linha, onde não
-      // teria por onde receber esse valor.
+      // Returns the call without `data` on purpose: the value comes from the
+      // charging panel's slider, which `onLimit` passes as `extra` to
+      // `doCall`. It's in PAYLOAD_ACTIONS so it can't be used as a row
+      // button, where it would have no way to receive that value.
       const entityId = map.chargeLimitSet
       return entityId ? { domain: 'number', service: 'set_value', entityId } : undefined
     }
@@ -377,13 +387,13 @@ export function resolveAction(
 export function actionLabel(action: ActionId, state: VehicleState, t: TranslateFn): string {
   if (action === 'trunk') return t(state.openings.trunk === true ? 'action.trunk_close' : 'action.trunk_open')
   if (action === 'windows') return t(anyWindowOpen(state) ? 'action.windows_close' : 'action.windows_open')
-  // A climatização é o único alternante desta lista cuja etiqueta não dizia o
-  // que o toque faz: o estado só se lia no realce do botão, e um utilizador
-  // que a queria desligar não tinha por onde saber que era ali. A condição é a
-  // MESMA do `toggleSwitch` no `resolveAction` — comparação contra `true`, para
-  // o estado desconhecido prometer «ligar», que é o que ele vai mesmo fazer.
-  // A chave neutra `action.climate` fica-se pelo editor, onde a ação se escolhe
-  // e não se executa.
+  // Climate is the only toggle in this list whose label didn't say what the
+  // tap does: the state could only be read from the button's highlight, and
+  // a user who wanted to turn it off had no way to know it was there. The
+  // condition is the SAME as `toggleSwitch`'s in `resolveAction` — comparison
+  // against `true`, so that an unknown state promises "turn on", which is
+  // what it will actually do. The neutral `action.climate` key stays confined
+  // to the editor, where the action is chosen and not executed.
   if (action === 'climate') return t(state.climate.on === true ? 'action.climate_off' : 'action.climate_on')
   return t(`action.${action}`)
 }
@@ -410,37 +420,38 @@ export function actionIcon(action: ActionId, state: VehicleState): string {
   }
 }
 
-/** Ações que não devem ser possíveis com o carro em andamento. */
+/** Actions that must not be possible while the car is driving. */
 export const BLOCKED_WHILE_DRIVING: ActionId[] = ['unlock', 'lock', 'trunk', 'windows', 'sunshade']
 
 /**
- * O painel que a expansão do card pode mostrar. Um só, desde que a grelha de
- * grupos substituiu os tiles: o painel de clima passou a ser o conteúdo de uma
- * sub-vista e deixou de se expandir. Manter aqui membros que o `CONTROL_PANEL`
- * — único produtor — não produz deixava compilar para sempre uma comparação
- * que nunca é verdadeira.
+ * The panel the card's expansion can show. Just one, ever since the group
+ * grid replaced the tiles: the climate panel became the content of a
+ * sub-view and stopped expanding. Keeping members here that `CONTROL_PANEL`
+ * — its only producer — doesn't produce would let a comparison that's never
+ * true compile forever.
  */
 export type ExpandPanel = 'sunshade'
 
 /**
- * Ações cujo `resolveAction` exige um `ActionPayload` que só um controlo
- * fornece. Testar a disponibilidade destas sem payload devolveria sempre
- * `undefined`, e não porque a ação estivesse indisponível.
+ * Actions whose `resolveAction` requires an `ActionPayload` that only a
+ * control supplies. Testing their availability without a payload would
+ * always return `undefined`, and not because the action was unavailable.
  */
 export const PAYLOAD_ACTIONS: ActionId[] = ['sunshade', 'setClimate', 'setChargeLimit']
 
 /**
- * Que painel cada ação abre, quando abre algum. Uma ação de valor **sem**
- * painel não pode ser um botão da linha de ações: não tem por onde receber o
- * valor, e encaminhá-la para o painel de outra ação faria um botão comandar
- * uma coisa diferente da que anuncia.
+ * Which panel each action opens, when it opens one at all. A value action
+ * **without** a panel can't be an action-row button: it has no way to
+ * receive the value, and routing it to another action's panel would make a
+ * button command something different from what it announces.
  */
 export const CONTROL_PANEL: Partial<Record<ActionId, ExpandPanel>> = { sunshade: 'sunshade' }
 
 /**
- * Payload mínimo para responder «esta ação está disponível?» sem a executar. Só
- * as ações de payload precisam de entrada aqui; para as outras, `resolveAction`
- * ignora o payload e a resposta é a mesma com ou sem ele.
+ * Minimal payload to answer "is this action available?" without executing
+ * it. Only payload actions need an entry here; for the others,
+ * `resolveAction` ignores the payload and the answer is the same with or
+ * without it.
  */
 const AVAILABILITY_PROBE: Partial<Record<ActionId, ActionPayload>> = {
   sunshade: { position: 0 },
@@ -448,15 +459,15 @@ const AVAILABILITY_PROBE: Partial<Record<ActionId, ActionPayload>> = {
 }
 
 /**
- * Pode esta ação ser um botão aqui? Para as ações de payload usa um payload de
- * sondagem, porque o que interessa saber é se o veículo é endereçável, não o
- * que o utilizador vai escolher — mas só quando a ação também tem painel: sem
- * ele, o botão não teria como receber esse payload.
+ * Can this action be a button here? For payload actions, use a probe
+ * payload, because what matters is whether the vehicle is addressable, not
+ * what the user is going to choose — but only when the action also has a
+ * panel: without one, the button would have no way to receive that payload.
  */
 export function isActionAvailable(action: ActionId, state: VehicleState, map: EntityMap): boolean {
   const needsPayload = PAYLOAD_ACTIONS.includes(action)
-  // Uma ação de payload sem painel não é utilizável como botão, mesmo que o
-  // veículo seja endereçável.
+  // A payload action without a panel can't be used as a button, even if the
+  // vehicle is addressable.
   if (needsPayload && !CONTROL_PANEL[action]) return false
   return resolveAction(action, state, map, AVAILABILITY_PROBE[action]) !== undefined
 }

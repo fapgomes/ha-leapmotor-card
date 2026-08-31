@@ -11,8 +11,8 @@ export class LeapmotorLocation extends LitElement {
   @property({ attribute: false }) state!: VehicleState
   @property({ attribute: false }) t!: TranslateFn
   /**
-   * O card `map` do Home Assistant, já criado e alimentado com `hass` pelo
-   * elemento principal. Esta secção nunca vê `hass` — ver a nota da Task 3.
+   * Home Assistant's `map` card, already created and fed `hass` by the main
+   * element. This section never sees `hass` — see the note in Task 3.
    */
   @property({ attribute: false }) mapElement?: HTMLElement
 
@@ -30,12 +30,12 @@ export class LeapmotorLocation extends LitElement {
         ? html`
             <div class="zone muted">${loc.zone ?? DASH}</div>
             ${this.mapElement
-              // A GESTURE_OWNER_CLASS tem de ficar neste contentor: é ela que
-              // tira o mapa ao deslize entre sub-vistas, e o outro lado do
-              // contrato é o INTERACTIVE_SELECTOR em `swipe.ts` — mexer numa
-              // ponta sem a outra devolve o defeito. O Leaflet arrasta em
-              // `touchstart` e nunca vê o nosso `pointerdown`, por isso não se
-              // defende sozinho.
+              // GESTURE_OWNER_CLASS has to stay on this container: it's what
+              // exempts the map from the swipe between sub-views, and the
+              // other side of the contract is INTERACTIVE_SELECTOR in
+              // `swipe.ts` — touching one end without the other brings the
+              // defect back. Leaflet drags on `touchstart` and never sees
+              // our `pointerdown`, so it doesn't defend itself on its own.
               ? html`<div class="map ${GESTURE_OWNER_CLASS} ${loc.stale ? 'stale' : ''}">${this.mapElement}</div>`
               : html`<div class="fallback muted">${this.t('location.map_unavailable')}</div>`}
           `
@@ -49,8 +49,8 @@ export class LeapmotorLocation extends LitElement {
     .chip.stale { opacity: 0.7; }
     .zone { font-size: 0.85rem; margin-top: 4px; }
     .map { margin-top: 10px; border-radius: 12px; overflow: hidden; }
-    /* Posição obsoleta desenha-se esbatida, pela mesma razão que a pill das
-       trancas: o card não apresenta como atual o que sabe estar velho. */
+    /* A stale position is drawn dimmed, for the same reason as the locks
+       pill: the card doesn't present as current what it knows to be old. */
     .map.stale { opacity: 0.72; }
     .fallback { margin-top: 10px; font-size: 0.85rem; }
   `]

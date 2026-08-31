@@ -12,7 +12,7 @@ const BASE = [
 ]
 
 describe('resolveEntities', () => {
-  it('descobre o único device Leapmotor quando config.device é omitido', () => {
+  it('discovers the single Leapmotor device when config.device is omitted', () => {
     const hass = fakeHass(BASE, { dev1: { name_by_user: 'B10 Demo' } })
     const r = resolveEntities(hass, CONFIG)
     expect(r.error).toBeUndefined()
@@ -21,14 +21,14 @@ describe('resolveEntities', () => {
     expect(r.map.battery).toBe('sensor.b10_battery')
   })
 
-  it('resolve entidades com prefixo de entity_id diferente do device', () => {
-    // `..._main_live_range` não partilha o prefixo das restantes; o mapeamento
-    // é por translation_key, logo tem de ser encontrado.
+  it('resolves entities whose entity_id prefix differs from the device', () => {
+    // `..._main_live_range` doesn't share the prefix of the others; the
+    // mapping is by translation_key, so it still has to be found.
     const hass = fakeHass(BASE, { dev1: {} })
     expect(resolveEntities(hass, CONFIG).map.rangeLive).toBe('sensor.b10_main_live_range')
   })
 
-  it('devolve erro ambiguous quando há dois carros e nenhum device na config', () => {
+  it('returns an ambiguous error when there are two cars and no device in the config', () => {
     const hass = fakeHass(
       [...BASE, { key: 'sensor/battery_percent', entity_id: 'sensor.t03_battery', device_id: 'dev2', state: '40', unit: '%' }],
       { dev1: { name_by_user: 'B10 Demo' }, dev2: { name: 'T03' } },
@@ -38,42 +38,42 @@ describe('resolveEntities', () => {
     expect(r.candidates.map(c => c.name).sort()).toEqual(['B10 Demo', 'T03'])
   })
 
-  it('aceita um device_id explícito', () => {
+  it('accepts an explicit device_id', () => {
     const hass = fakeHass(BASE, { dev1: {} })
     expect(resolveEntities(hass, { ...CONFIG, device: 'dev1' }).deviceId).toBe('dev1')
   })
 
-  it('aceita um entity_id como device', () => {
+  it('accepts an entity_id as the device', () => {
     const hass = fakeHass(BASE, { dev1: {} })
     expect(resolveEntities(hass, { ...CONFIG, device: 'lock.b10_lock' }).deviceId).toBe('dev1')
   })
 
-  it('devolve unknown_device para um device que não existe', () => {
+  it('returns unknown_device for a device that does not exist', () => {
     const hass = fakeHass(BASE, { dev1: {} })
     expect(resolveEntities(hass, { ...CONFIG, device: 'dev9' }).error).toBe('unknown_device')
   })
 
-  it('devolve not_found depois de o fallback também não trazer nada', () => {
-    // Com `extra` fornecido (mesmo vazio), o fallback já correu: o estado
-    // terminal é not_found, não needsFallback.
+  it('returns not_found after the fallback also comes up empty', () => {
+    // With `extra` provided (even empty), the fallback has already run: the
+    // terminal state is not_found, not needsFallback.
     const hass = fakeHass([], {})
     expect(resolveEntities(hass, CONFIG, []).error).toBe('not_found')
   })
 
-  it('deixa os overrides da config ganharem sobre a descoberta', () => {
+  it('lets the config overrides win over discovery', () => {
     const hass = fakeHass(BASE, { dev1: {} })
     const r = resolveEntities(hass, { ...CONFIG, entities: { range: 'sensor.b10_main_live_range' } })
     expect(r.map.range).toBe('sensor.b10_main_live_range')
   })
 
-  it('lista as chaves não resolvidas em missing', () => {
+  it('lists the unresolved keys in missing', () => {
     const hass = fakeHass(BASE, { dev1: {} })
     const r = resolveEntities(hass, CONFIG)
     expect(r.missing).toContain('interiorTemp')
     expect(r.missing).not.toContain('battery')
   })
 
-  it('sinaliza needsFallback quando hass.entities está vazio e resolve com extra', () => {
+  it('signals needsFallback when hass.entities is empty, and resolves with extra', () => {
     const hass = fakeHass(BASE, { dev1: {} }, { omitEntities: true })
     expect(resolveEntities(hass, CONFIG).needsFallback).toBe(true)
 
@@ -83,14 +83,14 @@ describe('resolveEntities', () => {
     expect(r.map.battery).toBe('sensor.b10_battery')
   })
 
-  it('prefere name_by_user ao name do device', () => {
+  it('prefers the device\'s name_by_user over its name', () => {
     const hass = fakeHass(BASE, { dev1: { name: 'Leapmotor B10 2025', name_by_user: 'B10 Demo' } })
     expect(resolveEntities(hass, CONFIG).deviceName).toBe('B10 Demo')
   })
 })
 
 describe('loadRegistryFallback', () => {
-  it('pede config/entity_registry/list e filtra pela integração', async () => {
+  it('requests config/entity_registry/list and filters by the integration', async () => {
     const callWS = vi.fn().mockResolvedValue([
       { entity_id: 'sensor.b10_battery', device_id: 'dev1', platform: 'leapmotor', translation_key: 'battery_percent' },
       { entity_id: 'sensor.other', device_id: 'dev5', platform: 'mqtt', translation_key: null },

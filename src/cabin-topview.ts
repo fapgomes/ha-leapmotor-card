@@ -1,59 +1,63 @@
 import { html, type TemplateResult } from 'lit'
 
 /**
- * O habitáculo visto de cima, para servir de base aos controlos de conforto.
- * Desenho original, feito de rectângulos e círculos; o repositório é GPL v3 e
- * não distribui — nem decalca — arte da Leapmotor.
+ * The cabin seen from above, to serve as the base for the comfort controls.
+ * Original drawing, made of rectangles and circles; the repository is GPL v3
+ * and does not distribute — nor trace — Leapmotor artwork.
  *
- * Não é um carro visto de fora: não há carroçaria, nem nariz, nem rodas. É só a
- * cabina, cortada à frente na linha do tablier e atrás logo a seguir ao banco
- * corrido, que é onde acabam os controlos. Isso é o que fixa a razão do
- * `viewBox` em 200 x 240 (1 : 1,2) — a vista de topo do carro inteiro que aqui
- * esteve era 1 : 2,5 e obrigava a espremer os controlos numa faixa estreita.
+ * It is not a car seen from outside: there is no bodywork, no nose, no
+ * wheels. It is just the cabin, cut off at the front on the fascia line and
+ * at the back right after the bench seat, which is where the controls end.
+ * That is what fixes the reason for the `viewBox` being 200 x 240 (1 : 1.2)
+ * — the full car top view that used to be here was 1 : 2.5 and forced the
+ * controls to be squeezed into a narrow band.
  *
- * A caixa era 200 x 228 e cresceu 12 unidades EM BAIXO, sem nada mudar de
- * tamanho: o tablier ficou onde estava e tudo o que vem depois dele — bancos,
- * consola, banco de trás, painéis de trás — desceu 12, com os painéis das
- * portas da frente a esticarem os mesmos 12 para continuarem a nascer nas
- * pontas do tablier. O que se ganhou foi a distância entre o tablier e os
- * bancos, que é onde o volante vive: com 228 não havia como pôr o chip do
- * volante à frente do condutor sem lhe encostar ao encosto de cabeça ou sem o
- * traço do tablier lhe entrar pelo canto redondo. Agora há 36,9 unidades de
- * banda livre para um chip de 25, e sobram ~6 de cada lado.
+ * The box was 200 x 228 and grew 12 units AT THE BOTTOM, with nothing
+ * changing size: the fascia stayed where it was and everything that comes
+ * after it — seats, console, rear bench, rear panels — moved down 12, with
+ * the front door panels stretching the same 12 to keep starting at the
+ * fascia's ends. What was gained was the distance between the fascia and the
+ * seats, which is where the steering wheel lives: at 228 there was no way to
+ * place the steering wheel chip in front of the driver without it touching
+ * the headrest or without the fascia's line cutting into its rounded corner.
+ * Now there are 36.9 units of free band for a 25-unit chip, leaving ~6 on
+ * each side.
  *
- * ONDE HÁ CONTROLO NÃO HÁ DESENHO. Esta é a regra que rege o que aqui está e,
- * sobretudo, o que aqui deixou de estar. Um chip é uma caixa opaca de cantos
- * redondos: pôr por baixo dele outra peça com a mesma forma — a roda do volante
- * era uma elipse, o espelho um rectângulo arredondado — não acrescenta leitura
- * nenhuma, só deixa espreitar uma orla à volta do chip que se lê como uma
- * nódoa. Foi o que aconteceu no dashboard, e é por isso que nem o volante nem
- * os espelhos estão desenhados: o chip que os comanda É a peça. Quem mexer
- * neste ficheiro não os volte a acrescentar.
+ * WHERE THERE IS A CONTROL THERE IS NO DRAWING. This is the rule that
+ * governs what is here and, above all, what is no longer here. A chip is an
+ * opaque box with rounded corners: putting another piece of the same shape
+ * underneath it — the steering wheel was an ellipse, the mirror a rounded
+ * rectangle — adds no readability at all, it only lets a rim peek out around
+ * the chip that reads as a stain. That is what happened on the dashboard,
+ * and it is why neither the steering wheel nor the mirrors are drawn: the
+ * chip that controls them IS the piece. Whoever edits this file should not
+ * add them back.
  *
- * O que está desenhado, de cima para baixo:
- *   - a linha do tablier, que é o corte da frente da cabina. Não vai de espelho
- *     a espelho: as pontas caem em (11,5; 46) e (188,5; 46), que são os topos
- *     dos painéis das portas da frente, e a linha entra por eles dentro. Tinha
- *     de ser: sem os espelhos nas pontas, uma linha que acabava no ar lia-se
- *     como um risco solto e não como o tablier. Ao meio sobe até y = 29,5.
- *     Agora não passa por trás de chip nenhum — nem o dos espelhos nem o do
- *     volante lhe tocam, e a folga mais curta para cada um deles está anotada
- *     em `climate-panel.ts`;
- *   - dois bancos da frente, cada um com encosto de cabeça (y 72), espaldar
- *     (y 90 a 138) e assento (y 141 a 168), centrados em x = 57 e x = 143;
- *   - a consola central entre eles (x 88 a 112), com dois porta-copos em
- *     cima (y 100) e o apoio de braço em baixo (y 124 a 164);
- *   - o banco corrido de trás a toda a largura (x 24 a 176), com o espaldar
- *     dividido ao meio (y 176 a 212) e o assento por baixo (y 215 a 234);
- *   - os painéis das portas, dois de cada lado (frente e trás), nas margens.
+ * What is drawn, from top to bottom:
+ *   - the fascia line, which is the cabin's front cut. It does not go from
+ *     mirror to mirror: its ends fall at (11.5, 46) and (188.5, 46), which
+ *     are the tops of the front door panels, and the line enters into them.
+ *     It had to be this way: without the mirrors at the ends, a line ending
+ *     in mid-air read as a loose stroke and not as the fascia. In the
+ *     middle it rises to y = 29.5. It now does not pass behind any chip —
+ *     neither the mirrors' nor the steering wheel's touch it, and the
+ *     shortest clearance for each of them is noted in `climate-panel.ts`;
+ *   - two front seats, each with a headrest (y 72), backrest (y 90 to 138)
+ *     and cushion (y 141 to 168), centered at x = 57 and x = 143;
+ *   - the center console between them (x 88 to 112), with two cup holders
+ *     on top (y 100) and the armrest below (y 124 to 164);
+ *   - the rear bench seat spanning the full width (x 24 to 176), with the
+ *     backrest split down the middle (y 176 to 212) and the cushion below
+ *     (y 215 to 234);
+ *   - the door panels, two on each side (front and rear), at the margins.
  *
- * As percentagens `left`/`top` dos controlos em `climate-panel.ts` resolvem
- * contra esta caixa e estão calculadas sobre estas coordenadas: cada controlo
- * está no lugar da peça que comanda (um chip de espelho em cada canto da
- * frente, o do volante à frente do banco do condutor, e a pastilha de cada
- * banco sobre o espaldar respectivo). Mexer no desenho obriga a revê-las — e
- * as `top` resolvem contra a ALTURA da caixa, portanto mexer no 240 mexe em
- * todas elas.
+ * The `left`/`top` percentages of the controls in `climate-panel.ts` resolve
+ * against this box and are calculated over these coordinates: each control
+ * sits where the piece it commands sits (a mirror chip at each front
+ * corner, the steering wheel's in front of the driver's seat, and each
+ * seat's pill over its respective backrest). Changing the drawing requires
+ * revisiting them — and the `top` values resolve against the box's HEIGHT,
+ * so changing the 240 changes all of them.
  */
 export const CABIN_TOPVIEW: TemplateResult = html`
   <svg viewBox="0 0 200 240" aria-hidden="true" part="topview">

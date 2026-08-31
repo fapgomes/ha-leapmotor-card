@@ -16,11 +16,11 @@ export const sharedStyles: CSSResult = css`
     --lm-surface: var(--leapmotor-surface, var(--card-background-color));
     --lm-chip: var(--leapmotor-chip, rgba(127, 127, 127, 0.12));
     /*
-     * Aviso e alerta com nome próprio. Antes disto, o aviso de pressão de pneu
-     * em tires.ts usava --leapmotor-battery-mid: um aviso de pneu a pedir
-     * emprestada a cor da bateria. Os valores por omissão são os mesmos que
-     * eram, para nada mudar de aspeto — muda só de significado, e o significado
-     * é o que um tema de utilizador precisa de poder redefinir.
+     * Warn and alert with their own name. Before this, the tire pressure
+     * warning in tires.ts used --leapmotor-battery-mid: a tire warning
+     * borrowing the battery's color. The default values are the same they
+     * were, so nothing changes in appearance — only in meaning, and meaning
+     * is what a user theme needs to be able to redefine.
      */
     --lm-warn: var(--leapmotor-warn, #f5a623);
     --lm-alert: var(--leapmotor-alert, #e5484d);
@@ -39,13 +39,13 @@ export const sharedStyles: CSSResult = css`
   }
   .row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--lm-gap); }
   /*
-   * ATENÇÃO: o all: unset reinicia TODAS as propriedades, não só o aspeto
-   * de botão — fundo, padding, cantos, dimensões, position e box-sizing
-   * incluídos. Esta regra está a (0,1,1), logo qualquer regra de uma só
-   * classe perde para ela. Um elemento com class="plain x" precisa de um
-   * seletor composto button.plain.x que REPONHA tudo o que a caixa dele
-   * exige. Isto já produziu seis defeitos neste projeto, dois deles visíveis
-   * no dashboard de um utilizador.
+   * WARNING: all: unset resets ALL properties, not just the button look —
+   * background, padding, corners, dimensions, position and box-sizing
+   * included. This rule sits at (0,1,1), so any single-class rule loses to
+   * it. An element with class="plain x" needs a compound selector
+   * button.plain.x that RESTORES everything its box requires. This has
+   * already produced six defects in this project, two of them visible on a
+   * user's dashboard.
    */
   button.plain {
     all: unset; cursor: pointer; display: flex;
@@ -53,19 +53,19 @@ export const sharedStyles: CSSResult = css`
   }
   button.plain[disabled] { cursor: not-allowed; opacity: 0.4; }
   /*
-   * O all: unset acima também apaga o contorno de foco, e o browser não o
-   * repõe sozinho: qualquer botão do card ficava sem qualquer marca visível
-   * ao ser alcançado pelo teclado. Isso doía sobretudo na pastilha de um
-   * banco, cujas duas metades são contíguas e sem separador — sem anel de
-   * foco não havia como saber qual delas ia disparar.
+   * The all: unset above also wipes the focus outline, and the browser does
+   * not restore it on its own: any button in the card was left with no
+   * visible mark at all when reached by keyboard. That hurt most on a seat's
+   * pill, whose two halves are contiguous with no separator — without a
+   * focus ring there was no way to tell which one would fire.
    *
-   * Vive aqui, e não numa secção, porque o all: unset também vive aqui: a
-   * regra tem de cobrir todos os class="plain …" do card, não só os de um
-   * painel. Está a (0,2,1), portanto acima do button.plain (0,1,1) que a
-   * apagou. Uma secção que precise do anel POR DENTRO da sua caixa — é o caso
-   * das metades da pastilha, que vivem dentro de um contentor com
-   * overflow: hidden — só tem de declarar o outline-offset no seu seletor
-   * composto, que a (0,3,1) ganha a esta.
+   * Lives here, and not in a section, because all: unset also lives here:
+   * the rule has to cover every class="plain …" in the card, not just a
+   * panel's. It sits at (0,2,1), so above the button.plain (0,1,1) that
+   * wiped it. A section that needs the ring INSIDE its own box — the case of
+   * the pill's halves, which live inside a container with
+   * overflow: hidden — only has to declare the outline-offset on its own
+   * compound selector, which at (0,3,1) beats this one.
    */
   button.plain:focus-visible {
     outline: 2px solid var(--primary-color);

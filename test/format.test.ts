@@ -9,41 +9,41 @@ const pt = createTranslator('pt')
 const NOW = new Date('2026-08-27T19:50:00+00:00')
 
 describe('formatUpdated', () => {
-  it('mostra hora e "Hoje" para o mesmo dia', () => {
+  it('shows the time and "Hoje" for the same day', () => {
     expect(formatUpdated(new Date('2026-08-27T19:49:00+00:00'), NOW, pt, 'pt'))
       .toBe('Atualização do estado 19:49 Hoje')
   })
-  it('mostra "Ontem" para o dia anterior', () => {
+  it('shows "Ontem" for the previous day', () => {
     expect(formatUpdated(new Date('2026-08-26T08:05:00+00:00'), NOW, pt, 'pt'))
       .toBe('Atualização do estado 08:05 Ontem')
   })
-  it('mostra a data para dias mais antigos', () => {
+  it('shows the date for older days', () => {
     expect(formatUpdated(new Date('2026-08-20T08:05:00+00:00'), NOW, pt, 'pt'))
       .toContain('08:05')
   })
-  it('devolve travessão sem data', () => {
+  it('returns a dash when there is no date', () => {
     expect(formatUpdated(undefined, NOW, pt, 'pt')).toBe('—')
   })
 })
 
 describe('formatAgo', () => {
-  it('formata segundos em horas e minutos', () => {
-    // 11930 s = 198.83 min, que formatDuration arredonda para 199 = 3h 19min
+  it('formats seconds as hours and minutes', () => {
+    // 11930 s = 198.83 min, which formatDuration rounds to 199 = 3h 19min
     expect(formatAgo(11930, pt)).toBe('há 3h e 19min')
   })
-  it('formata menos de uma hora', () => {
+  it('formats less than an hour', () => {
     expect(formatAgo(300, pt)).toBe('há 5min')
   })
 })
 
 describe('formatNumber', () => {
-  it('devolve travessão para undefined', () => {
+  it('returns a dash for undefined', () => {
     expect(formatNumber(undefined)).toBe('—')
   })
-  it('arredonda para inteiro por defeito', () => {
+  it('rounds to an integer by default', () => {
     expect(formatNumber(60.3)).toBe('60')
   })
-  it('respeita as casas decimais pedidas', () => {
+  it('respects the requested decimal places', () => {
     expect(formatNumber(2.174, 2)).toBe('2.17')
   })
 })
@@ -64,62 +64,63 @@ describe('areOpeningsUnknown', () => {
     openCount: 0,
   }
 
-  it('um carro que reportou tudo fechado é conhecido', () => {
+  it('a car that reported everything closed is known', () => {
     expect(areOpeningsUnknown(closed)).toBe(false)
     expect(areDoorsUnknown(closed.doors)).toBe(false)
     expect(areWindowsUnknown(closed.windows)).toBe(false)
   })
 
-  it('um carro que não reportou nada é desconhecido', () => {
+  it('a car that reported nothing is unknown', () => {
     expect(areOpeningsUnknown(nothing)).toBe(true)
     expect(areDoorsUnknown(nothing.doors)).toBe(true)
     expect(areWindowsUnknown(nothing.windows)).toBe(true)
   })
 
-  it('uma única leitura basta para deixar de ser desconhecido', () => {
+  it('a single reading is enough to stop being unknown', () => {
     expect(areOpeningsUnknown({ ...nothing, roof: false })).toBe(false)
-    // A posição do vidro conta como leitura, mesmo sem o booleano de aberto.
+    // The window position counts as a reading, even without the open boolean.
     expect(areWindowsUnknown({ ...nothing.windows, fl: { position: 0 } })).toBe(false)
   })
 })
 
 describe('formatWeekRange', () => {
   /*
-   * O separador que o `Intl` põe entre as duas pontas de um intervalo NÃO é um
-   * hífen entre espaços: é um travessão curto (U+2013) entre dois espaços finos
-   * (U+2009). Escrito à mão, o teste falhava com duas cadeias visualmente
-   * idênticas, e escrito por escapes vê-se logo porquê.
+   * The separator that `Intl` puts between the two ends of a range is NOT a
+   * hyphen between spaces: it's a short dash (U+2013) between two thin spaces
+   * (U+2009). Written by hand, the test failed with two visually identical
+   * strings, and written as escapes the reason is immediately visible.
    */
   const TO = '\u2009\u2013\u2009'
 
-  it('colapsa o mês repetido em português', () => {
-    // `formatRange` é o que sabe fazer isto: duas datas formatadas à parte e
-    // coladas davam «24 de ago. – 30 de ago.», com um mês a mais.
+  it('collapses the repeated month in Portuguese', () => {
+    // `formatRange` is what knows how to do this: two dates formatted
+    // separately and glued together gave "24 de ago. – 30 de ago.", with an
+    // extra month.
     expect(formatWeekRange('2026-08-24', '2026-08-30', 'pt')).toBe(`24${TO}30 de ago.`)
   })
 
-  it('colapsa o mês repetido em inglês, na ordem da língua', () => {
+  it('collapses the repeated month in English, in the language\'s own order', () => {
     expect(formatWeekRange('2026-08-24', '2026-08-30', 'en')).toBe(`Aug 24${TO}30`)
   })
 
-  it('escreve os dois meses quando a semana os atravessa', () => {
+  it('writes both months when the week spans them', () => {
     expect(formatWeekRange('2026-07-27', '2026-08-02', 'pt')).toBe(`27 de jul.${TO}2 de ago.`)
   })
 
-  it('nomeia os dias que a API mandou, sem os recuar', () => {
+  it('names the days the API sent, without rolling them back', () => {
     /*
-     * Não há teste que force um fuso a meio do processo — o `npm test` fixa
-     * `TZ=UTC` e o `Intl` guarda o fuso resolvido — por isso o que aqui se
-     * verifica é a consequência: o dia 1 aparece como 1. Num fuso a ocidente de
-     * Greenwich, e sem o `timeZone: 'UTC'` do `formatWeekRange`, a meia-noite
-     * UTC que o `Date` deduz de `2026-08-01` recuava para 31 de julho, e a
-     * semana toda aparecia deslocada um dia.
+     * There is no test that forces a timezone mid-process — `npm test` pins
+     * `TZ=UTC` and `Intl` keeps the resolved timezone — so what is verified
+     * here is the consequence: day 1 shows up as 1. In a timezone west of
+     * Greenwich, and without the `timeZone: 'UTC'` in `formatWeekRange`, the
+     * UTC midnight that `Date` derives from `2026-08-01` would roll back to
+     * July 31, and the whole week would show up shifted by one day.
      */
     expect(formatWeekRange('2026-08-01', '2026-08-07', 'pt')).toBe(`1${TO}7 de ago.`)
   })
 
-  it('devolve undefined quando uma das datas não se lê', () => {
-    // Quem chama etiqueta sem período em vez de escrever «Invalid Date».
+  it('returns undefined when one of the dates cannot be parsed', () => {
+    // The caller labels it with no period instead of writing "Invalid Date".
     expect(formatWeekRange('semana', '2026-08-30', 'pt')).toBeUndefined()
     expect(formatWeekRange('2026-08-24', '', 'pt')).toBeUndefined()
   })

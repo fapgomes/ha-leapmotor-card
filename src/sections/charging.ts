@@ -98,13 +98,14 @@ export class LeapmotorCharging extends LitElement {
     .title { font-size: 1.05rem; font-weight: 600; }
     .limit { font-size: 0.95rem; display: flex; align-items: center; gap: 2px; }
     /*
-     * A regra .limit acima chega para o <div class="limit muted"> (o caso só
-     * de leitura). Mas quando o limite é editável o elemento é
-     * <button class="plain limit">, e button.plain (theme.ts) faz all: unset
-     * a (0,1,1) — mais alto que .limit sozinha a (0,1,0). display e
-     * align-items calham a coincidir com os valores de button.plain, mas gap
-     * não: sem este seletor composto, o botão ficava com gap: 8px em vez dos
-     * 2px pretendidos, e font-size herdava do pai em vez de 0.95rem.
+     * The .limit rule above is enough for the <div class="limit muted">
+     * (the read-only case). But when the limit is editable the element is
+     * <button class="plain limit">, and button.plain (theme.ts) does
+     * all: unset at (0,1,1) — higher than .limit alone at (0,1,0). display
+     * and align-items happen to coincide with button.plain's values, but
+     * gap doesn't: without this compound selector, the button would end up
+     * with gap: 8px instead of the intended 2px, and font-size would
+     * inherit from the parent instead of 0.95rem.
      */
     button.plain.limit { font-size: 0.95rem; display: flex; align-items: center; gap: 2px; }
     .status { align-items: center; margin-top: 10px; gap: 10px; flex-wrap: wrap; justify-content: flex-start; }

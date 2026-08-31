@@ -15,9 +15,9 @@ const FAN_MIN = 1
 const FAN_MAX = 7
 
 /**
- * O sítio de um controlo sobreposto à vista da cabina. `left`/`top` são
- * percentagens da caixa da vista, não pixéis: a vista escala com a largura do
- * card e os controlos têm de a acompanhar.
+ * The spot of a control overlaid on the cabin view. `left`/`top` are
+ * percentages of the view's box, not pixels: the view scales with the
+ * card's width and the controls have to follow it.
  */
 interface Spot { left: string; top: string }
 
@@ -26,29 +26,31 @@ export class LeapmotorClimatePanel extends LitElement {
   @property({ attribute: false }) state!: VehicleState
   @property({ attribute: false }) t!: TranslateFn
   @property({ attribute: false }) map!: EntityMap
-  /** Nível máximo dos assentos, lido do atributo `max` das entidades number. */
+  /** Maximum seat level, read from the `max` attribute of the number entities. */
   @property({ type: Number }) maxLevel = 3
   /**
-   * A integração não expõe a velocidade da ventoinha, por isso este valor vive
-   * no card (que sobrevive ao colapso do painel) e não aqui: um `@internalState`
-   * local voltaria a 3 sempre que o utilizador fechasse e reabrisse o painel, e
-   * o toque seguinte no stepper mandaria essa 3 para o carro sem o avisar.
+   * The integration doesn't expose the fan speed, so this value lives in the
+   * card (which survives the panel collapsing) and not here: a local
+   * `@internalState` would go back to 3 every time the user closed and
+   * reopened the panel, and the next tap on the stepper would send that 3 to
+   * the car without telling them.
    */
   @property({ attribute: false }) fanSpeed = 3
 
   /**
-   * Temperatura e recirculação pedidas e ainda não confirmadas pelo carro.
-   * Chegam do card, que sobrevive ao colapso do painel: guardá-las aqui fazia
-   * com que fechar e reabrir o tile as apagasse, e o comando seguinte caía na
-   * leitura antiga e desfazia o pedido do utilizador — a lição do `fanSpeed`,
-   * aplicada agora também aqui.
+   * Temperature and recirculation requested and not yet confirmed by the
+   * car. They come from the card, which survives the panel collapsing:
+   * storing them here would mean closing and reopening the tile erased
+   * them, and the next command would fall back to the old reading and undo
+   * the user's request — the `fanSpeed` lesson, applied here too now.
    */
   @property({ attribute: false }) pendingTemp?: number
   @property({ attribute: false }) pendingRecirc?: boolean
 
   /**
-   * Os níveis que o painel mostra: já reconciliados pelo card, que é quem guarda
-   * os pedidos (`SeatRequests`). São números, não pedidos — daí o nome próprio.
+   * The levels the panel shows: already reconciled by the card, which is
+   * what stores the requests (`SeatRequests`). They are numbers, not
+   * requests — hence the distinct name.
    */
   @property({ attribute: false }) shownLevels: SeatLevels = {}
 
@@ -56,7 +58,7 @@ export class LeapmotorClimatePanel extends LitElement {
     return this.pendingTemp ?? this.state.climate.targetC
   }
 
-  /** `undefined` é «não sei», e é mostrado como tal — não como «desligada». */
+  /** `undefined` is "don't know", and is shown as such — not as "off". */
   private get shownRecirc(): boolean | undefined {
     return this.pendingRecirc ?? this.state.climate.recirculating
   }
@@ -74,11 +76,11 @@ export class LeapmotorClimatePanel extends LitElement {
   }
 
   /**
-   * Só os campos que este controlo mudou, e num evento próprio: uma mudança
-   * parcial não é um comando, e não tem por isso como chegar ao `resolveAction`
-   * — que só sabe trabalhar com comandos completos. É o mesmo padrão do
-   * `leapmotor-fan-speed` e do `leapmotor-set-number`. Quem acumula as mudanças
-   * e compõe o comando é o card.
+   * Only the fields this control changed, and in its own event: a partial
+   * change is not a command, and so has no way to reach `resolveAction` —
+   * which only knows how to work with complete commands. This is the same
+   * pattern as `leapmotor-fan-speed` and `leapmotor-set-number`. The card is
+   * what accumulates the changes and composes the command.
    */
   private sendClimate(change: ClimateChange) {
     this.dispatchEvent(new CustomEvent<ClimateChange>('leapmotor-climate-change', {
@@ -88,17 +90,17 @@ export class LeapmotorClimatePanel extends LitElement {
 
   private step(delta: number) {
     const next = nextStepTemperature(this.shownTemp, delta)
-    // O agrupamento por atraso não vive aqui: o card destrói este painel ao
-    // colapsar o tile, o que cancelaria um envio ainda pendente sem qualquer
-    // aviso (spec v2, achado 3). `leapmotor-card.ts`, que sobrevive ao painel,
-    // é quem agrupa os toques e envia só um comando.
+    // Debounce grouping doesn't live here: the card destroys this panel when
+    // the tile collapses, which would cancel a still-pending send without
+    // any warning (spec v2, finding 3). `leapmotor-card.ts`, which survives
+    // the panel, is what groups the taps and sends only one command.
     this.sendClimate({ temperature: next })
   }
 
   /**
-   * Sem leitura não há oposto: com o estado desconhecido, o toque pede a
-   * recirculação LIGADA — uma escolha explícita do utilizador — em vez de fingir
-   * que estava desligada e «inverter» a partir daí.
+   * With no reading there's no opposite: with an unknown state, the tap
+   * requests recirculation ON — an explicit choice by the user — instead of
+   * pretending it was off and "flipping" from there.
    */
   private toggleRecirc() {
     const shown = this.shownRecirc
@@ -106,7 +108,7 @@ export class LeapmotorClimatePanel extends LitElement {
     this.sendClimate({ recirculate: next })
   }
 
-  /** A velocidade escolhida só chega ao carro no próximo `set_climate`. */
+  /** The chosen speed only reaches the car on the next `set_climate`. */
   private onFan(e: Event) {
     const value = Number((e.target as HTMLInputElement).value)
     this.dispatchEvent(new CustomEvent<{ value: number }>('leapmotor-fan-speed', {
@@ -114,7 +116,7 @@ export class LeapmotorClimatePanel extends LitElement {
     }))
   }
 
-  /** Um interruptor sobreposto à vista, num chip só seu: espelhos, volante. */
+  /** A switch overlaid on the view, in a chip all its own: mirrors, steering wheel. */
   private chipToggle(action: ActionId, key: LogicalKey, icon: string, label: string, on: boolean | undefined, at: Spot) {
     if (!this.map[key]) return nothing
     return html`<button
@@ -128,13 +130,14 @@ export class LeapmotorClimatePanel extends LitElement {
   }
 
   /**
-   * A pastilha de um banco: aquecer e ventilar lado a lado, como na app. A
-   * pastilha agrupa-os e nada mais — cada metade é um botão seu, comanda a sua
-   * entidade e mostra o seu nível; tocar numa não mexe na outra.
+   * A seat's pill: heat and ventilation side by side, like in the app. The
+   * pill just groups them and nothing more — each half is its own button, it
+   * commands its own entity and shows its own level; tapping one doesn't
+   * touch the other.
    *
-   * Uma metade cuja entidade não está no mapa não é desenhada, e a pastilha
-   * estreita para o tamanho de um só controlo em vez de ficar com um buraco.
-   * Sem nenhuma das duas não há pastilha nenhuma.
+   * A half whose entity isn't in the map isn't drawn, and the pill narrows to
+   * the size of a single control instead of being left with a hole. Without
+   * either of the two, there's no pill at all.
    */
   private seatPill(seat: string, heatKey: SeatLevelKey, ventKey: SeatLevelKey, at: Spot) {
     const halves = [
@@ -148,20 +151,22 @@ export class LeapmotorClimatePanel extends LitElement {
     >${halves.map(half => this.seatLevel(half.key, half.icon, half.label))}</div>`
   }
 
-  /** Metade de uma pastilha: cada toque cicla o nível 0 → max → 0. */
+  /** Half a pill: each tap cycles the level 0 → max → 0. */
   private seatLevel(key: SeatLevelKey, icon: string, label: string) {
-    // O alvo do ciclo vem do valor mostrado, que já inclui o pedido por
-    // confirmar: dois toques seguidos avançam dois níveis em vez de mandarem
-    // duas vezes o mesmo, enquanto o Home Assistant não escreve o estado novo.
-    // `shownLevel` é partilhado com a secção de conforto, que mostra os mesmos
-    // quatro níveis e não pode responder outra coisa no mesmo ecrã.
+    // The cycle target comes from the shown value, which already includes
+    // the unconfirmed request: two taps in a row advance two levels instead
+    // of sending the same one twice, while Home Assistant hasn't written the
+    // new state yet. `shownLevel` is shared with the comfort section, which
+    // shows the same four levels and can't answer something different on
+    // the same screen.
     const { level, pending } = shownLevel(this.shownLevels[key], this.state.comfort[key])
-    // `formatNumber` já devolve DASH para `undefined`.
+    // `formatNumber` already returns DASH for `undefined`.
     const shown = formatNumber(level, 0)
     const next = ((level ?? 0) + 1) % (this.maxLevel + 1)
-    // O nível vai no rótulo porque o `aria-label` tapa o conteúdo do botão: sem
-    // ele, um leitor de ecrã anunciava o assento sem dizer em que nível está.
-    // Sem `aria-pressed`: isto cicla por vários níveis, não é um interruptor.
+    // The level goes in the label because `aria-label` covers the button's
+    // content: without it, a screen reader would announce the seat without
+    // saying what level it's at. No `aria-pressed`: this cycles through
+    // several levels, it's not a toggle.
     const spoken = `${label} · ${shown}`
     return html`<button
       class="plain seat-btn ${level ? 'on' : ''} ${pending ? 'pending' : ''}"
@@ -183,61 +188,65 @@ export class LeapmotorClimatePanel extends LitElement {
   }
 
   /**
-   * Onde há controlo não há desenho: nem o volante nem os espelhos estão
-   * desenhados (ver `cabin-topview.ts`). O chip É a peça, e é por isso que a
-   * sua posição não é «sobre a peça que comanda» mas «no lugar da peça que
-   * comanda», nas coordenadas do desenho (viewBox 200 x 240 — as `left`
-   * resolvem contra 200, as `top` contra 240):
-   *   - espelhos: DOIS chips, um em cada canto da frente, 7,5% e 92,5% / 9,5%
-   *     (centros em 15; 22,8 e 185; 22,8). É onde estão as orelhas de um
-   *     retrovisor exterior — fora da cabina, à frente das portas — e é onde a
-   *     app põe os seus dois chips, encostados às margens. Ficam ACIMA da
-   *     linha do tablier, sem lhe tocar: o ponto mais alto do traço debaixo de
-   *     um chip é y = 39,6 (na aresta interior, x = 27,5 e x = 172,5) e o chip
-   *     acaba em y = 35,3, portanto 4,3 unidades de folga. Para a margem da
-   *     caixa sobram 2,5 unidades (4 px), que é o «mais de lado» pedido;
-   *   - volante: à frente do banco do condutor, 28,5% / 22,29% (centro em
-   *     57; 53,5 — o mesmo x da pastilha do condutor, portanto a prumo com
-   *     ela). Este chip já não tem o traço do tablier a passar-lhe por trás:
-   *     o traço mais baixo sobre a largura do chip está em y = 35,05 (aresta
-   *     esquerda, x = 44,5) e o chip começa em y = 41,0, ou seja 5,9 unidades
-   *     abaixo dele; e acaba em y = 66,0, a 6,0 do encosto de cabeça do
-   *     condutor (y = 72). Está entre os dois, encostado ao condutor e não ao
-   *     tablier, que é onde um volante está. Foi para caber aqui que a caixa
-   *     do desenho cresceu de 228 para 240;
-   *   - pastilhas: sobre o espaldar de cada banco, 28,5% e 71,5% / 47,5%
-   *     (centros 57 e 143 em x, 114 em y; espaldar de y = 90 a y = 138).
-   *     Estas continuam sobre o desenho porque o espaldar é MAIOR do que a
-   *     pastilha e não é da mesma forma: vê-se o banco à volta dela, e lê-se
-   *     como um banco com um controlo em cima. Era isso que a roda de 38 x 28
-   *     debaixo de um chip de 25 não conseguia — duas formas redondas quase do
-   *     mesmo tamanho, uma por cima da outra, lêem-se como uma nódoa.
+   * Where there's a control there's no drawing: neither the steering wheel
+   * nor the mirrors are drawn (see `cabin-topview.ts`). The chip IS the
+   * part, and that's why its position isn't "over the part it commands" but
+   * "in the place of the part it commands", in the drawing's coordinates
+   * (viewBox 200 x 240 — the `left` values resolve against 200, the `top`
+   * values against 240):
+   *   - mirrors: TWO chips, one at each front corner, 7.5% and 92.5% / 9.5%
+   *     (centers at 15; 22.8 and 185; 22.8). This is where the ears of an
+   *     exterior rearview mirror are — outside the cabin, ahead of the doors
+   *     — and it's where the app places its own two chips, flush against the
+   *     margins. They sit ABOVE the fascia's line, without touching it: the
+   *     highest point of the line under a chip is y = 39.6 (at the inner
+   *     edge, x = 27.5 and x = 172.5) and the chip ends at y = 35.3, so 4.3
+   *     units of clearance. That leaves 2.5 units (4 px) for the box's
+   *     margin, which is the "more to the side" that was asked for;
+   *   - steering wheel: ahead of the driver's seat, 28.5% / 22.29% (center
+   *     at 57; 53.5 — the same x as the driver's pill, so plumb with it).
+   *     This chip no longer has the fascia's line passing behind it: the
+   *     lowest point of the line across the chip's width is at y = 35.05
+   *     (left edge, x = 44.5) and the chip starts at y = 41.0, i.e. 5.9
+   *     units below it; and it ends at y = 66.0, 6.0 from the driver's
+   *     headrest (y = 72). It sits between the two, flush against the
+   *     driver and not the fascia, which is where a steering wheel belongs.
+   *     It was to fit here that the drawing's box grew from 228 to 240;
+   *   - pills: over the backrest of each seat, 28.5% and 71.5% / 47.5%
+   *     (centers 57 and 143 in x, 114 in y; backrest from y = 90 to y = 138).
+   *     These stay over the drawing because the backrest is BIGGER than the
+   *     pill and isn't the same shape: the seat is visible around it, and it
+   *     reads as a seat with a control on top of it. That's what the 38 x 28
+   *     wheel under a 25 chip couldn't do — two round shapes of almost the
+   *     same size, one on top of the other, read as a smudge.
    *
-   * DOIS CHIPS, UM INTERRUPTOR. A integração expõe um único
-   * `switch/rearview_mirror_heat` para o par de espelhos — os dois aquecem
-   * sempre juntos, não há como aquecer só um. Os dois chips desta vista dizem
-   * exactamente isso: lêem ambos o MESMO `c.mirrorHeat` (logo acendem e
-   * apagam juntos, e o `aria-pressed` de um é sempre o do outro) e disparam
-   * ambos a MESMA `mirrorHeat`, que é um só pedido de serviço venha ele de
-   * que lado vier. Não há aqui estado por chip nem meia entidade: o que era
-   * mentira seria dois chips com ar de comandarem um espelho cada.
+   * TWO CHIPS, ONE SWITCH. The integration exposes a single
+   * `switch/rearview_mirror_heat` for the mirror pair — the two always heat
+   * together, there's no way to heat just one. The two chips in this view
+   * say exactly that: they both read the SAME `c.mirrorHeat` (so they light
+   * up and turn off together, and one's `aria-pressed` is always the
+   * other's) and both fire the SAME `mirrorHeat`, which is a single service
+   * request no matter which side it comes from. There's no per-chip state
+   * here, nor half an entity: what would be a lie is two chips that look
+   * like they command one mirror each.
    *
-   * O que o desenho não consegue dizer, dizem-no os nomes acessíveis: cada
-   * chip anuncia-se «Espelhos · os dois · botão da esquerda/direita». O «os
-   * dois» vem primeiro e é o que interessa — quem chegar de teclado ao chip da
-   * esquerda fica a saber que está a comandar o par; o «botão da esquerda»
-   * serve só para distinguir um chip do outro, e fala do BOTÃO, nunca do
-   * espelho.
+   * What the drawing can't say, the accessible names say: each chip
+   * announces itself as "Mirrors · both · left/right button". The "both"
+   * comes first and is what matters — whoever reaches the left chip by
+   * keyboard learns they're commanding the pair; the "left button" part
+   * only serves to distinguish one chip from the other, and it talks about
+   * the BUTTON, never the mirror.
    *
-   * O ícone dos espelhos é `mdi:mirror`: um oval com dois brilhos, que é o
-   * vidro de um espelho retrovisor. O `mdi:mirror-rectangle` que aqui esteve
-   * é um rectângulo com outro rectângulo dentro e lia-se como um telemóvel ou
-   * uma porta. A app usa um ícone de vidro aquecido, e o equivalente em MDI
-   * seria o `mdi:car-defrost-rear` — mas esse é, traço por traço, o
-   * `mdi:car-defrost-front` do botão Descongelar que está mais abaixo NESTE
-   * MESMO painel (um vidro com três ondas de calor), só que com o vidro
-   * rectangular em vez de trapezoidal. A 18px são o mesmo ícone. O calor fica
-   * dito pelo rótulo e pelo painel onde isto vive; a forma diz «espelho».
+   * The mirrors' icon is `mdi:mirror`: an oval with two highlights, which is
+   * the glass of a rearview mirror. The `mdi:mirror-rectangle` that used to
+   * be here is a rectangle with another rectangle inside and read as a
+   * mobile phone or a door. The app uses a heated-glass icon, and the MDI
+   * equivalent would be `mdi:car-defrost-rear` — but that one is, stroke for
+   * stroke, the `mdi:car-defrost-front` of the Defrost button further down
+   * in this SAME panel (a windshield with three heat waves), just with
+   * rectangular glass instead of trapezoidal. At 18px they're the same
+   * icon. The heat is conveyed by the label and by the panel this lives in;
+   * the shape says "mirror".
    */
   private topview() {
     const c = this.state.comfort
@@ -256,15 +265,17 @@ export class LeapmotorClimatePanel extends LitElement {
     const pending = this.pendingTemp !== undefined
     const recirc = this.shownRecirc
     const recircPending = this.pendingRecirc !== undefined
-    // `set_climate` liga a climatização como efeito do comando; mexer na
-    // recirculação com o A/C desligado ligá-lo-ia sem o utilizador o pedir.
+    // `set_climate` turns on climate control as a side effect of the
+    // command; touching recirculation with the A/C off would turn it on
+    // without the user asking for it.
     const climateOn = this.state.climate.on === true
-    // Dos quatro botões da fila de baixo só este é alternante, e a etiqueta
-    // fixa que tinha («Interruptor do A/C») não dizia para que lado ele ia: o
-    // estado só se lia no realce, e quem quisesse desligar a climatização não
-    // tinha como saber que era ali. Vem por isso do `actionLabel`, que é quem
-    // decide isso para a bagageira e os vidros — e assim a etiqueta e o
-    // serviço chamado não podem discordar.
+    // Of the four buttons in the bottom row, only this one is a toggle, and
+    // the fixed label it used to have ("A/C switch") didn't say which way it
+    // went: the state could only be read from the highlight, and anyone
+    // wanting to turn off climate control had no way to know it was there.
+    // That's why it comes from `actionLabel`, which is what decides this for
+    // the trunk and the windows — so the label and the called service can't
+    // disagree.
     const acLabel = actionLabel('climate', this.state, this.t)
     const recircLabel = this.t('climate.recirculation')
     const recircTitle = !climateOn
@@ -329,57 +340,59 @@ export class LeapmotorClimatePanel extends LitElement {
   static override styles = [sharedStyles, css`
     .title { font-size: 1.05rem; font-weight: 600; }
     /*
-     * A largura da vista não é decoração, é geometria. O SVG tem viewBox
-     * 200x240 e nenhuma dimensão própria, logo a caixa mede W x 1,2W e as
-     * percentagens dos controlos resolvem contra ela — as «left» contra W, as
-     * «top» contra a ALTURA. Como max-width é 320px, min(40px, 12,5%) é sempre
-     * a percentagem: a geometria abaixo, em unidades do viewBox, é a mesma em
-     * qualquer largura. À largura de projeto (W = 320px, portanto H = 384px,
-     * 1,6px por unidade), com origem no canto superior esquerdo:
-     *   - chip: 40 x 40px = 25 x 25 unidades. Pastilha de um banco: 88 x 44px
-     *     = 55 x 27,5 unidades, dois alvos de 44 x 44px.
-     *   - chip do espelho esquerdo: 7,5% / 9,5% -> centro (15; 22,8), caixa
-     *     x 2,5..27,5, y 10,3..35,3. O direito é o espelho deste, 92,5% / 9,5%
-     *     -> centro (185; 22,8), caixa x 172,5..197,5, y 10,3..35,3.
-     *   - chip do volante: 28,5% / 22,29% -> centro (57; 53,5), caixa
-     *     x 44,5..69,5, y 41,0..66,0.
-     *   - pastilhas: 28,5% e 71,5% / 47,5% -> centros (57; 114) e (143; 114),
-     *     caixas x 29,5..84,5 e x 115,5..170,5, y 100,25..127,75.
+     * The view's width isn't decoration, it's geometry. The SVG has viewBox
+     * 200x240 and no dimensions of its own, so the box measures W x 1.2W and
+     * the controls' percentages resolve against it — the "left" values
+     * against W, the "top" values against the HEIGHT. Since max-width is
+     * 320px, min(40px, 12.5%) is always the percentage: the geometry below,
+     * in viewBox units, is the same at any width. At the design width
+     * (W = 320px, so H = 384px, 1.6px per unit), with the origin at the
+     * top-left corner:
+     *   - chip: 40 x 40px = 25 x 25 units. A seat's pill: 88 x 44px
+     *     = 55 x 27.5 units, two targets of 44 x 44px.
+     *   - left mirror chip: 7.5% / 9.5% -> center (15; 22.8), box
+     *     x 2.5..27.5, y 10.3..35.3. The right one mirrors this, 92.5% / 9.5%
+     *     -> center (185; 22.8), box x 172.5..197.5, y 10.3..35.3.
+     *   - steering wheel chip: 28.5% / 22.29% -> center (57; 53.5), box
+     *     x 44.5..69.5, y 41.0..66.0.
+     *   - pills: 28.5% and 71.5% / 47.5% -> centers (57; 114) and (143; 114),
+     *     boxes x 29.5..84.5 and x 115.5..170.5, y 100.25..127.75.
      *
-     * Folgas entre controlos (nenhuma negativa, portanto nenhuma sobreposição;
-     * basta uma separação num dos eixos para duas caixas não se tocarem):
-     *   - espelho esquerdo -> volante: 44,5 - 27,5 = 17 unidades (27,2px) em x.
-     *   - espelho esquerdo -> pastilha do condutor: 29,5 - 27,5 = 2 unidades
-     *     (3,2px) em x, e 100,25 - 35,3 = 64,95 unidades (103,9px) em y.
-     *   - espelho direito -> pastilha do passageiro: 172,5 - 170,5 = 2 unidades
-     *     em x, e as mesmas 64,95 em y. (Simétrico do de cima.)
-     *   - espelho esquerdo -> espelho direito: 172,5 - 27,5 = 145 unidades.
-     *   - volante -> pastilha do condutor: 100,25 - 66,0 = 34,25 unidades
-     *     (54,8px) em y, com o mesmo centro em x (57), portanto a prumo.
-     *   - pastilha -> pastilha: 115,5 - 84,5 = 31 unidades (49,6px).
+     * Clearances between controls (none negative, so no overlap; a single
+     * axis separation is enough for two boxes not to touch):
+     *   - left mirror -> steering wheel: 44.5 - 27.5 = 17 units (27.2px) in x.
+     *   - left mirror -> driver's pill: 29.5 - 27.5 = 2 units
+     *     (3.2px) in x, and 100.25 - 35.3 = 64.95 units (103.9px) in y.
+     *   - right mirror -> passenger's pill: 172.5 - 170.5 = 2 units
+     *     in x, and the same 64.95 in y. (Symmetric to the one above.)
+     *   - left mirror -> right mirror: 172.5 - 27.5 = 145 units.
+     *   - steering wheel -> driver's pill: 100.25 - 66.0 = 34.25 units
+     *     (54.8px) in y, with the same center in x (57), so plumb.
+     *   - pill -> pill: 115.5 - 84.5 = 31 units (49.6px).
      *
-     * Folgas às margens da caixa (tudo dentro, em unidades / px):
-     *   - esquerda: 2,5 / 4,0 (chip do espelho esquerdo, o mais encostado).
-     *   - direita: 200 - 197,5 = 2,5 / 4,0 (o do espelho direito, simétrico).
-     *   - cima: 10,3 / 16,5 (os dois chips de espelho).
-     *   - baixo: 240 - 127,75 = 112,25 / 179,6 (as pastilhas).
+     * Clearances to the box's margins (everything inside, in units / px):
+     *   - left: 2.5 / 4.0 (left mirror chip, the one closest to the edge).
+     *   - right: 200 - 197.5 = 2.5 / 4.0 (right mirror chip, symmetric).
+     *   - top: 10.3 / 16.5 (both mirror chips).
+     *   - bottom: 240 - 127.75 = 112.25 / 179.6 (the pills).
      *
-     * Folgas ao desenho, que é o que os dois chips de cima ganharam:
-     *   - espelhos -> traço do tablier: o traço está mais alto na aresta
-     *     interior de cada chip (x = 27,5 e x = 172,5), a y = 39,6; o chip
-     *     acaba a y = 35,3, logo 4,3 unidades (6,9px).
-     *   - espelhos -> topo dos painéis das portas (y = 46): 10,7 (17,1px).
-     *   - volante -> traço do tablier: o traço está mais baixo na aresta
-     *     esquerda do chip (x = 44,5), a y = 35,05; o chip começa a y = 41,0,
-     *     logo 5,95 unidades (9,5px) — e o traço sobe para a direita, portanto
-     *     esta é a folga mínima. O traço já não passa por trás de chip nenhum.
-     *   - volante -> encosto de cabeça do condutor (y = 72): 6,0 (9,6px).
-     * Nenhum alvo desce abaixo dos 40px, nenhum toca noutro e nenhum sai da
-     * caixa.
+     * Clearances to the drawing, which is what the two top chips gained:
+     *   - mirrors -> fascia line: the line is highest at the inner edge of
+     *     each chip (x = 27.5 and x = 172.5), at y = 39.6; the chip ends at
+     *     y = 35.3, so 4.3 units (6.9px).
+     *   - mirrors -> top of the door panels (y = 46): 10.7 (17.1px).
+     *   - steering wheel -> fascia line: the line is lowest at the chip's
+     *     left edge (x = 44.5), at y = 35.05; the chip starts at y = 41.0,
+     *     so 5.95 units (9.5px) — and the line rises to the right, so this
+     *     is the minimum clearance. The line no longer passes behind any
+     *     chip.
+     *   - steering wheel -> driver's headrest (y = 72): 6.0 (9.6px).
+     * No target drops below 40px, none touches another and none leaves the
+     * box.
      *
-     * O container-type serve o cqw do conteúdo, abaixo: 1cqw é 1% de W,
-     * portanto ícone e dígito escalam com a caixa em vez de ficarem em píxeis
-     * fixos, que transbordavam o controlo em cards estreitos.
+     * The container-type serves the cqw of the content, below: 1cqw is 1% of
+     * W, so icon and digit scale with the box instead of staying at fixed
+     * pixels, which used to overflow the control on narrow cards.
      */
     .topview {
       position: relative; width: 100%; max-width: 320px; margin: 12px auto 4px;
@@ -387,19 +400,20 @@ export class LeapmotorClimatePanel extends LitElement {
     }
     .topview svg { display: block; width: 100%; height: auto; }
     /*
-     * A pastilha é uma <div> e não um <button>: agrupa dois controlos, não os
-     * funde num só. Por isso escapa ao all: unset e um seletor de uma classe
-     * chega-lhe.
+     * The pill is a <div> and not a <button>: it groups two controls, it
+     * doesn't merge them into one. That's why it escapes all: unset and a
+     * single class selector is enough for it.
      *
-     * A altura vem do aspect-ratio e não de uma percentagem: uma percentagem
-     * de altura resolveria contra a ALTURA da vista (1,14W) e dava uma caixa
-     * deformada. Com aspect-ratio: 2 e 88px de largura saem exactamente os
-     * 44px de altura, e as duas metades esticam-se a essa altura pelo
-     * align-items: stretch que o flex já traz.
+     * The height comes from aspect-ratio and not from a percentage: a height
+     * percentage would resolve against the view's HEIGHT (1.14W) and would
+     * give a deformed box. With aspect-ratio: 2 and 88px of width, the
+     * height that comes out is exactly 44px, and the two halves stretch to
+     * that height through the align-items: stretch that flex already
+     * brings.
      *
-     * O border-radius em percentagem resolve contra a PRÓPRIA caixa: 15% de
-     * 88px e 30% de 44px são os mesmos 13,2px, logo o canto é redondo e
-     * acompanha o tamanho da pastilha sem depender da largura do card.
+     * The border-radius in percentage resolves against the box ITSELF: 15%
+     * of 88px and 30% of 44px are the same 13.2px, so the corner is round
+     * and follows the pill's size without depending on the card's width.
      */
     .seat-pill {
       position: absolute; box-sizing: border-box;
@@ -411,12 +425,13 @@ export class LeapmotorClimatePanel extends LitElement {
     .seat-pill.two { width: min(88px, 27.5%); aspect-ratio: 2; border-radius: 15% / 30%; }
     .seat-pill.one { width: min(44px, 13.75%); aspect-ratio: 1; border-radius: 30%; }
     /*
-     * button.plain (theme.ts) faz all: unset a (0,1,1) — perde-se box-sizing,
-     * largura, altura, padding, fundo, cantos, position E as propriedades de
-     * flex, que voltam ao inicial 0 1 auto. Sem flex: 1 1 0 as duas metades
-     * encolhiam para o tamanho do conteúdo e deixavam de ser alvos de 44px.
-     * Por isso a caixa vive no seletor composto, tal como button.plain.chip-btn
-     * e button.plain.step-btn abaixo, ou button.tile.plain em group-grid.ts.
+     * button.plain (theme.ts) does all: unset at (0,1,1) — box-sizing,
+     * width, height, padding, background, corners, position AND the flex
+     * properties are lost, going back to the initial 0 1 auto. Without
+     * flex: 1 1 0 the two halves would shrink to the content's size and
+     * stop being 44px targets. That's why the box lives in the compound
+     * selector, just like button.plain.chip-btn and button.plain.step-btn
+     * below, or button.tile.plain in group-grid.ts.
      */
     button.plain.seat-btn {
       box-sizing: border-box; flex: 1 1 0; min-width: 0;
@@ -427,16 +442,17 @@ export class LeapmotorClimatePanel extends LitElement {
     button.plain.seat-btn.on { color: var(--primary-color); }
     button.plain.seat-btn.pending { opacity: 0.6; }
     /*
-     * O anel de foco global (theme.ts) usa outline-offset: 2px, que aqui era
-     * cortado pelo overflow: hidden da pastilha e transbordava para a outra
-     * metade. Por dentro, o anel cabe na metade que vai disparar e é isso que
-     * o utilizador precisa de ver. (0,3,1) ganha ao (0,2,1) de lá.
+     * The global focus ring (theme.ts) uses outline-offset: 2px, which here
+     * was clipped by the pill's overflow: hidden and overflowed into the
+     * other half. On the inside, the ring fits within the half that's about
+     * to fire, and that's what the user needs to see. (0,3,1) beats the
+     * (0,2,1) from there.
      */
     button.plain.seat-btn:focus-visible { outline-offset: -3px; }
     /*
-     * O mesmo para os chips de um ícone só (espelhos, volante), com um aviso
-     * extra: sem position: absolute caíam em fluxo por baixo da vista e nenhum
-     * deles ficava sobre a peça que comanda.
+     * The same for the single-icon chips (mirrors, steering wheel), with an
+     * extra warning: without position: absolute they'd fall into flow below
+     * the view and none of them would sit over the part it commands.
      */
     button.plain.chip-btn {
       position: absolute; box-sizing: border-box;
@@ -450,18 +466,20 @@ export class LeapmotorClimatePanel extends LitElement {
     }
     button.plain.chip-btn.on { color: var(--primary-color); }
     /*
-     * Resposta ao ponteiro e ao toque, na linha do que actions-row.ts já fazia
-     * com o seu .circle. Sem ela, o utilizador toca no aquecimento do banco,
-     * não vê nada mexer enquanto o Home Assistant não devolve o nível novo, e
-     * toca outra vez — o shownLevel absorve o segundo toque e não perde
-     * comando nenhum, mas o nível a mais é escusado.
+     * Response to the pointer and to touch, in line with what
+     * actions-row.ts already did with its .circle. Without it, the user
+     * taps the seat heater, sees nothing move while Home Assistant hasn't
+     * returned the new level yet, and taps again — shownLevel absorbs the
+     * second tap and no command is lost, but the extra level is
+     * unnecessary.
      *
-     * O :hover está atrás de um @media (hover: hover) para o estado não ficar
-     * colado num ecrã tátil, onde o browser o mantém depois do toque. O
-     * :active do chip repete o translate(-50%, -50%) porque a transform é UMA
-     * propriedade: escrever só o scale apagava o centramento e o chip saltava
-     * para baixo e para a direita ao ser tocado. Ambas as regras estão a
-     * (0,3,1), acima do button.plain (0,1,1) e das próprias caixas (0,2,1).
+     * The :hover is behind an @media (hover: hover) so the state doesn't
+     * stay stuck on a touch screen, where the browser keeps it after the
+     * tap. The chip's :active repeats translate(-50%, -50%) because
+     * transform is ONE property: writing only the scale would erase the
+     * centering and the chip would jump down and to the right when tapped.
+     * Both rules are at (0,3,1), above button.plain (0,1,1) and the boxes
+     * themselves (0,2,1).
      */
     @media (hover: hover) {
       button.plain.seat-btn:hover { background: var(--lm-chip); }
@@ -470,19 +488,20 @@ export class LeapmotorClimatePanel extends LitElement {
     button.plain.seat-btn:active { transform: scale(0.9); }
     button.plain.chip-btn:active { transform: translate(-50%, -50%) scale(0.9); }
     /*
-     * Em píxeis fixos o conteúdo saía da caixa abaixo de uma vista de ~223px.
-     * 5,6cqw e 3,1cqw são exactamente os 18px e os 9,9px de uma vista a 320px,
-     * mas expressos na mesma unidade que as caixas (12,5cqw o chip, 13,75cqw
-     * cada metade da pastilha): a relação entre conteúdo e caixa deixa de
-     * depender da largura.
+     * In fixed pixels the content overflowed the box below a view of
+     * ~223px. 5.6cqw and 3.1cqw are exactly the 18px and the 9.9px of a
+     * 320px view, but expressed in the same unit as the boxes (12.5cqw the
+     * chip, 13.75cqw each half of the pill): the relationship between
+     * content and box stops depending on the width.
      *
-     * O recuo tem de ser um @supports e não uma segunda declaração: o valor de
-     * uma propriedade PERSONALIZADA é qualquer sequência de tokens, portanto
-     * nenhum browser descarta um --mdc-icon-size: 5.6cqw no parse, saiba ele o
-     * que é cqw ou não — e quem não souber acaba com a width: var(...) do
-     * ha-icon inválido no tempo de valor computado, ou seja com auto, e não
-     * com os 18px. Dentro do @supports, quem não tem container queries fica
-     * com as declarações em píxeis, que é o que se pretende.
+     * The fallback has to be an @supports and not a second declaration: the
+     * value of a CUSTOM property is any sequence of tokens, so no browser
+     * discards a --mdc-icon-size: 5.6cqw at parse time, whether or not it
+     * knows what cqw is — and whoever doesn't ends up with the ha-icon's
+     * width: var(...) invalid at computed-value time, i.e. with auto, and
+     * not with the 18px. Inside the @supports, whoever has no container
+     * queries is left with the declarations in pixels, which is what's
+     * intended.
      */
     button.plain.seat-btn ha-icon,
     button.plain.chip-btn ha-icon { --mdc-icon-size: 18px; }
@@ -494,10 +513,11 @@ export class LeapmotorClimatePanel extends LitElement {
     }
     .stepper { display: flex; align-items: center; justify-content: center; gap: 20px; margin: 14px 0; }
     /*
-     * button.plain (theme.ts) faz all: unset a (0,1,1); uma regra .step-btn
-     * isolada a (0,1,0) perdia display, place-items, width, height,
-     * border-radius e background. A caixa do botão vive por isso no seletor
-     * composto, tal como button.tile.plain em group-grid.ts.
+     * button.plain (theme.ts) does all: unset at (0,1,1); an isolated
+     * .step-btn rule at (0,1,0) would lose display, place-items, width,
+     * height, border-radius and background. That's why the button's box
+     * lives in the compound selector, just like button.tile.plain in
+     * group-grid.ts.
      */
     button.plain.step-btn {
       display: grid; place-items: center; width: 44px; height: 44px;
@@ -513,11 +533,11 @@ export class LeapmotorClimatePanel extends LitElement {
     .reading { font-variant-numeric: tabular-nums; }
     .slider { width: 100%; margin: 6px 0 2px; accent-color: var(--primary-color); }
     /*
-     * Também aqui a caixa inteira, e não só a cor: o botão da recirculação está
-     * ao lado de controlos de 40-44px e, sem caixa própria, só o ícone de 18px
-     * era área de toque. As propriedades cursor e opacity ficam de fora de
-     * propósito — button.plain[disabled] está na mesma especificidade (0,2,1)
-     * e é ele que as deve declarar.
+     * Here too the whole box, not just the color: the recirculation button
+     * sits next to 40-44px controls and, without a box of its own, only
+     * the 18px icon was the touch area. The cursor and opacity properties
+     * are left out on purpose — button.plain[disabled] is at the same
+     * specificity (0,2,1) and it is the one that should declare them.
      */
     button.plain.toggle {
       box-sizing: border-box; display: grid; place-items: center;
@@ -526,10 +546,10 @@ export class LeapmotorClimatePanel extends LitElement {
     }
     button.plain.toggle.on { color: var(--primary-color); }
     /*
-     * :not([disabled]) porque (0,3,1) ganharia ao button.plain[disabled] (0,2,1)
-     * e um botão pendente e desactivado ao mesmo tempo — tocar na recirculação e
-     * o A/C desligar-se logo a seguir — aparecia a 0,6 em vez dos 0,4 de
-     * desactivado.
+     * :not([disabled]) because (0,3,1) would beat button.plain[disabled]
+     * (0,2,1) and a button that's pending and disabled at the same time —
+     * tapping recirculation and the A/C turning off right after — would
+     * show up at 0.6 instead of the 0.4 of disabled.
      */
     button.plain.toggle.pending:not([disabled]) { opacity: 0.6; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 8px; margin-top: 14px; }

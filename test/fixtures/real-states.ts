@@ -1,16 +1,16 @@
 import { fakeHass, type FakeEntitySpec } from '../helpers/fake-hass'
 
 /**
- * Cópia da saída real da integração `leapmotor`, com os dados pessoais
- * substituídos: o identificador do veículo é `000000`, o nome do dispositivo é
- * `Demo` e as coordenadas são as da Torre de Belém, um monumento público. A
- * FORMA é a real e é isso que interessa — mesmas chaves, mesmas unidades,
- * mesmos formatos de valor — porque esta fixture é a única descrição que o
- * projeto tem do que a integração produz. Nada aqui aponta para um carro ou
- * para uma morada.
+ * Copy of the real output of the `leapmotor` integration, with personal data
+ * replaced: the vehicle identifier is `000000`, the device name is `Demo`,
+ * and the coordinates are those of the Torre de Belém, a public monument.
+ * The SHAPE is the real one and that's what matters — same keys, same units,
+ * same value formats — because this fixture is the only description the
+ * project has of what the integration produces. Nothing here points to a car
+ * or to an address.
  */
 
-/** Instante de referência das fixtures: 2026-08-27 13:36 UTC. */
+/** Reference instant for the fixtures: 2026-08-27 13:36 UTC. */
 export const REAL_NOW = new Date('2026-08-27T13:36:00+00:00')
 
 const P = 'leapmotor_b10_000000_demo'
@@ -102,10 +102,11 @@ export const REAL_SPECS: FakeEntitySpec[] = [
     entity_id: `sensor.${P}_6_week_average_consumption_kwh_100_km`,
     state: '20.6',
     unit: 'kWh/100 km',
-    // A série semana a semana, do mais antigo para o mais recente. As quatro
-    // primeiras a zero são reais: o carro era novo e não andou. Repare-se que
-    // o `hundredKmEC` vem número e o `hundredMiKwhEC` vem texto no MESMO
-    // objeto — a inconsistência é da API e é isso que a fixture tem de guardar.
+    // The week-by-week series, oldest to most recent. The first four at zero
+    // are real: the car was new and hadn't been driven. Note that
+    // `hundredKmEC` comes as a number and `hundredMiKwhEC` comes as text in
+    // the SAME object — the inconsistency is the API's, and that's exactly
+    // what the fixture has to preserve.
     attributes: {
       weekly_consumption: [
         { weekStart: '2026-07-20', weekEnd: '2026-07-26', hundredKmEC: 0.0, hundredMiKwhEC: '0.0', xWeekStart: 1784505600000, xWeekEnd: 1785110399000 },
@@ -120,10 +121,11 @@ export const REAL_SPECS: FakeEntitySpec[] = [
   { key: 'sensor/total_energy_kwh', entity_id: `sensor.${P}_total_energy_consumption`, state: '131.0', unit: 'kWh' },
 
   /*
-   * As três fatias da energia da última semana. O `state` é a percentagem e os
-   * kWh vêm nos atributos — repetidos, os MESMOS três em cada uma das três
-   * entidades. A repetição não é um erro da fixture: é o que a integração
-   * produz, e é o que justifica o card poder ler os kWh de qualquer uma delas.
+   * The three slices of last week's energy. The `state` is the percentage
+   * and the kWh figures come in the attributes — repeated, the SAME three in
+   * each of the three entities. The repetition is not a fixture bug: it's
+   * what the integration produces, and it's what justifies the card being
+   * able to read the kWh from any one of them.
    */
   ...(['driving', 'climate', 'other'] as const).map((slice, i) => ({
     key: `sensor/last_week_${slice}_energy_percent`,
@@ -151,8 +153,8 @@ export const REAL_SPECS: FakeEntitySpec[] = [
 ]
 
 /**
- * `overrides` é indexado por `dominio/translation_key`, para os testes
- * mudarem um estado sem repetir a fixture inteira.
+ * `overrides` is indexed by `domain/translation_key`, so tests can change a
+ * state without repeating the whole fixture.
  */
 export function realHass(overrides: Record<string, string> = {}) {
   const specs = REAL_SPECS.map(s => (overrides[s.key] !== undefined ? { ...s, state: overrides[s.key] } : s))

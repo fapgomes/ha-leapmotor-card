@@ -18,10 +18,11 @@ export class LeapmotorTires extends LitElement {
   @property({ attribute: false }) state!: VehicleState
   @property({ attribute: false }) t!: TranslateFn
   /**
-   * A faixa considerada normal, já validada pelo card (`clampTireRange`). Era
-   * uma constante fixa neste ficheiro, e era estreita: um carro a 2,8 bar
-   * acusava aviso. Chama-se `limits` e não `range` para não se confundir com a
-   * autonomia, que em `VehicleState` também é `range`.
+   * The range considered normal, already validated by the card
+   * (`clampTireRange`). It used to be a fixed constant in this file, and it
+   * was narrow: a car at 2.8 bar would flag a warning. It's called `limits`
+   * and not `range` so as not to be confused with the driving range, which
+   * in `VehicleState` is also `range`.
    */
   @property({ attribute: false }) limits: readonly [number, number] = DEFAULT_TIRE_RANGE
 
@@ -56,9 +57,10 @@ export class LeapmotorTires extends LitElement {
   static override styles = [sharedStyles, css`
     .title { font-size: 1.05rem; font-weight: 600; margin-bottom: 12px; }
     /*
-     * Cinco células: o carro ao centro, um valor em cada canto. A grelha
-     * resolve contra a caixa do CAR_TOPVIEW, que é 200 x 320 — daí a coluna
-     * do meio ser a mais larga e as linhas do meio serem as que sobram.
+     * Five cells: the car in the center, one value at each corner. The
+     * grid is sized against the CAR_TOPVIEW box, which is 200 x 320 —
+     * hence the middle column being the widest and the middle rows being
+     * the ones left over.
      */
     .diagram {
       display: grid;

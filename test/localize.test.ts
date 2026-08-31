@@ -4,37 +4,37 @@ import en from '../src/translations/en.json'
 import pt from '../src/translations/pt.json'
 
 describe('pickLanguage', () => {
-  it('a config ganha ao idioma do hass', () => {
+  it('config wins over hass\'s language', () => {
     expect(pickLanguage('pt', 'en')).toBe('pt')
   })
-  it('usa o idioma do hass quando a config não define', () => {
+  it('uses hass\'s language when the config does not set one', () => {
     expect(pickLanguage(undefined, 'pt')).toBe('pt')
   })
-  it('reduz uma etiqueta regional à língua base', () => {
+  it('reduces a regional tag to the base language', () => {
     expect(pickLanguage(undefined, 'pt-PT')).toBe('pt')
   })
-  it('cai para inglês num idioma sem catálogo', () => {
+  it('falls back to English for a language without a catalog', () => {
     expect(pickLanguage(undefined, 'de')).toBe('en')
   })
-  it('cai para inglês sem informação nenhuma', () => {
+  it('falls back to English with no information at all', () => {
     expect(pickLanguage(undefined, undefined)).toBe('en')
   })
 })
 
 describe('createTranslator', () => {
-  it('traduz para português', () => {
+  it('translates to Portuguese', () => {
     expect(createTranslator('pt')('openings.all_closed')).toBe('Tudo fechado')
   })
-  it('traduz para inglês', () => {
+  it('translates to English', () => {
     expect(createTranslator('en')('openings.all_closed')).toBe('All closed')
   })
-  it('interpola variáveis', () => {
+  it('interpolates variables', () => {
     expect(createTranslator('pt')('charging.title', { percent: 60 })).toBe('Carregado a 60%')
   })
-  it('deixa o marcador literal quando falta a variável', () => {
+  it('leaves the placeholder literal when the variable is missing', () => {
     expect(createTranslator('pt')('charging.title')).toBe('Carregado a {percent}%')
   })
-  it('devolve a própria chave quando não existe tradução em nenhum catálogo', () => {
+  it('returns the key itself when no catalog has a translation', () => {
     expect(createTranslator('pt')('nao.existe')).toBe('nao.existe')
   })
 })
@@ -43,31 +43,31 @@ describe('formatDuration', () => {
   const pt = createTranslator('pt')
   const en = createTranslator('en')
 
-  it('formata horas e minutos como na app', () => {
-    // 835 min = 13h 55min, o valor da captura
+  it('formats hours and minutes like the app does', () => {
+    // 835 min = 13h 55min, the value from the screenshot
     expect(formatDuration(835, pt)).toBe('13h e 55min')
     expect(formatDuration(835, en)).toBe('13h 55min')
   })
-  it('formata só horas quando os minutos são zero', () => {
+  it('formats only hours when the minutes are zero', () => {
     expect(formatDuration(120, pt)).toBe('2h')
   })
-  it('formata só minutos abaixo de uma hora', () => {
+  it('formats only minutes below one hour', () => {
     expect(formatDuration(45, pt)).toBe('45min')
   })
-  it('formata zero como 0min', () => {
+  it('formats zero as 0min', () => {
     expect(formatDuration(0, pt)).toBe('0min')
   })
 })
 
 /**
- * Achata um catálogo em caminhos completos separados por pontos.
+ * Flattens a catalog into complete dot-separated paths.
  *
- * As chaves de hoje já são planas (`"comfort.mirrors"` é uma chave só, não dois
- * níveis), mas o formato que o Home Assistant usa é aninhado e basta alguém
- * aninhar um ramo para uma comparação de chaves de topo passar a mentir:
- * `comfort` existiria dos dois lados e a falta de `comfort.mirrors` num deles
- * não dava por nada. Por isso anda-se a árvore toda, e é o caminho completo que
- * se compara.
+ * Today's keys are already flat (`"comfort.mirrors"` is a single key, not two
+ * levels), but the format Home Assistant uses is nested, and it takes only
+ * someone nesting a branch for a top-level key comparison to start lying:
+ * `comfort` would exist on both sides, and the absence of `comfort.mirrors` on
+ * one of them would go unnoticed. That's why the whole tree is walked, and it
+ * is the complete path that gets compared.
  */
 function flattenKeys(node: Record<string, unknown>, prefix = ''): string[] {
   return Object.entries(node).flatMap(([key, value]) => {
@@ -78,33 +78,34 @@ function flattenKeys(node: Record<string, unknown>, prefix = ''): string[] {
   })
 }
 
-describe('catálogos de tradução', () => {
+describe('translation catalogs', () => {
   /*
-   * Não havia teste nenhum a comparar os dois catálogos. Os 115 nomes batiam
-   * certo só porque toda a gente que lhes mexeu teve cuidado: uma chave nova
-   * escrita só num dos ficheiros compilava, passava nos testes, e o utilizador
-   * da outra língua via o texto inglês — ou, se a chave faltasse no `en`, via a
-   * própria chave, porque é isso que o `createTranslator` devolve quando nem o
-   * catálogo primário nem o de recurso a têm.
+   * There was no test at all comparing the two catalogs. The 115 names
+   * matched only because everyone who touched them was careful: a new key
+   * written in only one of the files would still compile, still pass the
+   * tests, and the user of the other language would see the English text —
+   * or, if the key was missing from `en` too, would see the key itself,
+   * because that's what `createTranslator` returns when neither the primary
+   * catalog nor the fallback one has it.
    */
-  it('pt e en têm exactamente as mesmas chaves', () => {
+  it('pt and en have exactly the same keys', () => {
     const ptKeys = new Set(flattenKeys(pt))
     const enKeys = new Set(flattenKeys(en))
     const missingInEn = [...ptKeys].filter(key => !enKeys.has(key)).sort()
     const missingInPt = [...enKeys].filter(key => !ptKeys.has(key)).sort()
-    // A mensagem NOMEIA as chaves em falta de cada lado. Quem partir a paridade
-    // precisa de saber quais são, não só que as contagens não batem certo.
+    // The message NAMES the missing keys on each side. Whoever breaks parity
+    // needs to know which ones, not just that the counts don't match.
     expect({ missingInEn, missingInPt }, [
-      `faltam em en.json: ${missingInEn.join(', ') || '(nenhuma)'}`,
-      `faltam em pt.json: ${missingInPt.join(', ') || '(nenhuma)'}`,
+      `missing from en.json: ${missingInEn.join(', ') || '(none)'}`,
+      `missing from pt.json: ${missingInPt.join(', ') || '(none)'}`,
     ].join('\n')).toEqual({ missingInEn: [], missingInPt: [] })
   })
 
   /*
-   * Dois catálogos vazios têm as mesmas chaves — nenhuma — e passavam no teste
-   * de cima sem dizer nada. Este fecha esse buraco.
+   * Two empty catalogs have the same keys — none — and would pass the test
+   * above without saying anything. This one closes that gap.
    */
-  it('nenhum dos dois catálogos está vazio', () => {
+  it('neither catalog is empty', () => {
     expect(flattenKeys(pt).length).toBeGreaterThan(0)
     expect(flattenKeys(en).length).toBe(flattenKeys(pt).length)
   })

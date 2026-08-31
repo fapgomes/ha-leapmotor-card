@@ -6,7 +6,7 @@ import type { GroupId, VehicleState } from '../types'
 
 export interface GridTile {
   group: ResolvedGroup
-  /** Já resolvido: a sobreposição do utilizador, ou a tradução. */
+  /** Already resolved: the user's override, or the translation. */
   title: string
   summary: string
   alert: AlertLevel
@@ -18,9 +18,9 @@ export class LeapmotorGroupGrid extends LitElement {
   @property({ attribute: false }) state!: VehicleState
 
   /**
-   * Devolve o foco ao tile que abriu uma sub-vista. Chamado pelo card depois de
-   * fechar: sem isto, o foco voltava ao topo do documento e navegar por teclado
-   * dava-se por perdido.
+   * Returns focus to the tile that opened a sub-view. Called by the card
+   * after closing: without this, focus went back to the top of the
+   * document and keyboard navigation lost its place.
    */
   public focusTile(id: GroupId): void {
     this.renderRoot.querySelector<HTMLButtonElement>(`button[data-group="${id}"]`)?.focus()
@@ -33,9 +33,10 @@ export class LeapmotorGroupGrid extends LitElement {
   }
 
   /**
-   * A cor do ícone e do resumo. A carga é a excepção e não passa pelo nível de
-   * alerta: usa a cor da bateria, que já dá verde, âmbar e vermelho por
-   * percentagem, e que o hero já mostra na barra logo acima. Ver spec §4.2.
+   * The color of the icon and the summary. Charging is the exception and
+   * doesn't go through the alert level: it uses the battery color, which
+   * already gives green, amber and red by percentage, and which the hero
+   * already shows on the bar right above. See spec §4.2.
    */
   private accent(tile: GridTile): string {
     if (tile.group.id === 'charging') return batteryColor(this.state.battery)
@@ -71,10 +72,11 @@ export class LeapmotorGroupGrid extends LitElement {
       gap: 10px; margin-top: var(--lm-gap);
     }
     /*
-     * Seletor composto, e não .tile: o button.plain do theme.ts faz
-     * all: unset a (0,1,1) e apagaria fundo, padding, cantos, dimensões e
-     * box-sizing. Ver o aviso no theme.ts — isto já produziu seis defeitos
-     * neste projeto, dois deles visíveis no dashboard de um utilizador.
+     * Compound selector, and not .tile: button.plain from theme.ts does
+     * all: unset at (0,1,1) and would strip background, padding, corners,
+     * dimensions and box-sizing. See the warning in theme.ts — this has
+     * already produced six defects in this project, two of them visible on
+     * a user's dashboard.
      */
     button.tile.plain {
       box-sizing: border-box; display: flex; align-items: center; gap: 12px;

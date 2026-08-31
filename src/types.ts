@@ -2,20 +2,21 @@ import type { LogicalKey } from './keys'
 
 export type EntityMap = Partial<Record<LogicalKey, string>>
 
-/** Os grupos que a grelha pode mostrar. */
+/** The groups the grid can show. */
 export type GroupId = 'charging' | 'status' | 'climate' | 'tires' | 'trip' | 'location'
 
 /**
- * As secções que uma sub-vista pode instanciar. Nomeia componentes, não grupos:
- * um grupo pode instanciar mais do que um.
+ * The sections a sub-view can instantiate. Names components, not groups: a
+ * group can instantiate more than one.
  */
 export type PanelId =
   | 'charging' | 'schedule' | 'climate' | 'comfort'
   | 'openings' | 'tires' | 'trip' | 'location'
 
 /**
- * Uma entrada da grelha. A forma curta é só o nome do grupo; a longa existe
- * para sobrepor o ícone, o título ou qual dos resumos do grupo se mostra.
+ * A grid entry. The short form is just the group's name; the long form
+ * exists to override the icon, the title, or which of the group's summaries
+ * is shown.
  */
 export type GridEntry = GroupId | {
   group: GroupId
@@ -49,18 +50,20 @@ export type ChargingPhase = 'unplugged' | 'plugged' | 'charging' | 'complete' | 
 export type Activity = 'parked' | 'driving' | 'ready' | 'unknown'
 
 /**
- * O consumo reportado de uma semana, com o período que ele cobre. As datas
- * ficam como as strings do dia que a API manda (`2026-08-24`) e não como
- * `Date`: quem as escreve é a secção, que já sabe o idioma, e converter aqui
- * obrigava a escolher um fuso — estas datas são dias de calendário, sem hora.
+ * A week's reported consumption, with the period it covers. The dates stay
+ * as the day strings the API sends (`2026-08-24`) and not as `Date`: it is
+ * the section that writes them, which already knows the language, and
+ * converting here would force picking a timezone — these dates are calendar
+ * days, with no time of day.
  *
- * **O período é obrigatório; o consumo não.** É ao contrário do que a intuição
- * sugere, e é de propósito: uma semana sem período não se consegue etiquetar e
- * não chega a existir como linha — era outra vez um número que o card mostra sem
- * conseguir explicar, que é o problema que esta versão veio corrigir. Já uma
- * semana com período e sem consumo tem tudo o que precisa para ser uma linha
- * honesta: as datas dizem qual é a semana, e o travessão diz que o carro não
- * andou nela.
+ * **The period is mandatory; the consumption is not.** That is the opposite
+ * of what intuition suggests, and it is on purpose: a week without a period
+ * cannot be labeled and does not even exist as a row — that was, once
+ * again, a number the card shows without being able to explain it, which is
+ * the problem this version came to fix. A week with a period and no
+ * consumption, on the other hand, has everything it needs to be an honest
+ * row: the dates say which week it is, and the dash says the car did not
+ * drive during it.
  */
 export interface WeeklyConsumption {
   kwhPer100Km?: number
@@ -68,16 +71,17 @@ export interface WeeklyConsumption {
   end: string
 }
 
-/** Uma fatia da energia da semana: os kWh e a percentagem que ela vale. */
+/** A slice of the week's energy: the kWh and the percentage it is worth. */
 export interface EnergySlice {
   kwh?: number
   percent?: number
 }
 
 /**
- * A energia da última semana repartida. O total é a soma das fatias presentes,
- * e fica `undefined` — não zero — quando nenhuma delas veio: um zero afirmava
- * uma semana sem consumo nenhum, que não é o que a ausência de leitura diz.
+ * The last week's energy split apart. The total is the sum of the slices
+ * that are present, and stays `undefined` — not zero — when none of them
+ * came through: a zero would assert a week with no consumption at all,
+ * which is not what the absence of a reading says.
  */
 export interface WeekEnergy {
   driving: EnergySlice
@@ -126,9 +130,9 @@ export interface VehicleState {
     totalEnergyKwh?: number
     lifetimeConsumption?: number
     /**
-     * A série semanal do atributo `weekly_consumption`, na ordem em que a API a
-     * manda: da semana mais antiga para a mais recente. Vazia quando não há
-     * série nenhuma que se consiga ler.
+     * The weekly series of the `weekly_consumption` attribute, in the order
+     * the API sends it: from the oldest week to the most recent. Empty when
+     * there is no series at all that can be read.
      */
     weeklyConsumption: WeeklyConsumption[]
     weekEnergy: WeekEnergy
@@ -150,11 +154,12 @@ export const MAP_ZOOM_MIN = 1
 export const MAP_ZOOM_MAX = 20
 
 /**
- * `map_zoom` vem de YAML escrito à mão, sem validação de esquema — um utilizador
- * pode pôr `50`, `0` ou um texto por engano. Sem isto, o `default_zoom` que
- * chega ao card `map` do HA ficaria fora do que o Leaflet aceita para estas
- * peças (1 a 20) e o mapa apareceria em branco. O corte é aqui, na leitura, e
- * não no editor: o editor não vê configurações escritas à mão.
+ * `map_zoom` comes from hand-written YAML, with no schema validation — a
+ * user can put `50`, `0` or a piece of text by mistake. Without this, the
+ * `default_zoom` that reaches HA's `map` card would fall outside what
+ * Leaflet accepts for these pieces (1 to 20) and the map would show up
+ * blank. The clamp is here, at read time, and not in the editor: the editor
+ * does not see hand-written configuration.
  */
 export function clampMapZoom(zoom: number | undefined): number {
   if (typeof zoom !== 'number' || !Number.isFinite(zoom)) return DEFAULT_MAP_ZOOM
@@ -162,11 +167,12 @@ export function clampMapZoom(zoom: number | undefined): number {
 }
 
 /**
- * A faixa de pressão considerada normal, em bar. A omissão são os valores que
- * o `tires.ts` tinha fixos no código, para não mudar o comportamento de
- * ninguém sem que o peça — mas são estreitos: um carro a 2,8 bar cai fora
- * dela. Qual é a faixa certa depende da medida do pneu e da carga, não se
- * verifica a partir do código, e é por isso que passou a ser configurável.
+ * The pressure range considered normal, in bar. The default is the values
+ * `tires.ts` used to have fixed in code, so as not to change anyone's
+ * behavior without them asking for it — but they are narrow: a car at
+ * 2.8 bar falls outside it. What the right range is depends on the tire's
+ * size and the load, it cannot be checked from the code, and that is why it
+ * became configurable.
  */
 export const DEFAULT_TIRE_RANGE: readonly [number, number] = [2.0, 2.6]
 
@@ -179,17 +185,18 @@ export function clampTireRange(value: unknown): [number, number] {
   return [min, max]
 }
 
-/** O que identifica o pedido de mapa em curso: a que entidade e com que zoom. */
+/** What identifies the map request in progress: for which entity and at what zoom. */
 export interface MapRequest {
   entityId: string
   zoom: number
 }
 
 /**
- * Diz se o pedido de mapa guardado já não serve para o pedido seguinte. Pura,
- * para poder ser testada sem DOM — quem decide se o `ensureMap` do card deve
- * reconstruir o mapa é esta função, não o `render()`, que corre a cada
- * actualização de estado e reconstruiria o mapa sem necessidade nenhuma.
+ * Says whether the stored map request no longer serves the next request.
+ * Pure, so it can be tested without a DOM — the function that decides
+ * whether the card's `ensureMap` should rebuild the map is this one, not
+ * `render()`, which runs on every state update and would rebuild the map
+ * with no need to.
  */
 export function mapRequestChanged(previous: MapRequest | undefined, next: MapRequest): boolean {
   return !previous || previous.entityId !== next.entityId || previous.zoom !== next.zoom

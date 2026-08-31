@@ -8,9 +8,9 @@ import { sharedStyles } from '../theme'
 export class LeapmotorGroupDetail extends LitElement {
   @property({ attribute: false }) t!: TranslateFn
   @property({ type: String }) heading = ''
-  /** Falso quando só há um grupo: navegar para si mesmo não é navegação. */
+  /** False when there's only one group: navigating to itself is not navigation. */
   @property({ type: Boolean }) navigable = false
-  /** O «Atualizado às…», já formatado pelo card. */
+  /** The "Updated at…", already formatted by the card. */
   @property({ type: String }) updatedLabel = ''
 
   @query('.wrap') private wrapEl?: HTMLElement
@@ -20,10 +20,11 @@ export class LeapmotorGroupDetail extends LitElement {
   private startY = 0
 
   override firstUpdated() {
-    // O foco vai para a moldura, e não para o primeiro botão: sem isto, as
-    // setas do teclado e o Esc só funcionavam depois de alguém dar Tab.
-    // `preventScroll` porque num telefone o card pode estar meio fora do ecrã:
-    // sem isto, abrir a sub-vista arrancava a viewport para o foco.
+    // Focus goes to the frame, and not to the first button: without this,
+    // the keyboard arrows and Esc only worked after someone pressed Tab.
+    // `preventScroll` because on a phone the card can be half off-screen:
+    // without this, opening the sub-view would yank the viewport to the
+    // focus.
     this.wrapEl?.focus({ preventScroll: true })
   }
 
@@ -42,16 +43,17 @@ export class LeapmotorGroupDetail extends LitElement {
   }
 
   private onPointerDown(e: PointerEvent) {
-    // Só toque e caneta: com o rato, arrastar sobre o card é seleção de texto,
-    // não um gesto.
+    // Touch and pen only: with the mouse, dragging over the card is text
+    // selection, not a gesture.
     if (e.pointerType === 'mouse') return
-    // Nada de deslize quando o gesto começa num controlo — a lista e o porquê
-    // de cada entrada estão no `INTERACTIVE_SELECTOR`. O caminho composto, e
-    // não o `e.target`: o conteúdo da sub-vista chega por `<slot>`, vem do DOM
-    // claro do card e o alvo re-alvejado pelo shadow não denuncia o controlo
-    // onde o dedo assentou. A varredura é do caminho todo, e não só do
-    // primeiro nó, porque o dedo assenta num azulejo ou num ícone e o controlo
-    // é um antepassado seu.
+    // No swiping when the gesture starts on a control — the list and the
+    // reason for each entry are in `INTERACTIVE_SELECTOR`. The composed
+    // path, and not `e.target`: the sub-view's content arrives via `<slot>`,
+    // comes from the card's light DOM, and the target re-targeted by the
+    // shadow doesn't give away the control the finger landed on. The scan
+    // covers the whole path, and not just the first node, because the
+    // finger lands on a tile or an icon and the control is an ancestor of
+    // it.
     if (e.composedPath().some(node => node instanceof Element && node.matches(INTERACTIVE_SELECTOR))) return
     this.pointerId = e.pointerId
     this.startX = e.clientX
@@ -104,9 +106,9 @@ export class LeapmotorGroupDetail extends LitElement {
 
   static override styles = [sharedStyles, css`
     /*
-     * pan-y entrega o arrasto vertical ao browser e deixa-nos só o
-     * horizontal: é metade da convivência com o scroll do dashboard. A outra
-     * metade é o decideSwipe.
+     * pan-y hands the vertical drag to the browser and leaves us only the
+     * horizontal one: it's half of coexisting with the dashboard's scroll.
+     * The other half is decideSwipe.
      */
     .wrap { touch-action: pan-y; outline: none; }
     .wrap:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; border-radius: var(--lm-radius); }
@@ -116,8 +118,9 @@ export class LeapmotorGroupDetail extends LitElement {
     }
     .heading { flex: 1 1 auto; min-width: 0; font-size: 1.05rem; font-weight: 600; }
     /*
-     * Seletor composto: o button.plain do theme.ts faz all: unset a
-     * (0,1,1) e apagaria as dimensões, o raio e o box-sizing destes botões.
+     * Compound selector: button.plain from theme.ts does all: unset at
+     * (0,1,1) and would strip the dimensions, the radius and the
+     * box-sizing from these buttons.
      */
     button.nav.plain {
       box-sizing: border-box; display: grid; place-items: center; flex: 0 0 auto;
@@ -127,13 +130,14 @@ export class LeapmotorGroupDetail extends LitElement {
     button.nav.plain ha-icon { --mdc-icon-size: 20px; }
     .updated { margin-top: 10px; font-size: 0.72rem; text-align: center; }
     /*
-     * A animação passou para o .body, que é o mesmo caixote que o .content
-     * envolvia. Com a altura reservada fora do card, o .content só existia
-     * para se esticar até um min-height que já não há, e a coluna flex do
-     * .body só existia para o esticar: sobra um bloco, que é o que o .content
-     * sempre foi. A animação fica porque continua a marcar a abertura da
-     * sub-vista — o elemento é criado de novo a cada abertura a partir da
-     * grelha (só a navegação entre grupos o reaproveita, e aí não toca).
+     * The animation moved to .body, which is the same box that .content
+     * used to wrap. With the height reserved outside the card, .content
+     * only existed to stretch up to a min-height that no longer exists, and
+     * .body's flex column only existed to stretch it: what's left is a
+     * block, which is all .content ever was. The animation stays because it
+     * still marks the sub-view's opening — the element is created anew on
+     * every open from the grid (only navigation between groups reuses it,
+     * and there it doesn't play).
      */
     @media (prefers-reduced-motion: no-preference) {
       .body { animation: enter 160ms ease-out; }

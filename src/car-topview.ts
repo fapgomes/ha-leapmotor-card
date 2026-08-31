@@ -1,28 +1,31 @@
 import { html, type TemplateResult } from 'lit'
 
 /**
- * O carro visto de cima, POR FORA, para servir de base aos quatro valores de
- * pressão. Desenho original, feito de rectângulos e círculos; o repositório é
- * GPL v3 e não distribui — nem decalca — arte da Leapmotor.
+ * The car seen from above, FROM THE OUTSIDE, to serve as the base for the
+ * four pressure values. Original drawing, made of rectangles and circles;
+ * the repository is GPL v3 and does not distribute — nor trace — Leapmotor
+ * artwork.
  *
- * NÃO É o `cabin-topview.ts`, e não o substitui. Aquele é o habitáculo: não tem
- * carroçaria, nem nariz, nem rodas, e as posições em percentagem dos controlos
- * de conforto em `climate-panel.ts` resolvem contra a sua caixa de 200 x 240.
- * Este tem rodas, que é onde um valor de pressão se ancora, e vive numa caixa
- * própria — mexer num não mexe no outro.
+ * It is NOT `cabin-topview.ts`, and does not replace it. That one is the
+ * cabin: it has no bodywork, no nose, no wheels, and the percentage
+ * positions of the comfort controls in `climate-panel.ts` resolve against
+ * its 200 x 240 box. This one has wheels, which is where a pressure value
+ * anchors, and lives in its own box — changing one does not change the
+ * other.
  *
- * A caixa é 200 x 320 (1 : 1,6), a proporção de um SUV visto de cima. O que
- * está desenhado, de cima (frente) para baixo:
- *   - a carroçaria, um rectângulo de cantos muito redondos (x 34 a 166), com o
- *     nariz mais estreito que a traseira;
- *   - o para-brisas e o vidro traseiro, dois trapézios;
- *   - o tejadilho entre eles;
- *   - quatro rodas, rectângulos verticais de cantos redondos, dois no eixo da
- *     frente (y 58) e dois no de trás (y 232), a sair para fora da carroçaria.
+ * The box is 200 x 320 (1 : 1.6), the proportion of an SUV seen from above.
+ * What is drawn, from top (front) to bottom:
+ *   - the bodywork, a rectangle with very rounded corners (x 34 to 166),
+ *     with the nose narrower than the rear;
+ *   - the windshield and the rear window, two trapezoids;
+ *   - the roof between them;
+ *   - four wheels, vertical rectangles with rounded corners, two on the
+ *     front axle (y 58) and two on the rear one (y 232), sticking out past
+ *     the bodywork.
  *
- * As rodas estão nos cantos porque é aí que os valores as encontram: o
- * `tires.ts` põe cada número ao lado da sua, com a grelha a resolver contra
- * esta mesma caixa. Mexer nas rodas obriga a revê-la.
+ * The wheels are at the corners because that is where the values meet them:
+ * `tires.ts` places each number next to its own, with the grid resolving
+ * against this same box. Changing the wheels requires revisiting it.
  */
 export const CAR_TOPVIEW: TemplateResult = html`
   <svg viewBox="0 0 200 320" aria-hidden="true" part="topview">

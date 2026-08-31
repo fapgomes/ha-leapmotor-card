@@ -17,22 +17,23 @@ export function formatDayLabel(d: Date, now: Date, t: TranslateFn, language: str
 }
 
 /**
- * O período de uma semana, escrito no idioma do card: `24 – 30 de ago.` em
- * português, `Aug 24 – 30` em inglês. Devolve `undefined` quando alguma das
- * datas não se lê, para que quem chama possa etiquetar sem período em vez de
- * escrever um `Invalid Date`.
+ * A week's period, written in the card's language: `24 – 30 de ago.` in
+ * Portuguese, `Aug 24 – 30` in English. Returns `undefined` when either of
+ * the dates does not read, so the caller can label it as having no period
+ * instead of writing an `Invalid Date`.
  *
- * Duas escolhas que não são óbvias:
+ * Two choices that are not obvious:
  *
- *  - **`formatRange`, e não duas datas coladas.** É ele que sabe colapsar o mês
- *    repetido — juntar `Intl.format()` de cada ponta dava `Aug 24 – Aug 30` em
- *    inglês e um mês a mais em português. As opções são as do `formatDayLabel`
- *    logo acima, dia e mês curto, para o card não inventar aqui uma escala de
- *    data que não usa em mais sítio nenhum.
- *  - **`timeZone: 'UTC'`.** A API manda dias de calendário (`2026-08-24`), que
- *    o `Date` lê como meia-noite UTC. Formatados no fuso do leitor, num fuso a
- *    ocidente de Greenwich passavam todos para o dia anterior — a semana de
- *    24–30 aparecia a alguém como 23–29.
+ *  - **`formatRange`, and not two dates glued together.** It is the one that
+ *    knows how to collapse the repeated month — joining `Intl.format()` from
+ *    each end gave `Aug 24 – Aug 30` in English and an extra month in
+ *    Portuguese. The options are the same as `formatDayLabel` right above,
+ *    day and short month, so the card does not invent a date scale here that
+ *    it does not use anywhere else.
+ *  - **`timeZone: 'UTC'`.** The API sends calendar days (`2026-08-24`), which
+ *    `Date` reads as midnight UTC. Formatted in the reader's timezone, in a
+ *    timezone west of Greenwich they would all move to the previous day —
+ *    the week of 24–30 would show up to someone as 23–29.
  */
 export function formatWeekRange(start: string, end: string, language: string): string | undefined {
   const from = new Date(start)
@@ -57,12 +58,12 @@ export function formatNumber(n: number | undefined, digits = 0): string {
 }
 
 /**
- * Um vidro conta como aberto pelo `open` booleano ou por uma posição > 0.
- * Vive aqui (em vez de `vehicle-state.ts`) porque `src/sections/openings.ts`
- * não pode importar `vehicle-state.ts` — essa fronteira é o que garante que
- * nenhuma secção alcança o `hass`. `format.ts` é puro e já é importado
- * pelas secções, por isso serve de casa neutra para este predicado partilhado
- * também por `vehicle-state.ts` e `actions.ts`.
+ * A window counts as open by the boolean `open` or by a position > 0. Lives
+ * here (instead of in `vehicle-state.ts`) because `src/sections/openings.ts`
+ * cannot import `vehicle-state.ts` — that boundary is what guarantees no
+ * section reaches `hass`. `format.ts` is pure and is already imported by the
+ * sections, so it serves as neutral ground for this predicate, also shared
+ * by `vehicle-state.ts` and `actions.ts`.
  */
 export function isWindowOpen(w: { open?: boolean; position?: number }): boolean {
   return w.open === true || (w.position !== undefined && w.position > 0)
@@ -70,7 +71,7 @@ export function isWindowOpen(w: { open?: boolean; position?: number }): boolean 
 
 type Openings = VehicleState['openings']
 
-/** Um vidro sem leitura nenhuma: nem o booleano de aberto, nem a posição. */
+/** A window with no reading at all: neither the open boolean nor the position. */
 function isWindowUnknown(w: Openings['windows'][keyof Openings['windows']]): boolean {
   return w.open === undefined && w.position === undefined
 }
@@ -84,10 +85,11 @@ export function areDoorsUnknown(doors: Openings['doors']): boolean {
 }
 
 /**
- * Verdadeiro quando o carro não reportou UMA ÚNICA abertura. Existe porque
- * `openCount` é um número e um zero não distingue «nada aberto» de «nada
- * sabido»: sem esta pergunta, um carro que não reportou nada afirmava «tudo
- * fechado», que é precisamente o que o card não pode saber. Ver spec §9.
+ * True when the car has not reported A SINGLE opening. Exists because
+ * `openCount` is a number and a zero does not distinguish "nothing open"
+ * from "nothing known": without this question, a car that reported nothing
+ * would assert "everything closed", which is exactly what the card cannot
+ * know. See spec §9.
  */
 export function areOpeningsUnknown(o: Openings): boolean {
   return areDoorsUnknown(o.doors) && areWindowsUnknown(o.windows)

@@ -13,12 +13,12 @@ import type { ActionId } from '../src/types'
 import { REAL_NOW, realHass } from './fixtures/real-states'
 
 /**
- * `Record<ActionId, true>`, não um array literal: um array `ActionId[]` não
- * obriga a incluir todos os membros da união, por isso uma ação nova no tipo
- * podia ficar de fora sem que nada avisasse. Um objeto tipado como
- * `Record<ActionId, true>` tem de ter todas as chaves — falta uma e o
- * `npm run typecheck` (que corre antes desta suite) já não passa, o que força
- * a dar-lhe uma etiqueta antes de a ação poder ser adicionada em segurança.
+ * `Record<ActionId, true>`, not an array literal: an `ActionId[]` array
+ * doesn't force every member of the union to be included, so a new action in
+ * the type could be left out without anything warning about it. An object
+ * typed as `Record<ActionId, true>` has to have every key — miss one and
+ * `npm run typecheck` (which runs before this suite) no longer passes, which
+ * forces giving it a label before the action can be added safely.
  */
 const ALL_ACTIONS: Record<ActionId, true> = {
   unlock: true, lock: true, trunk: true, windows: true, sunshade: true,
@@ -37,50 +37,50 @@ function ctx(overrides: Record<string, string> = {}) {
 }
 
 describe('resolveAction', () => {
-  it('destranca pelo domínio lock', () => {
+  it('unlocks through the lock domain', () => {
     const { map, state } = ctx()
     expect(resolveAction('unlock', state, map)).toEqual({
       domain: 'lock', service: 'unlock', entityId: 'lock.leapmotor_b10_000000_demo_lock',
     })
   })
 
-  it('tranca pelo domínio lock', () => {
+  it('locks through the lock domain', () => {
     const { map, state } = ctx()
     expect(resolveAction('lock', state, map)?.service).toBe('lock')
   })
 
-  it('abre a bagageira quando está fechada', () => {
+  it('opens the trunk when it is closed', () => {
     const { map, state } = ctx()
     expect(resolveAction('trunk', state, map)?.entityId).toBe('button.leapmotor_b10_000000_demo_open_trunk')
   })
 
-  it('fecha a bagageira quando está aberta', () => {
+  it('closes the trunk when it is open', () => {
     const { map, state } = ctx({ 'binary_sensor/trunk_open': 'on' })
     expect(resolveAction('trunk', state, map)?.entityId).toBe('button.leapmotor_b10_000000_demo_close_trunk')
   })
 
-  it('abre os vidros quando estão todos fechados', () => {
+  it('opens the windows when they are all closed', () => {
     const { map, state } = ctx()
     expect(resolveAction('windows', state, map)?.entityId).toBe('button.leapmotor_b10_000000_demo_open_windows')
   })
 
-  it('fecha os vidros quando algum está aberto por posição', () => {
+  it('closes the windows when one of them is open by position', () => {
     const { map, state } = ctx({ 'sensor/rear_right_window_position_percent': '40' })
     expect(resolveAction('windows', state, map)?.entityId).toBe('button.leapmotor_b10_000000_demo_close_windows')
   })
 
-  it('alterna o switch de climatização de acordo com o estado', () => {
+  it('toggles the climate switch according to its state', () => {
     expect(resolveAction('climate', ctx().state, ctx().map)?.service).toBe('turn_on')
     const on = ctx({ 'switch/climate_control': 'on' })
     expect(resolveAction('climate', on.state, on.map)?.service).toBe('turn_off')
   })
 
-  it('devolve undefined quando a entidade não está no mapa', () => {
+  it('returns undefined when the entity is not in the map', () => {
     const { state } = ctx()
     expect(resolveAction('trunk', state, {})).toBeUndefined()
   })
 
-  it('cobre todos os botões simples', () => {
+  it('covers every simple button', () => {
     const { map, state } = ctx()
     for (const a of ['quickCool', 'quickHeat', 'defrost', 'findVehicle', 'unlockCharger', 'refresh'] as const) {
       const call = resolveAction(a, state, map)
@@ -90,7 +90,7 @@ describe('resolveAction', () => {
     }
   })
 
-  it('alterna os switches de conforto', () => {
+  it('toggles the comfort switches', () => {
     const { map, state } = ctx()
     for (const a of ['steeringWheelHeat', 'mirrorHeat', 'batteryPreheat'] as const) {
       expect(resolveAction(a, state, map)?.service, a).toBe('turn_on')
@@ -98,27 +98,27 @@ describe('resolveAction', () => {
   })
 })
 
-describe('actionLabel e actionIcon', () => {
-  it('a etiqueta da bagageira muda com o estado', () => {
+describe('actionLabel and actionIcon', () => {
+  it('the trunk label changes with the state', () => {
     expect(actionLabel('trunk', ctx().state, t)).toBe('Bagageira')
     expect(actionLabel('trunk', ctx({ 'binary_sensor/trunk_open': 'on' }).state, t)).toBe('Fechar bagageira')
   })
 
-  it('a etiqueta dos vidros muda com o estado', () => {
+  it('the windows label changes with the state', () => {
     expect(actionLabel('windows', ctx().state, t)).toBe('Vidros')
     expect(actionLabel('windows', ctx({ 'binary_sensor/front_left_window_open': 'on' }).state, t)).toBe('Fechar vidros')
   })
 
-  it('a etiqueta da climatização diz o que o toque faz', () => {
+  it('the climate label says what the tap will do', () => {
     expect(actionLabel('climate', ctx().state, t)).toBe('Ligar climatização')
     expect(actionLabel('climate', ctx({ 'switch/climate_control': 'on' }).state, t)).toBe('Desligar climatização')
   })
 
-  it('a etiqueta da climatização promete o serviço que vai mesmo ser chamado', () => {
-    // O defeito que isto fecha é uma etiqueta a dizer «desligar» e o serviço a
-    // ligar (ou o contrário): as duas decisões vivem em funções diferentes e
-    // têm de partir da mesma comparação contra `true`. Um estado desconhecido
-    // conta como desligado nas duas.
+  it('the climate label promises the service that actually gets called', () => {
+    // The defect this closes is a label saying "turn off" while the service
+    // turns on (or the other way around): the two decisions live in
+    // different functions and have to start from the same comparison against
+    // `true`. An unknown state counts as off in both.
     for (const climate of [undefined, 'off', 'on', 'unavailable']) {
       const { map, state } = ctx(climate === undefined ? {} : { 'switch/climate_control': climate })
       const turningOn = resolveAction('climate', state, map)?.service === 'turn_on'
@@ -127,14 +127,14 @@ describe('actionLabel e actionIcon', () => {
     }
   })
 
-  it('devolve um ícone mdi para todas as ações', () => {
+  it('returns an mdi icon for every action', () => {
     const { state } = ctx()
     for (const a of ['unlock', 'lock', 'trunk', 'windows', 'climate', 'refresh'] as const) {
       expect(actionIcon(a, state), a).toMatch(/^mdi:/)
     }
   })
 
-  it('todas as ações têm etiqueta traduzida — nenhuma mostra a chave crua', () => {
+  it('every action has a translated label — none shows the raw key', () => {
     const { state } = ctx()
     for (const a of Object.keys(ALL_ACTIONS) as ActionId[]) {
       expect(actionLabel(a, state, t), a).not.toBe(`action.${a}`)
@@ -142,8 +142,8 @@ describe('actionLabel e actionIcon', () => {
   })
 })
 
-describe('resolveAction — serviços leapmotor', () => {
-  it('a cortina fecha com valor 0', () => {
+describe('resolveAction — leapmotor services', () => {
+  it('the sunshade closes with value 0', () => {
     const { map, state } = ctx()
     const call = resolveAction('sunshade', state, map, { position: 0 })
     expect(call?.domain).toBe('leapmotor')
@@ -152,47 +152,47 @@ describe('resolveAction — serviços leapmotor', () => {
     expect(call?.entityIdAsField).toBe(true)
   })
 
-  it('a cortina abre para uma posição intermédia', () => {
+  it('the sunshade opens to an intermediate position', () => {
     const { map, state } = ctx()
     const call = resolveAction('sunshade', state, map, { position: 5 })
     expect(call?.service).toBe('sunshade_open')
     expect(call?.data).toEqual({ value: 5 })
   })
 
-  it('a posição da cortina é limitada a 0..10', () => {
+  it('the sunshade position is clamped to 0..10', () => {
     const { map, state } = ctx()
     expect(resolveAction('sunshade', state, map, { position: 99 })?.data).toEqual({ value: 10 })
     expect(resolveAction('sunshade', state, map, { position: -3 })?.data).toEqual({ value: 0 })
   })
 
-  it('sem valor não há chamada de cortina', () => {
+  it('without a value there is no sunshade call', () => {
     const { map, state } = ctx()
     expect(resolveAction('sunshade', state, map)).toBeUndefined()
   })
 
-  it('setClimate manda modo, temperatura, ventoinha e recirculação, com entity_id como campo', () => {
+  it('setClimate sends mode, temperature, fan and recirculation, with entity_id as a field', () => {
     const { map, state } = ctx()
     const call = resolveAction('setClimate', state, map, { climate: { temperature: 22, fanSpeed: 3, recirculate: false } })
     expect(call?.domain).toBe('leapmotor')
     expect(call?.service).toBe('set_climate')
     expect(call?.entityIdAsField).toBe(true)
-    // interior 24.0 > alvo 22 -> arrefecer
+    // interior 24.0 > target 22 -> cool
     expect(call?.data).toEqual({ mode: 'cold', temperature: 22, fan_speed: 3, recirculate: false })
   })
 
-  it('setClimate aquece quando o alvo está acima do interior', () => {
+  it('setClimate heats when the target is above the interior', () => {
     const { map, state } = ctx()
     expect(resolveAction('setClimate', state, map, { climate: { temperature: 28, fanSpeed: 3, recirculate: false } })?.data)
       .toEqual({ mode: 'hot', temperature: 28, fan_speed: 3, recirculate: false })
   })
 
-  it('setClimate respeita o modo reportado pelo carro', () => {
+  it('setClimate respects the mode reported by the car', () => {
     const { map, state } = ctx({ 'sensor/climate_mode': 'wind' })
     expect(resolveAction('setClimate', state, map, { climate: { temperature: 22, fanSpeed: 3, recirculate: false } })?.data)
       .toEqual({ mode: 'wind', temperature: 22, fan_speed: 3, recirculate: false })
   })
 
-  it('a temperatura é limitada a 18..32', () => {
+  it('the temperature is clamped to 18..32', () => {
     const { map, state } = ctx()
     expect(resolveAction('setClimate', state, map, { climate: { temperature: 5, fanSpeed: 3, recirculate: false } })?.data)
       .toMatchObject({ temperature: 18 })
@@ -200,7 +200,7 @@ describe('resolveAction — serviços leapmotor', () => {
       .toMatchObject({ temperature: 32 })
   })
 
-  it('setClimate envia sempre ventoinha e recirculação, não só a temperatura', () => {
+  it('setClimate always sends fan and recirculation, not just the temperature', () => {
     const { map, state } = ctx()
     const call = resolveAction('setClimate', state, map, {
       climate: { temperature: 22, fanSpeed: 5, recirculate: true },
@@ -208,7 +208,7 @@ describe('resolveAction — serviços leapmotor', () => {
     expect(call?.data).toEqual({ mode: 'cold', temperature: 22, fan_speed: 5, recirculate: true })
   })
 
-  it('a ventoinha é limitada a 1..7', () => {
+  it('the fan is clamped to 1..7', () => {
     const { map, state } = ctx()
     const lo = resolveAction('setClimate', state, map, { climate: { temperature: 22, fanSpeed: 0, recirculate: false } })
     const hi = resolveAction('setClimate', state, map, { climate: { temperature: 22, fanSpeed: 99, recirculate: false } })
@@ -216,64 +216,65 @@ describe('resolveAction — serviços leapmotor', () => {
     expect(hi?.data).toMatchObject({ fan_speed: 7 })
   })
 
-  it('setClimate sem comando não resolve', () => {
+  it('setClimate does not resolve without a command', () => {
     const { map, state } = ctx()
     expect(resolveAction('setClimate', state, map, { position: 5 })).toBeUndefined()
   })
 
-  it('localizar usa o ícone de marcador de localização', () => {
+  it('find vehicle uses the location marker icon', () => {
     expect(actionIcon('findVehicle', ctx().state)).toBe('mdi:map-marker-radius-outline')
   })
 
-  it('a cortina unificada usa a etiqueta «Cortina»', () => {
+  it('the unified sunshade uses the "Cortina" label', () => {
     expect(actionLabel('sunshade', ctx().state, t)).toBe('Cortina')
   })
 })
 
 describe('pendingValue', () => {
-  // O pedido guarda a leitura que o carro dava quando foi feito, e é essa
-  // comparação — e não a diferença entre dois renders — que diz se ele já foi
-  // resolvido. É o que permite ao pedido viver no card e sobreviver ao colapso
-  // do painel de clima, que é onde este defeito nasceu duas vezes.
-  it('sem pedido nenhum não há valor pendente', () => {
+  // The request stores the reading the car gave when it was made, and it's
+  // that comparison — not the difference between two renders — that says
+  // whether it has been resolved. That's what lets the request live in the
+  // card and survive the climate panel collapsing, which is where this
+  // defect was born twice.
+  it('with no request at all there is no pending value', () => {
     expect(pendingValue(undefined, 24)).toBeUndefined()
   })
 
-  it('mantém-se enquanto o carro reportar a leitura que dava no momento do pedido', () => {
+  it('stays while the car reports the reading it had at the moment of the request', () => {
     expect(pendingValue({ wanted: 23, reading: 24 }, 24)).toBe(23)
   })
 
-  it('desaparece quando o carro confirma o valor pedido', () => {
+  it('disappears when the car confirms the requested value', () => {
     expect(pendingValue({ wanted: 23, reading: 24 }, 23)).toBeUndefined()
   })
 
-  it('desaparece quando o carro reporta um terceiro valor (a app, o próprio carro)', () => {
+  it('disappears when the car reports a third value (the app, the car itself)', () => {
     expect(pendingValue({ wanted: 23, reading: 24 }, 26)).toBeUndefined()
   })
 
-  it('mantém-se sem leitura nenhuma, que é o caso da entidade indisponível', () => {
+  it('stays with no reading at all, which is the case of an unavailable entity', () => {
     expect(pendingValue({ wanted: 23, reading: 24 }, undefined)).toBe(23)
   })
 
-  it('trata um pedido de false como pedido, e não como campo ausente', () => {
-    // Um `||` algures neste caminho fazia a recirculação desligada passar por
-    // «sem pedido» e o comando seguinte repunha a ligada.
+  it('treats a request of false as a request, not as a missing field', () => {
+    // An `||` somewhere along this path made recirculation-off pass for "no
+    // request", and the next command would restore it to on.
     expect(pendingValue({ wanted: false, reading: true }, true)).toBe(false)
     expect(pendingValue({ wanted: false, reading: true }, false)).toBeUndefined()
   })
 
-  it('um pedido que nasce igual à leitura resolve-se na mesma', () => {
-    // Tocar duas vezes na recirculação dentro da janela de agrupamento, ou subir
-    // e voltar a descer a temperatura, grava um pedido com `wanted === reading`.
-    // Sem a verificação da confirmação, ele nunca se resolvia e o controlo
-    // ficava esbatido como «pendente» para sempre.
+  it('a request that starts out equal to the reading resolves anyway', () => {
+    // Tapping recirculation twice within the batching window, or raising and
+    // then lowering the temperature again, records a request with
+    // `wanted === reading`. Without the confirmation check, it would never
+    // resolve and the control would stay dimmed as "pending" forever.
     expect(pendingValue({ wanted: false, reading: false }, false)).toBeUndefined()
     expect(pendingValue({ wanted: 23, reading: 23 }, 23)).toBeUndefined()
   })
 
-  it('um pedido feito às escuras cede a uma leitura nova', () => {
-    // `reading: undefined` é um pedido feito sem o carro reportar nada; quando
-    // uma leitura aparece, é ela a melhor informação que existe.
+  it('a request made in the dark yields to a new reading', () => {
+    // `reading: undefined` is a request made without the car reporting
+    // anything; when a reading shows up, it is the best information there is.
     expect(pendingValue({ wanted: 23, reading: undefined }, 26)).toBeUndefined()
   })
 })
@@ -281,29 +282,31 @@ describe('pendingValue', () => {
 describe('pruneRequests', () => {
   const KEYS = ['driverSeatHeat', 'driverSeatVent'] as const
 
-  it('apaga do registo o pedido que o carro já resolveu', () => {
-    // Apagar não é arrumação: um pedido resolvido que ficasse guardado voltava a
-    // valer assim que a leitura regressasse ao valor de origem — e num nível de
-    // assento «voltar a 0» é o que o carro faz sozinho.
+  it('erases from the registry the request the car has already resolved', () => {
+    // Erasing isn't tidying: a resolved request left in storage would become
+    // valid again as soon as the reading returned to its original value —
+    // and for a seat level, "going back to 0" is exactly what the car does
+    // on its own.
     const requests = { driverSeatHeat: { wanted: 1, reading: 0 } }
     const live = pruneRequests(requests, KEYS, () => 1)
     expect(live).toEqual({})
     expect(requests.driverSeatHeat).toBeUndefined()
-    // E é por isto que tem de ser apagado: guardado, ressuscitava aqui.
+    // And this is why it has to be erased: kept around, it would come back
+    // to life right here.
     expect(pendingValue({ wanted: 1, reading: 0 }, 0)).toBe(1)
   })
 
-  it('mantém o pedido que o carro ainda não resolveu, e devolve o seu valor', () => {
+  it('keeps the request the car has not resolved yet, and returns its value', () => {
     const requests = { driverSeatHeat: { wanted: 2, reading: 0 } }
     const live = pruneRequests(requests, KEYS, () => 0)
     expect(live).toEqual({ driverSeatHeat: 2 })
     expect(requests.driverSeatHeat).toEqual({ wanted: 2, reading: 0 })
   })
 
-  it('uma chave sem pedido nenhum não aparece no resultado', () => {
-    // `toEqual({})` não servia: no Vitest não distingue `{}` de
-    // `{ chave: undefined }`, e uma implementação que deixasse escapar um
-    // `undefined` para o resultado passava à mesma. As chaves é que contam.
+  it('a key with no request at all does not appear in the result', () => {
+    // `toEqual({})` wasn't enough: Vitest doesn't distinguish `{}` from
+    // `{ key: undefined }`, and an implementation that let an `undefined`
+    // leak into the result would still pass. It's the keys that count.
     const requests: Partial<Record<typeof KEYS[number], { wanted: number; reading?: number }>> = {}
     const live = pruneRequests(requests, KEYS, () => 3)
     expect(Object.keys(live)).toEqual([])
@@ -312,19 +315,19 @@ describe('pruneRequests', () => {
 })
 
 describe('forgetRequest', () => {
-  it('apaga o pedido cuja chamada falhou', () => {
-    // Sem isto, uma chamada rejeitada deixava o pedido para sempre: a leitura do
-    // carro nunca se mexe, portanto nada o resolvia, e o controlo mostrava um
-    // valor que o carro nunca chegou a ter.
+  it('erases the request whose call failed', () => {
+    // Without this, a rejected call would leave the request forever: the
+    // car's reading never moves, so nothing would resolve it, and the
+    // control would show a value the car never actually had.
     const request = { wanted: 1, reading: 0 }
     const requests: Partial<Record<'driverSeatHeat', typeof request>> = { driverSeatHeat: request }
     expect(forgetRequest(requests, 'driverSeatHeat', request)).toBe(true)
     expect('driverSeatHeat' in requests).toBe(false)
   })
 
-  it('não apaga um pedido novo que entretanto substituiu o que falhou', () => {
-    // Entre a chamada e a rejeição o utilizador pode ter tocado outra vez; esse
-    // pedido é válido e ainda não falhou.
+  it('does not erase a new request that has since replaced the one that failed', () => {
+    // Between the call and the rejection the user may have tapped again;
+    // that request is valid and has not failed.
     const failed = { wanted: 1, reading: 0 }
     const newer = { wanted: 2, reading: 0 }
     const requests = { driverSeatHeat: newer }
@@ -334,46 +337,47 @@ describe('forgetRequest', () => {
 })
 
 describe('shownLevel', () => {
-  // As duas secções que mostram níveis de assento — o pino do painel de clima e
-  // a linha da secção de conforto — passam por aqui. Podem estar visíveis ao
-  // mesmo tempo e não podem responder coisas diferentes sobre o mesmo banco.
-  it('o pedido por confirmar ganha à leitura, e fica marcado', () => {
+  // The two sections that show seat levels — the climate panel's pin and the
+  // comfort section's row — go through here. They can be visible at the
+  // same time and cannot answer different things about the same seat.
+  it('the unconfirmed request wins over the reading, and gets marked', () => {
     expect(shownLevel(2, 0)).toEqual({ level: 2, pending: true })
   })
 
-  it('sem pedido mostra a leitura, sem marca', () => {
+  it('with no request it shows the reading, unmarked', () => {
     expect(shownLevel(undefined, 3)).toEqual({ level: 3, pending: false })
   })
 
-  it('um pedido de nível 0 é um pedido como os outros', () => {
-    // Com um `||` em vez da verificação de `undefined`, o zero passava por «sem
-    // pedido» e a secção mostrava o nível antigo enquanto a outra mostrava 0.
+  it('a request for level 0 is a request like any other', () => {
+    // With an `||` instead of the `undefined` check, zero would pass for "no
+    // request", and the section would show the old level while the other
+    // one showed 0.
     expect(shownLevel(0, 3)).toEqual({ level: 0, pending: true })
   })
 
-  it('sem pedido e sem leitura não há nível nenhum', () => {
+  it('with no request and no reading there is no level at all', () => {
     expect(shownLevel(undefined, undefined)).toEqual({ level: undefined, pending: false })
   })
 })
 
 describe('composeClimateCommand', () => {
-  // O `leapmotor.set_climate` repõe pelos defeitos tudo o que não for enviado,
-  // por isso o que este comando leva é o que o carro fica a ter. Era a única
-  // decisão do card sem teste nenhum, e uma das que este plano existe para
-  // corrigir: `fanSpeed: 3` em vez da escolha do utilizador é exactamente o
-  // reset silencioso que motivou tirar a ventoinha do painel.
-  it('leva a ventoinha que o utilizador escolheu, não um defeito', () => {
+  // `leapmotor.set_climate` resets to defaults everything that isn't sent,
+  // so what this command carries is what the car ends up with. It was the
+  // only card decision with no test at all, and one of the ones this plan
+  // exists to fix: `fanSpeed: 3` instead of the user's choice is exactly the
+  // silent reset that motivated pulling the fan control out of the panel.
+  it('carries the fan speed the user chose, not a default', () => {
     const { state } = ctx()
     expect(composeClimateCommand({ fanSpeed: 6 }, state).fanSpeed).toBe(6)
     expect(composeClimateCommand({ fanSpeed: 1 }, state).fanSpeed).toBe(1)
   })
 
-  it('leva a recirculação que o carro reporta quando ninguém lhe tocou', () => {
+  it('carries the recirculation the car reports when nobody touched it', () => {
     const { state } = ctx({ 'binary_sensor/air_recirculation': 'on' })
     expect(composeClimateCommand({ fanSpeed: 3 }, state).recirculate).toBe(true)
   })
 
-  it('leva o pedido por confirmar à frente da leitura, nos dois campos', () => {
+  it('carries the unconfirmed request ahead of the reading, in both fields', () => {
     const { state } = ctx({ 'binary_sensor/air_recirculation': 'on' })
     const intent: ClimateIntent = {
       fanSpeed: 4,
@@ -383,26 +387,26 @@ describe('composeClimateCommand', () => {
     expect(composeClimateCommand(intent, state)).toEqual({ temperature: 21, fanSpeed: 4, recirculate: false })
   })
 
-  it('leva a leitura do carro quando não há pedido nenhum', () => {
-    // 20 e não os 24 da fixture: com a leitura igual ao defeito do serviço,
-    // apagar o `?? state.climate.targetC` não mudava o resultado e o teste
-    // passava contra as duas versões do código.
+  it('carries the car\'s reading when there is no request at all', () => {
+    // 20, not the fixture's 24: with the reading equal to the service
+    // default, deleting the `?? state.climate.targetC` didn't change the
+    // result, and the test would pass against both versions of the code.
     const { state } = ctx({ 'sensor/climate_set_temp_left_c': '20.0' })
     expect(composeClimateCommand({ fanSpeed: 3 }, state))
       .toEqual({ temperature: 20, fanSpeed: 3, recirculate: false })
   })
 
-  it('mexer só na recirculação não mexe na temperatura que o carro tem', () => {
-    // O `set_climate` repõe pelos defeitos o que não for enviado: um carro a
-    // 20 °C em que o utilizador só alterna a recirculação tem de receber 20,
-    // não os 24 do defeito.
+  it('touching only the recirculation does not touch the temperature the car has', () => {
+    // `set_climate` resets to defaults whatever isn't sent: a car at 20 °C
+    // where the user only toggles the recirculation has to receive 20, not
+    // the default's 24.
     const { state } = ctx({ 'sensor/climate_set_temp_left_c': '20.0' })
     const intent: ClimateIntent = { fanSpeed: 5, recirculate: { wanted: true, reading: false } }
     expect(composeClimateCommand(intent, state))
       .toEqual({ temperature: 20, fanSpeed: 5, recirculate: true })
   })
 
-  it('sem leitura nenhuma cai nos defeitos do serviço, e só aí', () => {
+  it('with no reading at all it falls back to the service defaults, and only there', () => {
     const { state } = ctx({
       'sensor/climate_set_temp_left_c': 'unavailable',
       'binary_sensor/air_recirculation': 'unavailable',
@@ -413,10 +417,10 @@ describe('composeClimateCommand', () => {
 })
 
 describe('nextStepTemperature', () => {
-  it('um toque move um grau a partir do valor que o utilizador vê', () => {
-    // O tile e o stepper mostram o alvo com as mesmas casas decimais; se o
-    // stepper partisse do valor cru, um alvo de 23,5 mostrava 24 e um toque
-    // saltava para 25 — grau e meio num toque.
+  it('a tap moves one degree from the value the user sees', () => {
+    // The tile and the stepper show the target with the same decimal places;
+    // if the stepper started from the raw value, a target of 23.5 would
+    // show 24 and a tap would jump to 25 — a degree and a half in one tap.
     for (const reported of [18, 20.4, 23.5, 24, 27.6, 32]) {
       const shown = Number(formatNumber(reported, TARGET_TEMP_DECIMALS))
       expect(nextStepTemperature(reported, 1), String(reported)).toBe(Math.min(TEMP_MAX, shown + 1))
@@ -424,38 +428,38 @@ describe('nextStepTemperature', () => {
     }
   })
 
-  it('não sai do intervalo que o serviço aceita', () => {
+  it('does not leave the range the service accepts', () => {
     expect(nextStepTemperature(TEMP_MAX, 1)).toBe(TEMP_MAX)
     expect(nextStepTemperature(TEMP_MIN, -1)).toBe(TEMP_MIN)
   })
 
-  it('sem alvo nenhum parte do defeito do serviço', () => {
+  it('with no target at all it starts from the service default', () => {
     expect(nextStepTemperature(undefined, 1)).toBe(25)
     expect(nextStepTemperature(undefined, -1)).toBe(23)
   })
 })
 
 describe('decideAction', () => {
-  it('bloqueia uma ação de aberturas com o carro em andamento', () => {
-    // A verificação não pode viver só no botão: um painel já aberto, ou um
-    // render obsoleto, contornam um controlo apenas desactivado.
+  it('blocks an openings action while the car is moving', () => {
+    // The check can't live only in the button: a panel already open, or a
+    // stale render, would bypass a control that is merely disabled.
     const { map, state } = ctx({ 'binary_sensor/is_driving': 'on' })
     expect(decideAction('unlock', state, map, undefined).kind).toBe('blocked')
     expect(decideAction('sunshade', state, map, undefined, { position: 5 }).kind).toBe('blocked')
   })
 
-  it('bloqueia em andamento exactamente as ações da lista, e mais nenhuma', () => {
+  it('blocks while moving exactly the actions in the list, and no others', () => {
     const { map, state } = ctx({ 'binary_sensor/is_driving': 'on' })
     for (const action of Object.keys(ALL_ACTIONS) as ActionId[]) {
-      // Sem payload de propósito: o bloqueio é decidido antes de a ação ser
-      // resolvida, portanto uma ação de payload dá 'blocked' ou 'unavailable',
-      // nunca 'ready', e é o 'blocked' que aqui se mede.
+      // No payload on purpose: the block is decided before the action is
+      // resolved, so a payload action gives 'blocked' or 'unavailable',
+      // never 'ready', and it's the 'blocked' case being measured here.
       const blocked = decideAction(action, state, map, []).kind === 'blocked'
       expect(blocked, action).toBe(BLOCKED_WHILE_DRIVING.includes(action))
     }
   })
 
-  it('pede confirmação para as ações da lista, e a chamada só sai com um sim', () => {
+  it('asks for confirmation for the actions in the list, and the call only goes out with a yes', () => {
     const { map, state } = ctx()
     const decision = decideAction('unlock', state, map, undefined)
     expect(decision.kind).toBe('confirm')
@@ -466,67 +470,69 @@ describe('decideAction', () => {
     })
   })
 
-  it('respeita a lista de confirmação da configuração', () => {
+  it('respects the confirmation list from the configuration', () => {
     const { map, state } = ctx()
     expect(decideAction('unlock', state, map, ['trunk']).kind).toBe('ready')
     expect(decideAction('trunk', state, map, ['trunk']).kind).toBe('confirm')
     expect(decideAction('trunk', state, map, []).kind).toBe('ready')
   })
 
-  it('uma ação sem entidade não é executável', () => {
+  it('an action with no entity is not executable', () => {
     const { state } = ctx()
     expect(decideAction('trunk', state, {}, undefined).kind).toBe('unavailable')
   })
 })
 
 describe('isActionAvailable', () => {
-  it('a cortina está disponível quando há veículo endereçável, mesmo sem valor escolhido', () => {
+  it('the sunshade is available when there is an addressable vehicle, even with no value chosen', () => {
     const { map, state } = ctx()
     expect(isActionAvailable('sunshade', state, map)).toBe(true)
   })
 
-  it('a cortina não está disponível sem nenhuma entidade do veículo', () => {
+  it('the sunshade is not available with no vehicle entity at all', () => {
     const { state } = ctx()
     expect(isActionAvailable('sunshade', state, {})).toBe(false)
   })
 
-  it('uma ação normal (trunk) continua disponível com a sua própria entidade', () => {
+  it('a normal action (trunk) stays available with its own entity', () => {
     const { map, state } = ctx()
     expect(isActionAvailable('trunk', state, map)).toBe(true)
   })
 
-  it('uma ação normal (trunk) fica indisponível sem a sua entidade', () => {
+  it('a normal action (trunk) becomes unavailable without its entity', () => {
     const { state } = ctx()
     expect(isActionAvailable('trunk', state, {})).toBe(false)
   })
 
-  it('setClimate não está disponível como botão, mesmo com o veículo totalmente endereçável', () => {
-    // setClimate exige um valor, mas não tem painel próprio em CONTROL_PANEL:
-    // encaminhá-lo para o painel de outra ação (a cortina) faria um botão
-    // rotulado «Temperatura» comandar a cortina em vez da climatização.
+  it('setClimate is not available as a button, even with the vehicle fully addressable', () => {
+    // setClimate requires a value, but has no panel of its own in
+    // CONTROL_PANEL: routing it to another action's panel (the sunshade)
+    // would make a button labeled "Temperatura" control the sunshade instead
+    // of the climate.
     const { map, state } = ctx()
     expect(isActionAvailable('setClimate', state, map)).toBe(false)
   })
 
   /**
-   * A paridade que a AVAILABILITY_PROBE promete: uma ação só é «disponível» se
-   * o veículo for endereçável, e o payload de sondagem existe para as ações de
-   * payload não responderem «não» só por lhes faltar um valor que o utilizador
-   * ainda não escolheu. Este teste fixa a resposta esperada de TODAS as ações,
-   * uma a uma, e não apenas que a função devolve um booleano: mexer na tabela
-   * de sondagem — tirar de lá uma ação, ou pôr lá uma que não é de payload —
-   * muda uma destas respostas e falha aqui. O terceiro `expect` é o detetor de
-   * fuga: uma ação que não é de payload tem de dar a MESMA resposta sem
-   * sondagem nenhuma, porque `resolveAction` ignora o payload nesse caso.
+   * The parity that AVAILABILITY_PROBE promises: an action is only
+   * "available" if the vehicle is addressable, and the probing payload
+   * exists so that payload actions don't answer "no" just because they're
+   * missing a value the user hasn't chosen yet. This test pins the expected
+   * answer for EVERY action, one by one, not just that the function returns
+   * a boolean: touching the probe table — removing an action from it, or
+   * putting a non-payload one in it — changes one of these answers and
+   * fails here. The third `expect` is the leak detector: an action that is
+   * not a payload action has to give the SAME answer with no probing at
+   * all, because `resolveAction` ignores the payload in that case.
    */
-  it('responde por todas as ações e a sondagem não altera a resposta de nenhuma que não seja de payload', () => {
+  it('answers for every action, and probing does not change the answer for any that is not a payload action', () => {
     const { map, state } = ctx()
     const expected: Record<ActionId, boolean> = {
       unlock: true, lock: true, trunk: true, windows: true, sunshade: true,
       quickCool: true, quickHeat: true, defrost: true,
       findVehicle: true, unlockCharger: true, refresh: true,
       climate: true, steeringWheelHeat: true, mirrorHeat: true, batteryPreheat: true,
-      // Ações de payload sem painel próprio: nunca botões da linha de ações.
+      // Payload actions with no panel of their own: never buttons in the action row.
       setChargeLimit: false, setClimate: false,
     }
     for (const action of Object.keys(ALL_ACTIONS) as ActionId[]) {
@@ -538,11 +544,11 @@ describe('isActionAvailable', () => {
     }
   })
 
-  it('setChargeLimit não está disponível como botão, mesmo com a entidade de limite presente', () => {
-    // setChargeLimit também exige um valor (o `number.set_value` vem sem
-    // `data`, ver comentário em resolveAction) e também não tem painel próprio
-    // em CONTROL_PANEL: o valor vem do slider do painel de carregamento, não
-    // da linha de ações.
+  it('setChargeLimit is not available as a button, even with the limit entity present', () => {
+    // setChargeLimit also requires a value (the `number.set_value` call
+    // comes with no `data`, see the comment in resolveAction) and also has
+    // no panel of its own in CONTROL_PANEL: the value comes from the
+    // charging panel's slider, not from the action row.
     const { map, state } = ctx()
     expect(isActionAvailable('setChargeLimit', state, map)).toBe(false)
   })

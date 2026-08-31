@@ -10,10 +10,10 @@ import { sharedStyles } from '../theme'
 import type { ActionId, EntityMap, VehicleState } from '../types'
 
 /**
- * A posição em que a cortina fica com o teto fechado. É o mesmo 0 que o
- * `resolveAction` traduz em `sunshade_close` e o mínimo do slider do painel da
- * cortina; tem nome para a linha do teto e o comando não poderem discordar
- * sobre o que «fechado» é.
+ * The position the sunshade sits at with the roof closed. It's the same 0
+ * that `resolveAction` translates into `sunshade_close` and the minimum of
+ * the sunshade panel's slider; it has a name so that the roof row and the
+ * command can't disagree about what "closed" is.
  */
 const SUNSHADE_CLOSED_POSITION = 0
 
@@ -22,10 +22,10 @@ interface Row {
   icon: string
   label: string
   value: string
-  /** Detalhe por baixo do valor, quando há mais de uma coisa a dizer. */
+  /** Detail underneath the value, when there's more than one thing to say. */
   detail?: string
   warn: boolean
-  /** A ação que a linha comanda. Ausente numa linha só de leitura. */
+  /** The action the row commands. Absent on a read-only row. */
   action?: ActionId
 }
 
@@ -40,7 +40,7 @@ export class LeapmotorOpenings extends LitElement {
     return Object.values(this.state.openings.windows).filter(isWindowOpen).length
   }
 
-  /** As portas abertas, nomeadas uma a uma. */
+  /** The open doors, named one by one. */
   private openDoors(): string[] {
     const { doors } = this.state.openings
     const named: [boolean | undefined, string][] = [
@@ -62,8 +62,9 @@ export class LeapmotorOpenings extends LitElement {
   }
 
   /**
-   * O valor de uma linha de contagem. Zero aberturas com zero leituras não é
-   * «tudo fechado» — é ignorância, e essa escreve-se DASH. Ver spec §9.
+   * The value of a count row. Zero openings with zero readings is not
+   * "everything closed" — it's ignorance, and that's written as DASH. See
+   * spec §9.
    */
   private closedOrUnknown(nothingKnown: boolean, count: number, oneKey: string, manyKey: string): string {
     if (count === 0) return nothingKnown ? DASH : this.t('openings.all_closed')
@@ -71,13 +72,13 @@ export class LeapmotorOpenings extends LitElement {
   }
 
   /**
-   * O valor de uma linha booleana. As chaves vêm de fora, e não por omissão, de
-   * propósito: em português o adjectivo concorda com o substantivo da linha, e
-   * este card tem os dois géneros — a bagageira é «Aberta», o teto é «Aberto».
-   * Cada chamada declara o género que quer, para nenhuma linha nova o herdar
-   * por acidente. Não juntar os dois pares num só: em inglês as quatro chaves
-   * dizem a mesma palavra e a duplicação parece redundante, mas é o que separa
-   * os dois géneros em português.
+   * The value of a boolean row. The keys come from outside, not by default,
+   * on purpose: in Portuguese the adjective agrees with the row's noun, and
+   * this card has both genders — the trunk is "Aberta", the roof is
+   * "Aberto". Each call declares the gender it wants, so that no new row
+   * inherits one by accident. Don't merge the two pairs into one: in English
+   * the four keys say the same word and the duplication looks redundant, but
+   * it's what separates the two genders in Portuguese.
    */
   private boolValue(v: boolean | undefined, openKey: string, closedKey: string): string {
     if (v === undefined) return DASH
@@ -85,20 +86,22 @@ export class LeapmotorOpenings extends LitElement {
   }
 
   /**
-   * O valor da linha do teto: a palavra de estado e, só com o teto fechado, a
-   * posição da cortina.
+   * The value of the roof row: the state word and, only with the roof
+   * closed, the sunshade's position.
    *
-   * O número aparece num ramo só porque só num ramo é que se sabe. A posição da
-   * cortina não é exposta como entidade (ver o `case 'sunshade'` em
-   * `actions.ts`); o que existe é o binário do teto. Com o teto fechado a
-   * posição é genuinamente 0 — é o que o `sunshade_close` deixa lá — e dizê-lo
-   * põe a linha a falar o mesmo vocabulário do controlo que ela abre, que é uma
-   * posição de 0 a 10. Com o teto aberto a posição pode ser qualquer uma de 1 a
-   * 10 e nenhuma delas se conhece: escrever um número ali era inventá-lo. Sem
-   * leitura nenhuma fica DASH, como em qualquer outra linha.
+   * The number appears in only one branch because it's only known in one
+   * branch. The sunshade's position isn't exposed as an entity (see the
+   * `case 'sunshade'` in `actions.ts`); what exists is the roof's binary
+   * state. With the roof closed the position is genuinely 0 — it's what
+   * `sunshade_close` leaves there — and saying so puts the row speaking the
+   * same vocabulary as the control it opens, which is a position from 0 to
+   * 10. With the roof open the position could be anywhere from 1 to 10 and
+   * none of them is known: writing a number there would be inventing it.
+   * With no reading at all it's DASH, like on any other row.
    *
-   * O 0 passa pelo `formatNumber` e não vai escrito à mão: é um valor, e os
-   * valores desta secção formatam-se todos pelo mesmo sítio.
+   * The 0 goes through `formatNumber` and isn't written by hand: it's a
+   * value, and this section's values are all formatted through the same
+   * place.
    */
   private roofValue(roof: boolean | undefined): string {
     const word = this.boolValue(roof, 'openings.open', 'openings.closed')
@@ -114,23 +117,26 @@ export class LeapmotorOpenings extends LitElement {
     return [
       {
         key: 'locks',
-        // O ícone reporta a leitura, como em todas as outras linhas desta secção
-        // (o botão é que carrega a ação) — e para uma leitura desconhecida o
-        // cadeado fechado é o que não afirma nada, ao contrário do aberto, que
-        // afirmaria "destrancado". É também o que o hero mostra para o mesmo
-        // estado desconhecido; não alterar para concordar com a ação.
+        // The icon reports the reading, like every other row in this section
+        // (it's the button that carries the action) — and for an unknown
+        // reading the closed padlock is what asserts nothing, unlike the open
+        // one, which would assert "unlocked". It's also what the hero shows
+        // for the same unknown state; do not change it to agree with the
+        // action.
         icon: locked === false ? 'mdi:lock-open-variant-outline' : 'mdi:lock-outline',
         label: this.t('openings.locks'),
-        // DASH, e não `doors_unknown`: esta linha já tem coluna de etiqueta, e
-        // «Trancas → Portas» não é um valor. No hero a mesma chave está certa,
-        // porque lá o chip é a etiqueta e o valor ao mesmo tempo.
+        // DASH, and not `doors_unknown`: this row already has a label
+        // column, and "Locks → Doors" is not a value. In the hero the same
+        // key is correct, because there the chip is the label and the value
+        // at the same time.
         value: locked === undefined ? DASH : this.t(locked ? 'doors_locked' : 'doors_unlocked'),
         warn: locked === false && !this.state.lock.stale,
-        // A ação é a oposta do estado, e o desconhecido conta como destrancado:
-        // trancar um carro já trancado não faz mal, destrancar um carro cujo
-        // estado se ignora faz. Daí a comparação ser contra `true` e não contra
-        // `false` — com `locked === false ? 'lock' : 'unlock'`, o estado
-        // desconhecido caía em destrancar, que é exactamente o lado errado.
+        // The action is the opposite of the state, and unknown counts as
+        // unlocked: locking an already-locked car does no harm, unlocking a
+        // car whose state is unknown does. Hence the comparison is against
+        // `true` and not against `false` — with `locked === false ? 'lock' :
+        // 'unlock'`, the unknown state fell into unlocking, which is exactly
+        // the wrong side.
         action: locked === true ? 'unlock' : 'lock',
       },
       {
@@ -146,15 +152,16 @@ export class LeapmotorOpenings extends LitElement {
         key: 'doors',
         icon: 'mdi:car-door',
         label: this.t('openings.doors'),
-        // Porta é feminina e uma só porta não são «abertas»: as chaves `_fem`
-        // existem só por isto, e o singular vem da mesma regra que os vidros já
-        // aplicavam. Em inglês as quatro chaves dizem o mesmo.
+        // "Porta" is feminine and a single door isn't "abertas": the `_fem`
+        // keys exist just for this, and the singular follows the same rule
+        // the windows already applied. In English the four keys say the
+        // same thing.
         value: this.closedOrUnknown(areDoorsUnknown(o.doors), openDoors.length, 'openings.open_one_fem', 'openings.open_count_fem'),
         detail: openDoors.length > 0 ? openDoors.join(' · ') : undefined,
         warn: openDoors.length > 0,
-        // Sem ação, e de propósito: a integração não expõe comando de porta.
-        // Uma linha com um botão que não faz nada é pior do que uma linha sem
-        // botão. Ver spec §4.1.
+        // No action, on purpose: the integration doesn't expose a door
+        // command. A row with a button that does nothing is worse than a
+        // row without a button. See spec §4.1.
       },
       {
         key: 'trunk',
@@ -170,14 +177,14 @@ export class LeapmotorOpenings extends LitElement {
         label: this.t('openings.roof'),
         value: this.roofValue(o.roof),
         warn: o.roof === true,
-        // A cortina comanda-se por posição absoluta (0–10) e o `resolveAction`
-        // nem olha para esta leitura, ao contrário da bagageira, cujo comando
-        // se escolhe a partir do estado lido. Por isso a linha comanda mesmo
-        // com o teto em DASH: quem não sabe o estado é o card, e o comando não
-        // precisa de o saber — a regra de não oferecer um controlo inútil não
-        // se aplica a um controlo que funciona. O valor continua a dizer DASH,
-        // que é o que não afirma nada. O botão abre o painel da posição; ver
-        // `fire`.
+        // The sunshade is commanded by an absolute position (0–10) and
+        // `resolveAction` doesn't even look at this reading, unlike the
+        // trunk, whose command is chosen from the read state. That's why the
+        // row keeps commanding even with the roof at DASH: it's the card
+        // that doesn't know the state, and the command doesn't need to know
+        // it — the rule against offering a useless control doesn't apply to
+        // a control that works. The value still says DASH, which is what
+        // asserts nothing. The button opens the position panel; see `fire`.
         action: 'sunshade',
       },
     ]
@@ -190,10 +197,10 @@ export class LeapmotorOpenings extends LitElement {
   }
 
   private fire(action: ActionId) {
-    // Uma ação com painel não chama serviço a partir daqui: o `resolveAction`
-    // exige-lhe um valor que só o painel dela escolhe (a cortina, uma posição).
-    // A regra e o mapa são os mesmos da fila de ações — de propósito, para as
-    // duas não poderem divergir sobre a mesma ação.
+    // An action with a panel doesn't call a service from here: `resolveAction`
+    // requires from it a value that only its panel chooses (the sunshade, a
+    // position). The rule and the map are the same ones from the actions
+    // row — on purpose, so the two can't diverge on the same action.
     const panel = CONTROL_PANEL[action]
     if (panel) {
       this.dispatchEvent(new CustomEvent('leapmotor-expand', {
@@ -207,9 +214,10 @@ export class LeapmotorOpenings extends LitElement {
   }
 
   /**
-   * O botão de uma linha só existe se a ação for de facto resolvível: sem
-   * entidade por trás, `isActionAvailable` diz não e a linha fica só de
-   * leitura, em vez de oferecer um comando que ia falhar em silêncio.
+   * A row's button only exists if the action is actually resolvable:
+   * without an entity behind it, `isActionAvailable` says no and the row
+   * stays read-only, instead of offering a command that would fail
+   * silently.
    */
   private button(action: ActionId | undefined) {
     if (!action || !isActionAvailable(action, this.state, this.map)) return nothing
@@ -256,8 +264,9 @@ export class LeapmotorOpenings extends LitElement {
     .detail { font-size: 0.72rem; margin-top: 1px; }
     .value { white-space: nowrap; }
     /*
-     * Seletor composto: o button.plain do theme.ts faz all: unset a
-     * (0,1,1) e apagaria fundo, padding, cantos e box-sizing deste botão.
+     * Compound selector: button.plain from theme.ts does all: unset at
+     * (0,1,1) and would strip background, padding, corners and box-sizing
+     * from this button.
      */
     button.do.plain {
       box-sizing: border-box; display: inline-flex; justify-content: center;

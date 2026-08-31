@@ -22,12 +22,13 @@ export class LeapmotorActionsRow extends LitElement {
   }
 
   private fire(action: ActionId) {
-    // Ações com painel (ex.: sunshade) não chamam um serviço a partir daqui:
-    // precisam de um valor que só o seu próprio painel fornece. O botão apenas
-    // pede ao card para expandir esse painel — ver spec v2, achado 4. O painel
-    // vem de um mapa por ação, não de uma constante fixa: uma ação de valor
-    // sem painel próprio (ex.: setClimate) já não passa em `isActionAvailable`
-    // e nunca chega a ser um botão aqui — ver achado adicional pós-item 8.
+    // Actions with a panel (e.g. sunshade) don't call a service from here:
+    // they need a value that only their own panel supplies. The button only
+    // asks the card to expand that panel — see spec v2, finding 4. The
+    // panel comes from a per-action map, not from a fixed constant: a
+    // value-taking action with no panel of its own (e.g. setClimate)
+    // already fails `isActionAvailable` and never becomes a button here —
+    // see the additional finding after item 8.
     const panel = CONTROL_PANEL[action]
     if (panel) {
       this.dispatchEvent(new CustomEvent('leapmotor-expand', {

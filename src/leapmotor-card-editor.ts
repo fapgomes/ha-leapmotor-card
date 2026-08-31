@@ -9,15 +9,15 @@ import {
 } from './types'
 
 /**
- * Uma entrada por ação, e não uma lista: `Record<ActionId, boolean>` obriga o
- * compilador a exigir uma decisão sobre cada ação nova. Com a lista, uma
- * décima-oitava ação compilava, passava os testes exaustivos, e simplesmente
- * nunca aparecia no editor — sem ninguém dar por isso.
+ * An entry per action, and not a list: `Record<ActionId, boolean>` forces
+ * the compiler to demand a decision about every new action. With a list, an
+ * eighteenth action would compile, pass the exhaustive tests, and simply
+ * never appear in the editor — with nobody noticing.
  *
- * As cinco que ficam de fora não são utilizáveis como botão da linha de ações:
- * `steeringWheelHeat`, `mirrorHeat` e `batteryPreheat` vivem na secção de
- * conforto, e `setChargeLimit` e `setClimate` precisam de um valor que só um
- * painel fornece (ver `PAYLOAD_ACTIONS` em `actions.ts`).
+ * The five that are left out are not usable as an actions-row button:
+ * `steeringWheelHeat`, `mirrorHeat` and `batteryPreheat` live in the comfort
+ * section, and `setChargeLimit` and `setClimate` need a value that only a
+ * panel provides (see `PAYLOAD_ACTIONS` in `actions.ts`).
  */
 const OFFERED_IN_EDITOR: Record<ActionId, boolean> = {
   unlock: true, lock: true, trunk: true, windows: true, sunshade: true,
@@ -31,17 +31,18 @@ const ALL_ACTIONS: ActionId[] = (Object.keys(OFFERED_IN_EDITOR) as ActionId[])
   .filter(a => OFFERED_IN_EDITOR[a])
 
 /**
- * `trunk` e `windows` são alternantes e não têm chave `action.trunk` nem
- * `action.windows` — as chaves reais são `action.trunk_open`/`_close` e
- * `action.windows_open`/`_close`. No editor mostramos a forma de abrir, que é
- * o rótulo que a app usa. Sem este mapa, `t('action.trunk')` devolveria a
- * própria chave e o dropdown mostraria "action.trunk".
+ * `trunk` and `windows` are alternating and have neither an `action.trunk`
+ * nor an `action.windows` key — the real keys are `action.trunk_open`/`_close`
+ * and `action.windows_open`/`_close`. In the editor we show the opening
+ * form, which is the label the app uses. Without this map,
+ * `t('action.trunk')` would return the key itself and the dropdown would
+ * show "action.trunk".
  *
- * `climate` também é alternante desde que o `actionLabel` lhe passou a dar
- * `action.climate_on`/`_off`, mas continua a ter chave neutra — e é ela que o
- * editor usa, pelo caminho por omissão. Aqui escolhe-se a ação, não se executa
- * nenhuma: um dropdown a oferecer «Ligar climatização» prometia um sentido que
- * o botão configurado não tem.
+ * `climate` is also alternating, ever since `actionLabel` started giving it
+ * `action.climate_on`/`_off`, but it still has a neutral key — and that is
+ * the one the editor uses, via the default path. Here an action is chosen,
+ * not executed: a dropdown offering "Turn on climate control" would promise
+ * a meaning the configured button does not have.
  */
 const ACTION_LABEL_KEY: Partial<Record<ActionId, string>> = {
   trunk: 'action.trunk_open',
@@ -68,9 +69,9 @@ export class LeapmotorCardEditor extends LitElement {
       { name: 'name', selector: { text: {} } },
       {
         name: 'language',
-        // Os nomes das línguas ficam no próprio idioma, por convenção de
-        // selectores de idioma — «Português» não se traduz para inglês. Só a
-        // opção automática passa por `t()`.
+        // The language names stay in their own language, by convention for
+        // language selectors — "Português" is not translated to English.
+        // Only the automatic option goes through `t()`.
         selector: { select: { mode: 'dropdown', options: [
           { value: '', label: t('editor.language_auto') },
           { value: 'pt', label: 'Português' },
@@ -101,12 +102,13 @@ export class LeapmotorCardEditor extends LitElement {
   }
 
   /**
-   * Os campos de topo mostram o próprio nome do campo, sem tradução — é assim
-   * desde sempre, e mudar isso para todos fica fora do âmbito de uma opção
-   * nova. O `map_zoom` é a excepção: só existe uma vez por catálogo (ver
-   * `editor.map_zoom`), por isso ganha rótulo traduzido sem tocar nos outros.
-   * O `tire_range` não está no esquema do `ha-form` (é uma lista de dois
-   * números, sem selector), mas o ramo fica pronto para quando houver um.
+   * The top-level fields show the field's own name, without translation —
+   * it has always been this way, and changing that for all of them is out
+   * of scope for a new option. `map_zoom` is the exception: it exists only
+   * once per catalog (see `editor.map_zoom`), so it gets a translated label
+   * without touching the others. `tire_range` is not in the `ha-form`
+   * schema (it is a list of two numbers, with no selector), but the branch
+   * is ready for when there is one.
    */
   private computeLabel = (t: (k: string) => string) => (s: { name: string }): string => {
     if (s.name === 'map_zoom') return t('editor.map_zoom')
@@ -117,21 +119,22 @@ export class LeapmotorCardEditor extends LitElement {
   private valueChanged(e: CustomEvent<{ value: Record<string, unknown> }>) {
     const raw = { ...e.detail.value }
     if (raw.language === '') delete raw.language
-    // `sections` já não existe no tipo, mas pode existir em configurações
-    // ainda não migradas — o `ha-form` devolve tudo o que lhe foi dado, por
-    // isso é aqui, no editor, que a chave morta finalmente desaparece.
+    // `sections` no longer exists in the type, but it may exist in
+    // configurations that have not been migrated yet — `ha-form` returns
+    // everything it was given, so it is here, in the editor, that the dead
+    // key finally disappears.
     delete (raw as Record<string, unknown>)['sections']
     const config = { type: 'custom:leapmotor-card', ...raw } as LeapmotorCardConfig
     this._config = config
     this.dispatchEvent(new CustomEvent('config-changed', { detail: { config }, bubbles: true, composed: true }))
   }
 
-  /** Os grupos por ordem, com o estado da caixa de seleção de cada um. */
+  /** The groups in order, with each one's checkbox state. */
   private gridRows(): { id: GroupId; on: boolean }[] {
     const configured = this._config?.grid
     if (!Array.isArray(configured)) {
-      // Sem `grid:` escrito, a grelha é o catálogo inteiro: mostra-se tudo
-      // ligado, que é o que o card faz.
+      // Without a `grid:` written, the grid is the whole catalog:
+      // everything is shown turned on, which is what the card does.
       return GROUP_ORDER.map(id => ({ id, on: true }))
     }
     const chosen = configured
@@ -145,12 +148,14 @@ export class LeapmotorCardEditor extends LitElement {
   }
 
   /**
-   * O que cada grupo tinha na forma longa — ícone, título, resumo — mesmo depois
-   * de o utilizador o desligar. Nunca se limpa por inteiro, de propósito: é
-   * isso que faz desligar-e-voltar-a-ligar não perder o que estava em YAML.
+   * What each group had in the long form — icon, title, summary — even
+   * after the user turns it off. It is deliberately never cleared entirely:
+   * that is what makes turning off and back on not lose what was in the
+   * YAML.
    *
-   * Um grupo que reapareça na forma CURTA apaga a sua entrada aqui — senão um
-   * ícone que alguém tirasse do YAML à mão ressuscitava no toque seguinte.
+   * A group that reappears in the SHORT form erases its entry here —
+   * otherwise an icon that someone removed from the YAML by hand would
+   * come back to life on the next tap.
    */
   private _longForm = new Map<GroupId, GridEntry>()
 
@@ -163,14 +168,15 @@ export class LeapmotorCardEditor extends LitElement {
   }
 
   /**
-   * Escreve o `grid:` a partir das linhas. Preserva a forma longa de uma
-   * entrada que já a tinha: reordenar ou desligar no editor não deve apagar um
-   * ícone, um título ou um resumo que alguém escreveu à mão em YAML.
+   * Writes the `grid:` from the rows. Preserves the long form of an entry
+   * that already had one: reordering or turning off in the editor must not
+   * erase an icon, a title or a summary that someone wrote by hand in YAML.
    *
-   * A memória é o `_longForm` e não o `grid:` actual, e isso é a correcção de um
-   * defeito real: desligar um grupo tira-lhe a entrada do `grid:`, portanto ler
-   * a forma longa de lá significava que voltar a ligá-lo já não a encontrava e
-   * escrevia o grupo na forma curta — o ícone desaparecia sem aviso.
+   * The memory is `_longForm`, and not the current `grid:`, and that is the
+   * fix for a real defect: turning off a group removes its entry from
+   * `grid:`, so reading the long form from there meant that turning it back
+   * on would no longer find it and would write the group in the short form
+   * — the icon disappeared without warning.
    */
   private commitGrid(rows: { id: GroupId; on: boolean }[]) {
     const grid: GridEntry[] = rows
@@ -198,20 +204,20 @@ export class LeapmotorCardEditor extends LitElement {
   }
 
   /**
-   * `ha-formfield`, `ha-checkbox` e `ha-icon-button` vêm do frontend do Home
-   * Assistant, não deste pacote — não há forma de os verificar a partir deste
-   * repositório. Se este bloco aparecer vazio num dashboard real, é o
-   * primeiro sítio a suspeitar: um elemento personalizado sem definição não
-   * dá erro nenhum, só não desenha nada.
+   * `ha-formfield`, `ha-checkbox` and `ha-icon-button` come from the Home
+   * Assistant frontend, not from this package — there is no way to verify
+   * them from within this repository. If this block appears empty on a
+   * real dashboard, it is the first place to suspect: a custom element
+   * without a definition gives no error at all, it just draws nothing.
    */
   private renderGridEditor(t: (k: string) => string) {
     const rows = this.gridRows()
     /*
-     * As setas só operam dentro do bloco dos grupos escolhidos, porque só esses
-     * são escritos no `grid:`. Mover uma linha desligada não persistia nada e a
-     * renderização seguinte recolocava-a — a seta parecia avariada. O mesmo
-     * valia para empurrar a última linha ligada para baixo da fronteira entre
-     * os dois blocos.
+     * The arrows only operate within the block of chosen groups, because
+     * only those are written into the `grid:`. Moving a turned-off row
+     * persisted nothing and the next render put it back — the arrow seemed
+     * broken. The same held for pushing the last turned-on row below the
+     * boundary between the two blocks.
      */
     const onCount = rows.filter(row => row.on).length
     return html`<div class="grid-editor">

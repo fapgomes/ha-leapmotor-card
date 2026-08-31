@@ -162,9 +162,10 @@ function buildLocation(hass: HomeAssistant, map: EntityMap): VehicleState['locat
   const st = id ? hass.states[id] : undefined
   if (!st) return undefined
 
-  // As coordenadas vivem nos atributos, e o `state` de um device_tracker é o
-  // nome da zona (`home`, `not_home`), que não passa pelo filtro INVALID. Por
-  // isso esta derivação lê os atributos diretamente em vez de usar `entity()`.
+  // The coordinates live in the attributes, and a device_tracker's `state`
+  // is the zone's name (`home`, `not_home`), which does not pass through the
+  // INVALID filter. That is why this derivation reads the attributes
+  // directly instead of using `entity()`.
   const latitude = Number(st.attributes.latitude)
   const longitude = Number(st.attributes.longitude)
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return undefined
@@ -185,9 +186,10 @@ function buildLocation(hass: HomeAssistant, map: EntityMap): VehicleState['locat
 }
 
 /**
- * Coage para número só o que é número ou texto. O `Number()` sozinho não serve
- * de guarda: perante um `Symbol` atira, e perante um objeto ou um `null` devolve
- * `NaN` ou `0` — e o zero passaria por leitura válida onde ela não existe.
+ * Coerces to a number only what is a number or a string. `Number()` alone
+ * does not work as a guard: faced with a `Symbol` it throws, and faced with
+ * an object or a `null` it returns `NaN` or `0` — and the zero would pass
+ * for a valid reading where none exists.
  */
 function coerceNumber(value: unknown): number | undefined {
   if (typeof value !== 'number' && typeof value !== 'string') return undefined
@@ -195,38 +197,40 @@ function coerceNumber(value: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined
 }
 
-/** Uma data que se lê: dia de calendário que o `Date` consegue interpretar. */
+/** A date that reads: a calendar day that `Date` manages to parse. */
 function isReadableDate(value: unknown): value is string {
   return typeof value === 'string' && value !== '' && !Number.isNaN(new Date(value).getTime())
 }
 
 /**
- * A série semanal do atributo `weekly_consumption` do sensor da média de 6
- * semanas, na ordem em que a API a manda — da semana mais antiga para a mais
- * recente. Devolve `[]` para tudo o que não se aproveite, e nunca atira.
+ * The weekly series of the `weekly_consumption` attribute of the 6-week
+ * average sensor, in the order the API sends it — from the oldest week to
+ * the most recent. Returns `[]` for anything unusable, and never throws.
  *
- * É a primeira coisa estruturada que este card lê de um atributo, e a API da
- * cloud já se mostrou inconsistente com os tipos — no MESMO objeto, o
- * `hundredKmEC` vem número e o `hundredMiKwhEC` vem texto. Daí ser uma função
- * pura, exportada e testada à parte, em vez de estar embutida no
- * `buildVehicleState`: a forma vem de fora, ninguém a controla, e o que a
- * defende tem de ser verificável sem montar um `hass` inteiro. Agora que TODAS
- * as entradas viram linha, e não só uma, cada entrada malformada é uma linha
- * errada à vista — o que sobe o valor destas guardas, não o baixa.
+ * It is the first structured thing this card reads from an attribute, and
+ * the cloud API has already shown itself inconsistent with types — in the
+ * SAME object, `hundredKmEC` comes as a number and `hundredMiKwhEC` comes as
+ * text. Hence it being a pure function, exported and tested separately,
+ * instead of being embedded in `buildVehicleState`: the shape comes from
+ * outside, no one controls it, and what defends against it has to be
+ * verifiable without assembling a whole `hass`. Now that ALL entries become
+ * a row, and not just one, every malformed entry is a wrong row in plain
+ * sight — which raises the value of these guards, not lowers it.
  *
- * Duas regras, e a fronteira entre elas é o que interessa:
+ * Two rules, and the boundary between them is what matters:
  *
- *  - **Sem período, a entrada CAI.** Uma linha sem datas não se consegue
- *    etiquetar, e uma linha com um número que não se sabe a que semana pertence
- *    é exactamente o defeito que esta versão veio corrigir. Exige-se que as duas
- *    datas se leiam, e não só que não estejam vazias: uma data que o `Date` não
- *    interpreta também não dá etiqueta nenhuma.
- *  - **Sem consumo, a entrada FICA, com o consumo a `undefined`.** Um
- *    `hundredKmEC` a zero é a maneira de a API dizer «não andei nesta semana» —
- *    as primeiras semanas de um carro entregue de fresco vêm todas a zero — e
- *    com as datas ao lado o leitor entende-o. O que não se pode escrever é
- *    «0,0», que afirmava uma eficiência que o carro nunca teve. Um valor
- *    negativo ou ilegível dá no mesmo: há semana, não há número.
+ *  - **With no period, the entry is DROPPED.** A row with no dates cannot
+ *    be labeled, and a row with a number no one knows which week it belongs
+ *    to is exactly the defect this version came to fix. Both dates are
+ *    required to actually read, not just to be non-empty: a date `Date`
+ *    cannot parse also gives no label at all.
+ *  - **With no consumption, the entry STAYS, with the consumption as
+ *    `undefined`.** A `hundredKmEC` of zero is the API's way of saying "I
+ *    did not drive this week" — the first weeks of a freshly delivered car
+ *    all come in as zero — and with the dates alongside it, the reader
+ *    understands it. What cannot be written is "0.0", which would assert an
+ *    efficiency the car never had. A negative or unreadable value amounts
+ *    to the same thing: there is a week, there is no number.
  */
 export function parseWeeklyConsumption(value: unknown): WeeklyConsumption[] {
   if (!Array.isArray(value)) return []
@@ -248,16 +252,17 @@ export function parseWeeklyConsumption(value: unknown): WeeklyConsumption[] {
 }
 
 /**
- * As três entidades da repartição, pela ordem em que se procuram os kWh.
- * Qualquer uma serve — carregam todas os mesmos três atributos — e a ordem só
- * decide quem responde primeiro. Percorrem-se as três, e não só a da condução,
- * porque quem sobrepôs `entities:` à mão pode ter mapeado apenas uma.
+ * The three entities of the breakdown, in the order in which the kWh are
+ * looked up. Any one of them works — they all carry the same three
+ * attributes — and the order only decides who answers first. All three are
+ * iterated over, and not just the driving one, because whoever overrode
+ * `entities:` by hand may have mapped only one of them.
  */
 const WEEK_ENERGY_KEYS: readonly LogicalKey[] = [
   'lastWeekDrivingPercent', 'lastWeekClimatePercent', 'lastWeekOtherPercent',
 ]
 
-/** Os kWh de uma fatia, da primeira das três entidades que os traga. */
+/** A slice's kWh, from the first of the three entities that carries them. */
 function weekEnergyKwh(hass: HomeAssistant, map: EntityMap, name: string): number | undefined {
   for (const key of WEEK_ENERGY_KEYS) {
     const value = coerceNumber(attr<unknown>(hass, map, key, name))
@@ -280,9 +285,10 @@ function buildWeekEnergy(hass: HomeAssistant, map: EntityMap): WeekEnergy {
     percent: num(hass, map, 'lastWeekOtherPercent'),
   }
 
-  // A soma é das fatias que existem, e não uma soma com zeros pelo meio: uma
-  // fatia em falta é uma leitura que não veio, e somá-la como zero fazia o
-  // total afirmar mais do que se sabe. Sem nenhuma fatia não há total.
+  // The sum is of the slices that exist, and not a sum with zeros mixed in:
+  // a missing slice is a reading that did not come through, and summing it
+  // as zero would make the total assert more than is known. With no slice
+  // at all there is no total.
   const present = [driving.kwh, climate.kwh, other.kwh].filter((v): v is number => v !== undefined)
   const totalKwh = present.length > 0 ? present.reduce((a, b) => a + b, 0) : undefined
 
@@ -325,13 +331,14 @@ export function buildVehicleState(hass: HomeAssistant, map: EntityMap, now: Date
       last7DaysKm: num(hass, map, 'last7DaysKm'),
       avgConsumption: num(hass, map, 'avgConsumption6w'),
       totalEnergyKwh: num(hass, map, 'totalEnergy'),
-      // O `state` deste sensor é a média das 6 semanas; a série semana a semana,
-      // que é o que sustenta a média, vem no atributo.
+      // This sensor's `state` is the 6-week average; the week-by-week
+      // series, which is what backs the average, comes in the attribute.
       weeklyConsumption: parseWeeklyConsumption(attr<unknown>(hass, map, 'avgConsumption6w', 'weekly_consumption')),
       weekEnergy: buildWeekEnergy(hass, map),
-      // Não existe como sensor: deriva-se da energia acumulada a dividir pela
-      // quilometragem acumulada. Só quando ambas existem e a distância não é
-      // zero — um carro acabado de entregar dividiria por zero.
+      // Does not exist as a sensor: derived from the accumulated energy
+      // divided by the accumulated mileage. Only when both exist and the
+      // distance is not zero — a freshly delivered car would divide by
+      // zero.
       lifetimeConsumption: (() => {
         const energy = num(hass, map, 'totalEnergy')
         const distance = num(hass, map, 'totalMileage') ?? num(hass, map, 'odometer')
@@ -350,9 +357,10 @@ export function buildVehicleState(hass: HomeAssistant, map: EntityMap, now: Date
       batteryPreheat: bool(hass, map, 'batteryPreheat'),
     },
     schedule: {
-      // Coerente com `charging.phase === 'scheduled'`, que aceita qualquer dos
-      // dois sinais. Derivar só de `scheduleSwitch` fazia o hero dizer
-      // «Agendado» e o painel dizer «Desativado» a partir do mesmo estado.
+      // Consistent with `charging.phase === 'scheduled'`, which accepts
+      // either of the two signals. Deriving only from `scheduleSwitch` would
+      // make the hero say "Agendado" and the panel say "Desativado" from the
+      // same state.
       enabled: bool(hass, map, 'scheduleSwitch') === true || bool(hass, map, 'schedulePlanned') === true
         ? true
         : bool(hass, map, 'scheduleSwitch'),

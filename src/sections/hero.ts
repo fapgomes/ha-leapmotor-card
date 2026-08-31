@@ -15,17 +15,18 @@ export class LeapmotorHero extends LitElement {
   @property({ type: String }) language = 'en'
   @property({ type: String }) imageUrl?: string
   @property({ type: Boolean }) showImage = true
-  // Espelha a regra do §6 da spec: no modo `image: 'entity'` não há recurso à
-  // silhueta, nem quando a `entity_picture` (com token assinado) expira mais
-  // tarde e o <img> dá erro. `showImage` já resolve o caso "sem URL de
-  // entrada"; esta prop cobre o caso "URL que falha depois de montado".
+  // Mirrors the rule from spec §6: in `image: 'entity'` mode there's no
+  // fallback to the silhouette, not even when the `entity_picture` (with a
+  // signed token) expires later and the <img> errors out. `showImage`
+  // already handles the "no input URL" case; this prop covers the "URL that
+  // fails after mounting" case.
   @property({ type: Boolean }) allowSilhouette = true
 
   /**
-   * A forma de uma linha, para quando uma sub-vista está aberta: nome,
-   * autonomia, bateria e trancas, sem foto e sem rótulo de atividade. O que
-   * fica é o que identifica o carro e o que se quer saber sem pensar; o resto
-   * dá lugar aos dados da sub-vista. Ver spec §3.3.
+   * The one-row shape, for when a sub-view is open: name, range, battery and
+   * locks, with no photo and no activity label. What's left is what
+   * identifies the car and what you want to know without thinking; the rest
+   * gives way to the sub-view's data. See spec §3.3.
    */
   @property({ type: Boolean }) compact = false
 
@@ -168,18 +169,20 @@ export class LeapmotorHero extends LitElement {
     }
     .compact-range { flex: 0 0 auto; font-size: 1.05rem; }
     /*
-     * A barra é a mesma do hero completo, mas aqui vive numa fila: perde a
-     * margem vertical e a largura máxima de 220px, que ali servia uma coluna.
+     * The bar is the same one as the full hero, but here it lives in a row:
+     * it loses the vertical margin and the 220px max-width, which there
+     * served a column.
      */
     .compact-row .bar { flex: 0 0 64px; margin: 0; max-width: 64px; }
     .compact-lock { flex: 0 0 auto; --mdc-icon-size: 20px; }
     .compact-lock.stale { opacity: 0.55; }
     /*
-     * Num ecrã estreito a barra ENCOLHE, não desaparece: é a única
-     * representação da bateria nesta forma — não há percentagem em texto — e o
-     * display: none levava também o role=img e o aria-label dela, deixando
-     * quem usa leitor de ecrã sem carga nenhuma. O aperto absorve-o o nome, que
-     * tem flex: 1 1 auto e ellipsis.
+     * On a narrow screen the bar SHRINKS, it doesn't disappear: it's the
+     * only representation of the battery in this shape — there's no
+     * percentage in text — and display: none would also take its role=img
+     * and its aria-label with it, leaving screen reader users with no
+     * charge information at all. The squeeze is absorbed by the name, which
+     * has flex: 1 1 auto and ellipsis.
      */
     @media (max-width: 360px) {
       .big { font-size: 2.1rem; }

@@ -44,9 +44,9 @@ export class LeapmotorSchedule extends LitElement {
     .title { font-size: 1.05rem; font-weight: 600; }
     .window { font-size: 1.2rem; margin: 8px 0; }
     .flags { display: flex; flex-wrap: wrap; gap: 6px; font-size: 0.75rem; }
-    /* button.plain (theme.ts) está a (0,1,1): a convenção do projeto é o
-       seletor composto, para nenhuma regra desta folha depender de contar
-       classes contra o all: unset. */
+    /* button.plain (theme.ts) is at (0,1,1): the project's convention is
+       the compound selector, so that no rule in this sheet depends on
+       counting classes against all: unset. */
     button.plain.toggle.on { color: var(--primary-color); }
   `]
 }

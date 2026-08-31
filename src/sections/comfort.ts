@@ -13,14 +13,14 @@ export class LeapmotorComfort extends LitElement {
   @property({ attribute: false }) state!: VehicleState
   @property({ attribute: false }) t!: TranslateFn
   @property({ attribute: false }) map!: EntityMap
-  /** Nível máximo, lido do atributo `max` das entidades number. */
+  /** Maximum level, read from the `max` attribute of the number entities. */
   @property({ type: Number }) maxLevel = 3
   /**
-   * Os níveis que esta secção mostra, já reconciliados pelo card. O pino do
-   * painel de clima comanda estas mesmas quatro entidades e recebe exactamente
-   * o mesmo objecto; sem ele aqui, um toque numa das secções deixava a outra a
-   * assinalar o nível antigo, e o mesmo banco aparecia com dois valores
-   * diferentes no mesmo ecrã.
+   * The levels this section shows, already reconciled by the card. The
+   * climate panel's pin commands these same four entities and receives
+   * exactly the same object; without it here, a tap in one section would
+   * leave the other still flagging the old level, and the same seat would
+   * show two different values on the same screen.
    */
   @property({ attribute: false }) shownLevels: SeatLevels = {}
 
@@ -38,9 +38,10 @@ export class LeapmotorComfort extends LitElement {
 
   private levelRow(row: LevelRow) {
     if (!this.map[row.key]) return nothing
-    // `shownLevel` é partilhado com o pino do painel de clima, que comanda estas
-    // mesmas entidades: é o que garante que as duas secções, visíveis ao mesmo
-    // tempo, nunca assinalam níveis diferentes para o mesmo banco.
+    // `shownLevel` is shared with the climate panel's pin, which commands
+    // these same entities: it's what guarantees that the two sections,
+    // visible at the same time, never flag different levels for the same
+    // seat.
     const { level: shown, pending } = shownLevel(this.shownLevels[row.key], row.value)
     return html`<div class="line">
       <span class="muted"><ha-icon icon=${row.icon}></ha-icon> ${row.label}</span>
@@ -88,18 +89,18 @@ export class LeapmotorComfort extends LitElement {
     .title { font-size: 1.05rem; font-weight: 600; margin-bottom: 8px; }
     .line { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; font-size: 0.88rem; }
     .steps { display: flex; gap: 6px; }
-    /* Pedido por confirmar, como o pino do painel de clima: (0,2,0) sobre
-       .steps (0,1,0), e nenhum botão envolvido, portanto sem armadilha do
-       all: unset. */
+    /* Request pending confirmation, same as the climate panel's pin:
+       (0,2,0) over .steps (0,1,0), and no button involved, so no all: unset
+       trap. */
     .steps.pending { opacity: 0.6; }
     button.plain.step {
       width: 28px; height: 28px; border-radius: 50%;
       display: grid; place-items: center; background: var(--card-background-color); font-size: 0.8rem;
     }
     button.plain.step.active { background: var(--primary-color); color: var(--text-primary-color, #fff); }
-    /* button.plain (theme.ts) está a (0,1,1): a convenção do projeto é o
-       seletor composto, para nenhuma regra desta folha depender de contar
-       classes contra o all: unset. */
+    /* button.plain (theme.ts) is at (0,1,1): the project's convention is
+       the compound selector, so that no rule in this sheet depends on
+       counting classes against all: unset. */
     button.plain.toggle.on { color: var(--primary-color); }
     ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; }
   `]

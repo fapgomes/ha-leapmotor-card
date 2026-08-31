@@ -1,7 +1,8 @@
 /**
- * Importar um ficheiro como texto (`?raw`) é uma funcionalidade do Vite, que o
- * Vitest usa. É assim que dois testes leem o README e o `leapmotor-card.ts` sem
- * `node:fs`: o projeto não tem `@types/node` e não vai passar a ter só por isto.
+ * Importing a file as text (`?raw`) is a Vite feature, which Vitest uses.
+ * This is how two tests read the README and `leapmotor-card.ts` without
+ * `node:fs`: the project doesn't have `@types/node` and isn't going to get it
+ * just for this.
  */
 declare module '*?raw' {
   const content: string

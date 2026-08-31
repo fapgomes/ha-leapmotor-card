@@ -11,23 +11,25 @@ interface Row {
 }
 
 /**
- * Um cabeçalho e as linhas que ele cobre. As linhas desta sub-vista misturavam
- * coisas de natureza diferente — quilómetros andados e energia gasta — e sem a
- * separação era o leitor que tinha de a fazer de cabeça.
+ * A heading and the rows it covers. This sub-view's rows used to mix things
+ * of a different nature — kilometers driven and energy spent — and without
+ * the split it was the reader who had to do it in their head.
  *
- * O `value` opcional serve o cabeçalho da energia, que leva o total da semana à
- * direita. Vai no cabeçalho e não numa linha própria porque as três fatias
- * abaixo são partes dele: uma linha «Total» a fechar repetia, como soma, o que o
- * título da secção já nomeia, e punha o número mais longe das partes que o
- * compõem. Os outros dois cabeçalhos não têm total porque não têm um: um
- * conta-quilómetros e uma média não se somam.
+ * The optional `value` serves the energy heading, which carries the week's
+ * total on the right. It sits in the heading and not in a row of its own
+ * because the three slices below are parts of it: a closing "Total" row
+ * repeated, as a sum, what the section title already names, and put the
+ * number further from the parts that make it up. The other two headings have
+ * no total because they don't have one: an odometer and an average don't add
+ * up.
  *
- * O `unit` serve o cabeçalho da série semanal, cujas linhas são números nus.
- * Ocupa a mesma direita, mas com estilo próprio: um total é um valor, uma
- * unidade é o rótulo da coluna abaixo — e o cabeçalho passa por
- * `text-transform: uppercase`, que num símbolo de unidade estraga a grafia
- * («KWH/100 KM»). Por isso é um campo à parte e não texto dentro do `heading`:
- * a maiúscula é do CSS e não se consegue desligar em parte de um nó de texto.
+ * The `unit` serves the weekly series heading, whose rows are bare numbers.
+ * It occupies the same right side, but with its own styling: a total is a
+ * value, a unit is the label of the column below it — and the heading goes
+ * through `text-transform: uppercase`, which mangles a unit symbol's spelling
+ * ("KWH/100 KM"). That's why it's a separate field and not text inside
+ * `heading`: the uppercase comes from CSS and can't be switched off for part
+ * of a text node.
  */
 interface Section {
   heading: string
@@ -42,24 +44,26 @@ export class LeapmotorTrip extends LitElement {
   @property({ attribute: false }) t!: TranslateFn
   @property({ type: String }) language = 'en'
 
-  /** As partes que existem, com o separador do card. Nenhuma parte, DASH. */
+  /** The parts that exist, joined with the card's separator. No parts, DASH. */
   private joined(parts: string[]): string {
     return parts.length > 0 ? parts.join(' · ') : DASH
   }
 
   /**
-   * A média desde sempre e a energia total são o MESMO facto dito duas vezes: a
-   * média é a total a dividir pelo conta-quilómetros (133,0 kWh / 679 km × 100 =
-   * 19,6 kWh/100 km, que é exactamente o que o card mostrava nas duas linhas).
-   * Ficam por isso numa linha só, com o numerador ao lado do resultado.
+   * The lifetime average and the total energy are the SAME fact stated twice:
+   * the average is the total divided by the odometer (133.0 kWh / 679 km ×
+   * 100 = 19.6 kWh/100 km, which is exactly what the card used to show on
+   * both lines). They therefore live on a single line, with the numerator
+   * next to the result.
    *
-   * É também isso que dispensa o qualificador «(calculada)» que a etiqueta
-   * tinha: ele existia para avisar que o número não vinha do carro, e com o
-   * numerador à vista a derivação vê-se.
+   * This is also what does away with the "(calculated)" qualifier the label
+   * used to carry: it existed to warn that the number didn't come from the
+   * car, and with the numerator visible the derivation speaks for itself.
    *
-   * Aditivo, e não «os dois ou nenhum»: na prática a média só existe se a total
-   * existir — é dela que sai — mas quem lê a total sem conta-quilómetros ainda
-   * tem um valor verdadeiro para mostrar, e escondê-lo era perder informação.
+   * Additive, not "both or neither": in practice the average only exists if
+   * the total exists — it's derived from it — but whoever reads the total
+   * without an odometer reading still has a genuine value to show, and
+   * hiding it would mean losing information.
    */
   private lifetimeValue(): string {
     const { lifetimeConsumption, totalEnergyKwh } = this.state.trip
@@ -70,10 +74,11 @@ export class LeapmotorTrip extends LitElement {
   }
 
   /**
-   * Uma fatia da energia da semana: os kWh e a percentagem, lado a lado. Os dois
-   * números vêm de sítios diferentes — a percentagem é o `state` da entidade, os
-   * kWh são um atributo — e ambos fazem falta: a percentagem diz o peso da fatia
-   * sem dizer quanto é, e os kWh dizem quanto é sem dizer se é muito.
+   * A slice of the week's energy: the kWh and the percentage, side by side.
+   * The two numbers come from different places — the percentage is the
+   * entity's `state`, the kWh is an attribute — and both are needed: the
+   * percentage says the slice's weight without saying how much it is, and
+   * the kWh says how much it is without saying whether that's a lot.
    */
   private sliceValue(slice: EnergySlice): string {
     const parts: string[] = []
@@ -83,21 +88,22 @@ export class LeapmotorTrip extends LitElement {
   }
 
   /**
-   * A série semanal: uma linha por semana, com o período por etiqueta e o
-   * consumo por valor.
+   * The weekly series: one row per week, with the period as the label and
+   * the consumption as the value.
    *
-   * Ao contrário dos outros três, este bloco não tem um conjunto FIXO de linhas:
-   * as suas linhas são os próprios dados. Isso muda o que fazer quando não há
-   * nada — sem série não há bloco. Um cabeçalho sozinho, sem linha nenhuma
-   * debaixo dele, é o cabeçalho órfão que a doutrina das linhas sempre visíveis
-   * existe para evitar, e não há onde escrever o travessão: uma linha sem
-   * período não se consegue etiquetar. Nos outros três blocos cada linha é uma
-   * pergunta que o card sabe fazer sempre, e o travessão é uma resposta válida.
+   * Unlike the other three, this block has no FIXED set of rows: its rows
+   * are the data itself. That changes what to do when there's nothing — no
+   * series, no block. A heading on its own, with no row underneath it, is
+   * the orphan heading that the doctrine of always-visible rows exists to
+   * avoid, and there's nowhere to write the dash: a row without a period
+   * can't be labeled. In the other three blocks each row is a question the
+   * card always knows how to ask, and the dash is a valid answer.
    *
-   * A unidade vai no cabeçalho e não em cada linha: repetida seis vezes era
-   * ruído, e é o que o card já faz nos cantos dos pneus, onde o «bar» aparece
-   * uma vez por canto ao lado do número em vez de estar escrito por extenso.
-   * Fica alinhada à direita, em cima da coluna de números que ela rotula.
+   * The unit goes in the heading and not in each row: repeated six times it
+   * was noise, and that's what the card already does at the tire corners,
+   * where "bar" appears once per corner next to the number instead of being
+   * spelled out. It sits aligned to the right, above the column of numbers
+   * it labels.
    */
   private weeklySection(): Section | undefined {
     const weeks = this.state.trip.weeklyConsumption
@@ -107,18 +113,19 @@ export class LeapmotorTrip extends LitElement {
       heading: this.t('trip.heading_weekly'),
       unit: 'kWh/100 km',
       /*
-       * Da mais recente para a mais antiga, ao contrário da ordem em que a API
-       * as devolve. A semana que interessa é a última, e com a ordem da API
-       * ficava no fim, depois de todas as semanas em que o carro não andou —
-       * eram quatro travessões antes do primeiro número, no carro real.
+       * Most recent to oldest, the opposite of the order the API returns
+       * them in. The week that matters is the last one, and with the API's
+       * order it ended up at the end, after every week the car didn't drive
+       * — that was four dashes before the first number, on the real car.
        */
       rows: [...weeks].reverse().map(week => ({
-        // O travessão nunca deve acontecer: o parser deixa cair as semanas com
-        // datas que não se leem, precisamente para toda a linha ter etiqueta.
-        // Fica como rede, porque é a resposta do card para «não há nada aqui».
+        // The dash should never happen: the parser drops weeks whose dates
+        // can't be read, precisely so that every row has a label. It stays
+        // as a safety net, because it's the card's answer to "there's
+        // nothing here".
         label: formatWeekRange(week.start, week.end, this.language) ?? DASH,
-        // Uma semana a zero é uma semana em que o carro não andou, e é isso que
-        // o travessão diz. «0,0» dizia que ele andou sem gastar nada.
+        // A week at zero is a week the car didn't drive, and that's what the
+        // dash says. "0.0" would say it drove without spending anything.
         value: week.kwhPer100Km !== undefined ? formatNumber(week.kwhPer100Km, 1) : DASH,
       })),
     }
@@ -161,31 +168,33 @@ export class LeapmotorTrip extends LitElement {
           { label: this.t('trip.energy_other'), value: this.sliceValue(energy.other) },
         ],
       },
-      // A série vai em último: é a coisa mais detalhada e menos urgente da
-      // sub-vista, e são seis linhas onde as outras são duas ou três.
+      // The series goes last: it's the most detailed and least urgent thing
+      // in the sub-view, and it's six rows where the others are two or
+      // three.
       ...(weekly ? [weekly] : []),
     ]
   }
 
   override render() {
     /*
-     * Os cabeçalhos aparecem sempre, mesmo com todas as linhas em DASH: as
-     * linhas também aparecem sempre — um valor em falta escreve-se DASH, não se
-     * esconde — e um cabeçalho existe para dizer o que as linhas abaixo dele
-     * são. Escondê-lo deixava linhas órfãs, que é o problema que ele resolve.
+     * Headings always appear, even with every row in DASH: the rows also
+     * always appear — a missing value is written as DASH, not hidden — and
+     * a heading exists to say what the rows below it are. Hiding it would
+     * leave orphan rows, which is exactly the problem it solves.
      *
-     * Vale também para o bloco da energia, que num carro que não reporte a
-     * repartição são quatro linhas seguidas em DASH. Esconder só este bloco
-     * fazia da sub-vista duas coisas ao mesmo tempo: uma que diz o que não sabe
-     * e outra que cala. E o argumento para o esconder — poupar linhas vazias —
-     * vale exactamente o mesmo para os outros dois, que o card já decidiu
-     * mostrar. Quem não tem estas entidades já é avisado pelo aviso de entidades
-     * em falta, e um grupo sem entidade nenhuma resolvida nem chega à grelha.
+     * That also holds for the energy block, which on a car that doesn't
+     * report the breakdown is four rows in a row of DASH. Hiding only this
+     * block would make the sub-view two things at once: one that says what
+     * it doesn't know and another that stays silent. And the argument for
+     * hiding it — saving empty rows — holds exactly as well for the other
+     * two, which the card has already decided to show. Whoever lacks these
+     * entities is already warned by the missing-entities notice, and a
+     * group with no entity resolved at all doesn't even reach the grid.
      *
-     * O bloco da série semanal é a única excepção, e é-o por não ter linhas
-     * fixas: sem série não há linha nenhuma para escrever o travessão, e a
-     * regra passa a produzir um cabeçalho órfão em vez de evitar um. Ver o
-     * `weeklySection`.
+     * The weekly series block is the only exception, and it is one because
+     * it has no fixed rows: with no series there's no row at all to write
+     * the dash on, and the rule ends up producing an orphan heading instead
+     * of avoiding one. See `weeklySection`.
      */
     return html`<div class="panel">
       <div class="title">${this.t('trip.title')}</div>
@@ -205,17 +214,17 @@ export class LeapmotorTrip extends LitElement {
   static override styles = [sharedStyles, css`
     .title { font-size: 1.05rem; font-weight: 600; margin-bottom: 8px; }
     /*
-     * A escala é a da etiqueta de canto dos pneus (tires.ts): pequena, em
-     * maiúsculas e com a mesma dose de espaçamento. É de propósito que não é uma
-     * escala nova — um cabeçalho de secção e a etiqueta de um valor são o mesmo
-     * tipo de texto secundário, e o card já tinha um.
+     * The scale is that of the tire corner label (tires.ts): small,
+     * uppercase and with the same amount of letter spacing. It's
+     * deliberately not a new scale — a section heading and a value's label
+     * are the same kind of secondary text, and the card already had one.
      *
-     * O primeiro cabeçalho não leva margem de topo: o .title acima já traz a
-     * dele, e as duas somadas abriam um buraco no início do painel. O seletor é
-     * o irmão adjacente e não um :first-of-type — o .title também é um div,
-     * portanto é ele o primeiro div do painel e o :first-of-type nunca casaria
-     * com cabeçalho nenhum. Os marcadores que a Lit deixa entre os dois são
-     * comentários, que não contam para a adjacência.
+     * The first heading carries no top margin: the .title above already has
+     * its own, and the two added together opened a gap at the start of the
+     * panel. The selector is the adjacent sibling and not a :first-of-type —
+     * .title is also a div, so it is the panel's first div and
+     * :first-of-type would never match any heading. The markers Lit leaves
+     * between the two are comments, which don't count for adjacency.
      */
     .heading {
       display: flex; justify-content: space-between; gap: 12px; align-items: baseline;
@@ -224,19 +233,20 @@ export class LeapmotorTrip extends LitElement {
     }
     .title + .heading { margin-top: 0; }
     /*
-     * O total sai da escala do cabeçalho que o transporta: em maiúsculas,
-     * minúsculo e esbatido, «10,8 kWh» lia-se como um adorno do título e não
-     * como o número que ele é. Fica com o corpo e a cor das linhas de valor
-     * abaixo, que é o que ele é — a soma delas.
+     * The total steps out of the scale of the heading that carries it: in
+     * uppercase, small and dimmed, "10.8 kWh" read like a decoration on the
+     * title and not like the number it actually is. It keeps the body size
+     * and color of the value rows below, which is what it is — their sum.
      */
     .heading .total {
       font-size: 0.9rem; text-transform: none; letter-spacing: normal;
       font-weight: 600; color: var(--lm-text);
     }
     /*
-     * A unidade fica na escala do cabeçalho — é rótulo, não valor — mas sem a
-     * maiúscula, que num símbolo de unidade estraga a grafia: kWh não é KWH.
-     * (Sem acentos graves nesta zona: o bloco é um template literal de CSS.)
+     * The unit stays in the heading's scale — it's a label, not a value —
+     * but without the uppercase, which mangles a unit symbol's spelling: kWh
+     * is not KWH.
+     * (No backticks in this area: this block is a CSS template literal.)
      */
     .heading .unit { text-transform: none; letter-spacing: normal; font-weight: 400; }
     .line { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 0.9rem; }

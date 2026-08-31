@@ -9,10 +9,11 @@ export class LeapmotorSunshadeControl extends LitElement {
   @property({ attribute: false }) t!: TranslateFn
 
   /**
-   * A posição da cortina não é exposta como entidade (spec v2 §2.4), pelo que
-   * não há posição atual para mostrar. O controlo começa a meio e o que conta é
-   * a posição que o utilizador confirma. Chama-se `position` como o campo
-   * homónimo do `ActionPayload`: é o mesmo valor, do slider até ao serviço.
+   * The sunshade's position isn't exposed as an entity (spec v2 §2.4), so
+   * there's no current position to show. The control starts at the middle
+   * and what counts is the position the user confirms. It's called
+   * `position` like the matching field of `ActionPayload`: it's the same
+   * value, from the slider all the way to the service.
    */
   @internalState() private position = 5
 
