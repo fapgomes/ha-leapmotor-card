@@ -106,7 +106,13 @@ export class LeapmotorTrip extends LitElement {
     return {
       heading: this.t('trip.heading_weekly'),
       unit: 'kWh/100 km',
-      rows: weeks.map(week => ({
+      /*
+       * Da mais recente para a mais antiga, ao contrário da ordem em que a API
+       * as devolve. A semana que interessa é a última, e com a ordem da API
+       * ficava no fim, depois de todas as semanas em que o carro não andou —
+       * eram quatro travessões antes do primeiro número, no carro real.
+       */
+      rows: [...weeks].reverse().map(week => ({
         // O travessão nunca deve acontecer: o parser deixa cair as semanas com
         // datas que não se leem, precisamente para toda a linha ter etiqueta.
         // Fica como rede, porque é a resposta do card para «não há nada aqui».

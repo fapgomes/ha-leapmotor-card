@@ -5,6 +5,14 @@ Every notable change to this project is recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.5] — 2026-08-31
+
+### Changed
+
+- The weekly consumption series runs newest first. In API order the week you
+  care about landed last, after every week the car did not move — four dashes
+  before the first number, on a real car.
+
 ## [0.4.4] — 2026-08-31
 
 ### Added
