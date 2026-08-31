@@ -1,32 +1,32 @@
 name: validate
 
-# Workflow próprio, e não um job dentro do build.yml, por três razões:
+# A workflow of its own, rather than a job inside build.yml, for three reasons:
 #
-#  1. O `on:` do build.yml existe para servir o job `release`: está limitado a
-#     `branches: [main]` mais `tags: ['v*']`. Um job de HACS lá dentro herdava
-#     esse gatilho — não corria nos pushes de nenhum outro ramo, que é onde uma
-#     regressão aparece primeiro, e corria nos pushes de tag, que é
-#     precisamente onde não pode correr (ver o ponto 3).
-#  2. A `hacs/action` não compila nada. Interroga a API do GitHub sobre o
-#     repositório publicado, no ref indicado; não precisa de checkout, de Node
-#     nem do `dist/`. Não tem nada a partilhar com os jobs que compilam, e um
-#     `needs:` entre os dois só atrasaria o resultado.
-#  3. Os pushes de tag ficam de fora de propósito. A HACS resolve o `filename`
-#     do hacs.json primeiro nos assets da release e só depois na árvore do
-#     repositório; como o `dist/` está no .gitignore, no instante do push da
-#     tag o asset ainda não existe — quem o publica é o job `release` do
-#     build.yml, logo a seguir. Validar aí seria uma corrida contra a nossa
-#     própria release, perdida em cada tag. Pushes de ramo e pull requests
-#     apanham a regressão antes de se chegar à tag, que é o que se quer.
+#  1. build.yml's `on:` exists to serve the `release` job: it is limited to
+#     `branches: [main]` plus `tags: ['v*']`. A HACS job in there would inherit
+#     that trigger — it would not run on pushes to any other branch, which is
+#     where a regression shows up first, and it would run on tag pushes, which
+#     is precisely where it must not run (see point 3).
+#  2. `hacs/action` builds nothing. It asks the GitHub API about the published
+#     repository, at the given ref; it needs no checkout, no Node and no
+#     `dist/`. It has nothing to share with the jobs that build, and a `needs:`
+#     between them would only delay the result.
+#  3. Tag pushes are left out deliberately. HACS resolves hacs.json's `filename`
+#     from the release assets first and only then from the repository tree; as
+#     `dist/` is in .gitignore, at the instant of the tag push the asset does
+#     not exist yet — the one that publishes it is build.yml's `release` job,
+#     immediately afterwards. Validating there would be a race against our own
+#     release, lost on every tag. Branch pushes and pull requests catch the
+#     regression before a tag is ever cut, which is what we want.
 #
-# O `schedule` diário apanha o que nenhum push apanha: uma alteração nos
-# requisitos da própria HACS, que reprova este repositório sem que aqui se
-# tenha mexido em nada. Está no exemplo da documentação da action.
+# The daily `schedule` catches what no push can: a change in HACS's own
+# requirements, which fails this repository without anything here having been
+# touched. It is in the action's documented example.
 #
-# `@main` e não uma tag: a última tag da `hacs/action` é 22.5.0, de maio de
-# 2022, e o `action.yml` dessa tag aponta na mesma para
-# `docker://ghcr.io/hacs/action:main`. Pinar a tag não fixa versão nenhuma —
-# dá a mesma imagem, com um `action.yml` velho à frente.
+# `@main` rather than a tag: `hacs/action`'s latest tag is 22.5.0, from May
+# 2022, and that tag's `action.yml` still points at
+# `docker://ghcr.io/hacs/action:main`. Pinning the tag pins no version at all —
+# it gives the same image, with an older `action.yml` in front of it.
 
 on:
   push:
@@ -42,9 +42,9 @@ jobs:
   hacs:
     runs-on: ubuntu-latest
     steps:
-      # `category: plugin` é o valor interno da HACS para um card de dashboard.
-      # A interface mostra-o como «Dashboard», mas a API — e esta action —
-      # continuam a chamar-lhe `plugin`.
+      # `category: plugin` is HACS's internal value for a dashboard card. The
+      # interface shows it as "Dashboard", but the API — and this action —
+      # still call it `plugin`.
       - name: HACS validation
         uses: hacs/action@main
         with:

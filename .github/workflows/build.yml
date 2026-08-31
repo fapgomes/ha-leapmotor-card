@@ -2,9 +2,10 @@ name: build
 
 on:
   push:
-    # `tags` é obrigatório: sem ele o workflow não corre num push de tag, e o
-    # job `release`, que depende de `refs/tags/v*`, nunca dispara — deixando o
-    # repositório sem asset e portanto não instalável por HACS.
+    # `tags` is mandatory: without it the workflow does not run on a tag push,
+    # and the `release` job, which depends on `refs/tags/v*`, never fires —
+    # leaving the repository with no asset and therefore not installable by
+    # HACS.
     branches: [main]
     tags: ['v*']
   pull_request:
@@ -24,10 +25,10 @@ jobs:
       - run: npm run build
 
   release:
-    # `dist/` está no .gitignore, logo o ficheiro não existe na árvore do repo.
-    # O HACS resolve o `filename` do hacs.json primeiro a partir de um asset de
-    # release e só depois da árvore: sem este job, nenhuma das duas vias tem o
-    # ficheiro e o repositório não é instalável.
+    # `dist/` is in .gitignore, so the file does not exist in the repository
+    # tree. HACS resolves hacs.json's `filename` from a release asset first and
+    # only then from the tree: without this job neither route has the file and
+    # the repository is not installable.
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
@@ -41,11 +42,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      # O corpo da release sai do CHANGELOG, e não de notas automáticas: quem
-      # instala por HACS lê isto na página da release, e a lista de commits não
-      # lhe diz o que mudou no card. Sem `body`, a acção publica o asset e um
-      # corpo vazio — foi o que aconteceu na 0.4.0, 0.4.1 e 0.4.2.
-      - name: Extrair as notas da versão do CHANGELOG
+      # The release body comes from the CHANGELOG rather than from generated
+      # notes: whoever installs by HACS reads this on the release page, and a
+      # list of commits does not tell them what changed in the card. Without
+      # `body` the action publishes the asset and an empty body — which is what
+      # happened on 0.4.0, 0.4.1 and 0.4.2.
+      - name: Extract the version's notes from the CHANGELOG
         run: |
           version="${GITHUB_REF_NAME#v}"
           awk -v v="$version" '
@@ -53,7 +55,7 @@ jobs:
             p && /^## \[/ {exit}
             p {print}
           ' CHANGELOG.md > release-notes.md
-          # Falhar aqui é melhor do que publicar um corpo vazio outra vez.
+          # Failing here beats publishing an empty body again.
           test -s release-notes.md
       - uses: softprops/action-gh-release@v2
         with:
