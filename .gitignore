@@ -2,3 +2,9 @@ node_modules/
 dist/
 *.log
 .DS_Store
+
+# Planning and design records. Kept locally as the reasoning behind past
+# decisions, but not published: they are a working record, not documentation of
+# the card, and they carry more detail about how it was built than anyone
+# installing it needs.
+docs/superpowers/
