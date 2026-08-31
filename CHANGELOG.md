@@ -1,239 +1,233 @@
 # Changelog
 
-Todas as alterações relevantes deste projeto ficam registadas aqui.
+Every notable change to this project is recorded here.
 
-O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
-e o projeto usa [Versionamento Semântico](https://semver.org/lang/pt-BR/).
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [0.4.3] — 2026-08-30
 
-### Alterado
+### Changed
 
-- O botão do A/C, no painel de clima, passa a dizer o que o toque faz — «Ligar
-  climatização» ou «Desligar climatização» — em vez de um nome fixo ao lado de
-  três botões que só vão numa direção. Era um alternador desde sempre; só não o
-  dizia. O mesmo se aplica ao botão na fila de ações e ao pedido de confirmação.
-- A linha do teto mostra a posição da cortina onde ela se sabe: `Fechado · 0`.
-  Aberta, mostra só o estado — a posição não é exposta como entidade, e
-  inventá-la seria pior do que não a mostrar.
-- A sub-vista de Viagem passa a ter cabeçalhos, «Distância» e «Consumo». As
-  cinco linhas misturavam quilómetros e energia, e era o leitor que tinha de os
-  separar de cabeça.
-- «Desde sempre» absorve a linha da energia total: a média é a total a dividir
-  pelo conta-quilómetros, portanto eram o mesmo facto dito duas vezes. Com o
-  numerador ao lado do resultado, o qualificador «(calculada)» deixa de ser
-  preciso.
-- A energia dos últimos 7 dias ganha linha própria, chamada «Energia
-  registada». Na integração, a distância é um total que a API devolve somado e a
-  energia é uma soma feita dia a dia que salta os dias sem o campo — não são um
-  par comparável, e escrevê-las lado a lado prometia um período comum que não
-  têm. Por isso também não se deriva daí média nenhuma.
+- The A/C button in the climate panel now says what tapping it does — "Turn on
+  climate" or "Turn off climate" — instead of a fixed name sitting beside three
+  buttons that only go one way. It was always a toggle; it just never said so.
+  The same applies to the button in the action row and to the confirmation
+  prompt.
+- The roof row shows the sunshade's position where that is known: `Closed · 0`.
+  When open it shows only the state — the position is not exposed as an entity,
+  and inventing one would be worse than leaving it out.
+- The Trip sub-view now has headings, "Distance" and "Consumption". Its five
+  rows mixed kilometres and energy, leaving the reader to separate them.
+- "All time" absorbs the total-energy row: the average is the total divided by
+  the odometer, so they were one fact stated twice. With the numerator beside
+  the result, the "(calculated)" qualifier is no longer needed.
+- The last-7-days energy gets a row of its own, called "Energy logged". In the
+  integration the distance is a total the API returns already summed, while the
+  energy is a day-by-day sum that skips days where the field is absent — they
+  are not a matched pair, and writing them side by side promised a shared
+  period they do not have. That is also why no average is derived from them.
 
-### Corrigido
+### Fixed
 
-- A página de cada release passa a trazer as notas da versão, extraídas do
-  CHANGELOG. A da 0.4.0, 0.4.1 e 0.4.2 saiu vazia.
+- Each release page now carries the version's notes, extracted from this file.
+  The pages for 0.4.0, 0.4.1 and 0.4.2 came out empty.
 
 ## [0.4.2] — 2026-08-30
 
-### Corrigido
+### Fixed
 
-- Uma sub-vista já não fica com a altura da mais alta que se abriu antes. O card
-  reservava a maior altura vista e aplicava-a a todas, e como o painel de clima é
-  muito mais alto que os outros, abri-lo uma vez deixava as restantes com
-  centenas de píxeis de vazio até se recarregar a página. A reserva foi removida
-  por inteiro: cada sub-vista tem a sua altura.
-- A linha do teto, no estado do veículo, passa a abrir o controlo da cortina. O
-  comando existia — é o mesmo da fila de ações, que precisa de uma posição e por
-  isso abre um painel em vez de chamar um serviço — mas a linha nunca lhe tinha
-  sido ligada.
+- A sub-view no longer inherits the height of the tallest one opened before it.
+  The card reserved the greatest height it had measured and applied it to all of
+  them, and since the climate panel is much taller than the rest, opening it
+  once left the others with hundreds of pixels of empty space until the page was
+  reloaded. The reservation was removed entirely: each sub-view has its own
+  height.
+- The roof row, in vehicle status, now opens the sunshade control. The command
+  existed — it is the same one the action row uses, which needs a position and
+  therefore opens a panel rather than calling a service — but the row had never
+  been wired to it.
 
 ## [0.4.1] — 2026-08-30
 
-### Corrigido
+### Fixed
 
-- Arrastar um controlo dentro de uma sub-vista já não a troca por outra. Os
-  dois deslizadores que vivem em sub-vistas — o limite de carga e a ventoinha —
-  e o mapa embutido eram indistinguíveis de um deslize horizontal entre grupos:
-  o card saltava a meio do gesto. Estes controlos passaram para a coluna
-  principal, que não tinha gesto nenhum, na 0.4.0, e é aí que o defeito nasceu.
-- O tile de estado já não afirma «Tudo fechado» a um carro que não reportou
-  nada. A contagem de aberturas só conta leituras positivas, portanto tudo
-  desconhecido dava zero e lia-se como fecho. Agora dá `—`, tal como acontece
-  quando o carro está desligado.
-- Concordância de género em português: «1 aberta» em vez de «1 abertos» na
-  linha das portas, e «Bagageira: Aberta» em vez de «Aberto». O teto continua
-  masculino.
-- Abrir uma sub-vista já não arrasta a página quando o card está meio fora do
-  ecrã.
+- Dragging a control inside a sub-view no longer switches to another one. The
+  two sliders that live in sub-views — the charge limit and the fan — and the
+  embedded map were indistinguishable from a horizontal swipe between groups:
+  the card jumped mid-gesture. Those controls moved out of the main column,
+  which had no gesture at all, in 0.4.0, and that is where the defect came from.
+- The status tile no longer claims "All closed" for a car that reported nothing.
+  The openings count only counts positive readings, so everything-unknown gave
+  zero and read as closed. It now shows `—`, as it already did when the car is
+  offline.
+- Portuguese gender agreement: "1 aberta" instead of "1 abertos" in the doors
+  row, and "Bagageira: Aberta" instead of "Aberto". The roof stays masculine.
+- Opening a sub-view no longer scrolls the page when the card is partly off
+  screen.
 
 ## [0.4.0] — 2026-08-30
 
-### Rutura
+### Breaking
 
-- A opção `sections` deixou de existir. A disposição do card passa a ser uma
-  grelha de grupos que abrem sub-vistas, e que secções são mostradas decorre
-  de que grupos estão na grelha. Substitui `sections:` por `grid:` — o card
-  mostra um aviso no lugar se ainda encontrar a chave antiga. Sem nenhum
-  `grid:` escrito, mostra-se cada grupo cujas entidades o carro reporta.
+- The `sections` option no longer exists. The card's layout is now a grid of
+  groups that open sub-views, and which sections are shown follows from which
+  groups are in the grid. Replace `sections:` with `grid:` — the card shows a
+  warning in place if it still finds the old key. With no `grid:` at all, every
+  group whose entities the car reports is shown.
 
-### Adicionado
+### Added
 
-- Uma grelha de grupos na vista principal — carga, estado, clima, pneus,
-  viagem e localização —, cada um com ícone, título e um resumo ao vivo, que
-  abre uma sub-vista no lugar com fecho e navegação anterior/seguinte.
-  Configurável e reordenável, em YAML ou no editor visual.
-- As linhas da sub-vista do estado do veículo comandam o que mostram: a das
-  trancas tranca ou destranca, a dos vidros fecha-os, a da bagageira abre-a.
-  As portas e o teto ficam sem ação, porque a integração não expõe comando
-  nenhum para eles. O `confirm_actions` aplica-se a estas linhas como às
-  restantes ações.
-- A cor do tile segue o estado: âmbar para destrancado ou uma abertura
-  aberta, vermelho para dois ou mais pneus fora da faixa, a cor da bateria
-  durante a carga.
-- As pressões dos pneus passam a estar dispostas à volta de uma vista de
-  topo do carro.
-- `tire_range` define a faixa de pressão considerada normal (por omissão
-  `[2.0, 2.6]`, os valores que já estavam fixos no código).
-- Navegação por teclado em toda a sub-vista: as setas alternam entre grupos,
-  Escape fecha e devolve o foco ao tile que a abriu. Deslize horizontal no
-  toque.
-- O card reserva a altura da sub-vista mais alta já visitada, para o
-  dashboard deixar de saltar entre elas.
+- A grid of groups on the main view — charging, status, climate, tires, trip and
+  location — each with an icon, a title and a live summary, opening a sub-view
+  in place with close and previous/next controls. Configurable and reorderable,
+  in YAML or in the visual editor.
+- Rows in the vehicle-status sub-view command what they show: the locks row
+  locks or unlocks, the windows row closes them, the trunk row opens it. Doors
+  and roof carry no action, because the integration exposes no command for them.
+  `confirm_actions` applies to these rows as it does to the other actions.
+- Tile colour follows state: amber for unlocked or an opening open, red for two
+  or more tires out of range, the battery colour while charging.
+- Tire pressures are laid out around a top view of the car.
+- `tire_range` sets the pressure range treated as normal (default `[2.0, 2.6]`,
+  the values previously hardcoded).
+- Keyboard navigation throughout the sub-view: the arrows move between groups,
+  Escape closes and returns focus to the tile that opened it. Horizontal swipe
+  on touch.
+- The card reserves the height of the tallest sub-view visited, so the dashboard
+  stops jumping between them.
 
-### Alterado
+### Changed
 
-- O mapa passa a construir-se quando a sua sub-vista abre, e não em cada
-  carregamento do dashboard.
-- O painel de climatização passa a ser o conteúdo da sub-vista de clima;
-  deixou de expandir a partir de um tile.
-- As cores de aviso dos pneus passam a usar `--leapmotor-warn` e
-  `--leapmotor-alert`, em vez de tomarem de empréstimo as cores da bateria.
+- The map is built when its sub-view opens, not on every dashboard load.
+- The climate panel is now the content of the climate sub-view; it no longer
+  expands from a tile.
+- Tire warning colours use `--leapmotor-warn` and `--leapmotor-alert` instead of
+  borrowing the battery colours.
 
-### Removido
+### Removed
 
-- O par de tiles interior/aberturas, substituído pela grelha.
-- As duas capturas do README, que mostravam a disposição anterior.
+- The interior/openings tile pair, replaced by the grid.
+- The two README screenshots, which showed the previous layout.
 
 ## [0.3.4] — 2026-08-28
 
-### Adicionado
+### Added
 
-- Opção `map_zoom` para o zoom do mapa embutido, por omissão **16** em vez dos
-  14 do Home Assistant, e disponível no editor visual. Fica limitada a 1–20
-  onde é lida, e não no editor, porque a configuração também se escreve à mão.
+- A `map_zoom` option for the embedded map's zoom, defaulting to **16** rather
+  than Home Assistant's 14, and available in the visual editor. It is clamped to
+  1–20 where it is read, not in the editor, because the configuration is also
+  written by hand.
 
-### Corrigido
+### Fixed
 
-- Mudar o zoom ou o veículo no editor passa a reconstruir o mapa. Antes o mapa
-  era construído uma única vez e a pré-visualização ficava a mostrar o anterior.
+- Changing the zoom or the vehicle in the editor now rebuilds the map. Before,
+  the map was built once and the preview kept showing the previous one.
 
-### Nota
+### Note
 
-- O mapa mostra uma marca de água «API KEY REQUIRED» desde que a CARTO passou a
-  exigir chave para os mosaicos que o Home Assistant usa. É um problema do
-  próprio Home Assistant (`home-assistant/core#180277`), não deste card, e o
-  card `map` do HA não permite escolher outro fornecedor. Espera-se a correção
-  a montante.
+- The map shows an "API KEY REQUIRED" watermark since CARTO began requiring a
+  key for the tiles Home Assistant uses. That is a Home Assistant problem
+  (`home-assistant/core#180277`), not this card's, and HA's `map` card offers no
+  way to pick another provider. An upstream fix is expected.
 
 ## [0.3.3] — 2026-08-28
 
-### Alterado
+### Changed
 
-- O volante desceu da linha do tablier para a frente do banco do condutor,
-  alinhado com a pastilha desse banco. Estava a ler-se como um emblema colado
-  ao tablier em vez de um volante.
-- Os espelhos passaram a **dois botões, um em cada canto**, como na app. Os
-  dois comandam o mesmo interruptor — que é o único que a integração expõe —,
-  acendem e apagam juntos, e o nome acessível de cada um diz que comuta o par.
-  A versão anterior mostrava um só botão por eu ter julgado que dois seriam
-  enganadores; não são, porque os dois espelhos aquecem mesmo em conjunto.
-  Enganador seria dois botões que parecessem independentes.
-- A cabina ganhou doze unidades de altura à frente, para o volante caber entre
-  o tablier e o encosto de cabeça sem encostar a nenhum dos dois.
+- The steering wheel moved down from the dashboard line to in front of the
+  driver's seat, aligned with that seat's pill. It was reading as a badge stuck
+  to the dashboard rather than a steering wheel.
+- The mirrors became **two buttons, one in each corner**, as in the app. Both
+  command the same switch — the only one the integration exposes — light up and
+  go dark together, and each one's accessible name says it toggles the pair. The
+  previous version showed a single button because I had judged two would be
+  misleading; they are not, because both mirrors really do heat together. What
+  would mislead is two buttons that looked independent.
+- The cabin gained twelve units of height at the front, so the steering wheel
+  fits between the dashboard and the headrest without touching either.
 
 ## [0.3.2] — 2026-08-28
 
-### Alterado
+### Changed
 
-- No volante e nos espelhos, **o botão passou a ser a peça**. Estavam ambos
-  desenhados com o botão por cima, e duas formas redondas sobrepostas liam-se
-  como um borrão. O desenho por baixo saiu; o botão fica onde a peça está.
-- O ícone dos espelhos passou de `mdi:mirror-rectangle`, que se lia como um
-  telemóvel, para `mdi:mirror`. O ícone de vidro aquecido que a app usa era o
-  candidato óbvio, mas em Material Design Icons é traço por traço o mesmo que
-  o do Desembaciar, que já está no fundo deste painel — a 18 px seriam
-  indistinguíveis. O calor fica dito no rótulo.
-- A linha do tablier fechou-se de porta a porta. Ia de espelho a espelho, e
-  sem eles ficava com as pontas no ar.
+- On the steering wheel and the mirrors, **the button became the part**. Both
+  were drawn with the button on top, and two overlapping round shapes read as a
+  smudge. The drawing underneath is gone; the button sits where the part is.
+- The mirrors icon changed from `mdi:mirror-rectangle`, which read as a phone, to
+  `mdi:mirror`. The heated-glass icon the app uses was the obvious candidate, but
+  in Material Design Icons it is stroke for stroke the same as the Defrost one,
+  which already sits at the bottom of this panel — at 18px they would be
+  indistinguishable. The heat is stated in the label instead.
+- The dashboard line now runs door to door. It used to run mirror to mirror, and
+  without them its ends were left hanging in the air.
 
 ## [0.3.1] — 2026-08-28
 
-### Alterado
+### Changed
 
-- **O painel de climatização passou a desenhar a cabina, não o carro visto de
-  fora.** A referência é o ecrã da app, e o que ele mostra é o interior visto
-  de cima — bancos, consola, banco traseiro —, sem carroçaria. A 0.3.0 desenhou
-  um carro inteiro porque a descrição escrita dizia «vista de topo do carro» e
-  ninguém tinha aberto a imagem. Corrigir isso resolveu de uma vez os controlos
-  que se sobrepunham e a altura excessiva do painel: são duas pastilhas largas
-  em vez de seis pinos redondos, e uma cabina não é comprida como um carro.
-- Os controlos de cada banco da frente ficam agora **numa pastilha só**, com o
-  aquecimento e a ventilação lado a lado, como na app. Continuam a ser dois
-  controlos independentes; a pastilha agrupa-os, não os funde.
-- O botão dos espelhos passou a ficar junto ao espelho desenhado e a dizer
-  «os dois», porque a integração expõe **um só interruptor** para o par.
+- **The climate panel now draws the cabin, not the car seen from outside.** The
+  reference is the app's screen, and what it shows is the interior from above —
+  seats, console, rear bench — with no bodywork. 0.3.0 drew a whole car because
+  the written description said "top view of the car" and nobody had opened the
+  image. Fixing that resolved both the overlapping controls and the panel's
+  excessive height at once: two wide pills instead of six round pins, and a cabin
+  is not as long as a car.
+- Each front seat's controls now sit in **a single pill**, with heating and
+  ventilation side by side, as in the app. They remain two independent controls;
+  the pill groups them, it does not merge them.
+- The mirrors button moved next to the drawn mirror and now says "both", because
+  the integration exposes **a single switch** for the pair.
 
-### Adicionado
+### Added
 
-- Anel de foco visível em todos os botões do card, e resposta ao toque nos
-  controlos do painel de climatização.
-- Teste que obriga os catálogos PT e EN a terem exactamente as mesmas chaves,
-  incluindo as aninhadas. Não existia; os catálogos estavam certos por cuidado
-  de quem lá mexia, não por verificação.
+- A visible focus ring on every button in the card, and touch feedback on the
+  climate panel's controls.
+- A test forcing the PT and EN catalogues to hold exactly the same keys,
+  including nested ones. There was none; the catalogues were correct through the
+  care of whoever edited them, not through verification.
 
 ## [0.3.0] — 2026-08-28
 
-### Adicionado
+### Added
 
-- Painel de climatização com os controlos de conforto sobrepostos a um
-  desenho do veículo (substituído na 0.3.1 pelo interior da cabina): espelhos, volante, e aquecimento e ventilação de cada
-  banco da frente. Desenho original, em SVG.
-- Controlo da velocidade da ventoinha, de 1 a 7.
-- Indicador e controlo da recirculação do ar. Fica desactivado com a
-  climatização desligada, porque mexer nele obrigaria a reenviar o comando
-  inteiro e ligaria o ar condicionado sem o utilizador o pedir.
-- Média de consumo de sempre na secção da viagem, derivada da energia e da
-  distância acumuladas. Vem rotulada como cálculo do card, não como leitura do
-  carro.
+- A climate panel with the comfort controls overlaid on a drawing of the vehicle
+  (replaced in 0.3.1 by the cabin interior): mirrors, steering wheel, and heating
+  and ventilation for each front seat. Original drawing, in SVG.
+- Fan speed control, from 1 to 7.
+- An air-recirculation indicator and control. It is disabled while the climate is
+  off, because touching it would require resending the whole command and would
+  turn on the air conditioning without the user asking.
+- All-time average consumption in the trip section, derived from accumulated
+  energy and distance. It is labelled as the card's calculation, not as a reading
+  from the car.
 
-### Corrigido
+### Fixed
 
-- **Cada comando de climatização repunha a ventoinha no nível 3.** O card
-  enviava só o modo e a temperatura, e a integração aplicava os seus valores
-  por defeito a tudo o resto. Os comandos passam a levar sempre temperatura,
-  ventoinha e recirculação juntas.
-- Mudar a temperatura desfazia uma alteração de recirculação feita antes, e
-  vice-versa.
-- Um pedido por confirmar deixava de ser mostrado ao fechar e reabrir o painel,
-  e o comando seguinte era composto a partir da leitura antiga.
-- Um pedido cuja chamada falhasse ficava a ser mostrado indefinidamente, e o
-  toque seguinte partia do valor errado.
-- A temperatura era mostrada com uma casa decimal num sítio e nenhuma noutro,
-  e um toque no «+» podia saltar 1,5 grau.
-- O nível de um banco podia aparecer diferente na secção de conforto e no
-  painel de climatização ao mesmo tempo.
+- **Every climate command reset the fan to level 3.** The card sent only the mode
+  and the temperature, and the integration applied its own defaults to everything
+  else. Commands now always carry temperature, fan and recirculation together.
+- Changing the temperature undid a recirculation change made before it, and vice
+  versa.
+- An unconfirmed request stopped being shown when the panel was closed and
+  reopened, and the next command was composed from the stale reading.
+- A request whose call failed was shown indefinitely, and the next tap started
+  from the wrong value.
+- The temperature was shown with one decimal place in one place and none in
+  another, and a tap on "+" could jump 1.5 degrees.
+- A seat's level could appear differently in the comfort section and in the
+  climate panel at the same time.
 
-### Alterado
+### Changed
 
-- As decisões que comandam o veículo — compor o comando de climatização,
-  bloquear ações com o carro em andamento, exigir confirmação — passaram a
-  funções puras com testes. Duas delas deixaram de poder ser removidas sem
-  quebrar a compilação.
-- As fixtures de teste e os documentos de desenho deixaram de conter dados do
-  veículo real e do seu proprietário.
+- The decisions that command the vehicle — composing the climate command,
+  blocking actions while the car is moving, requiring confirmation — became pure
+  functions with tests. Two of them can no longer be removed without breaking the
+  build.
+- The test fixtures and design documents no longer contain data from the real
+  vehicle or its owner.
 
 ## [0.2.1] — 2026-08-27
 
-Primeira versão instalada. Estado do veículo, ações, carregamento, pneus,
-viagem, conforto, agendamento, mapa opcional e controlo da cortina do tejadilho.
+First installed version. Vehicle status, actions, charging, tires, trip, comfort,
+charging schedule, optional map and sunshade control.
