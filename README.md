@@ -371,6 +371,12 @@ Two more notes on `hacs.json`, recorded here because JSON takes no comments:
   fail validation outright. Do not add keys to `hacs.json` that are not in
   that schema.
 
+## Support the project
+
+If this project is useful to you, consider buying me a coffee to help keep it going:
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-fapgomes-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/fapgomes)
+
 ## License
 
 GNU General Public License v3.0 or later.
