@@ -208,6 +208,17 @@ export function decideAction(
   map: EntityMap,
   confirmActions: ActionId[] | undefined,
   payload?: ActionPayload,
+  /**
+   * Confirms regardless of the configuration. It exists for the hero's lock
+   * pill, which is a state READOUT and not a button labelled "Lock": an
+   * accidental tap on it must not command the car, in either direction. The
+   * alternative — putting `lock` in `DEFAULT_CONFIRM_ACTIONS` — would add a
+   * dialog to the actions-row button for everyone who already uses it, which
+   * nobody asked for. Note where it sits: AFTER the block and after
+   * availability, so it can neither get past a car in motion nor invent a
+   * call that `resolveAction` did not produce.
+   */
+  forceConfirm?: boolean,
 ): CommandDecision {
   // The while-driving block has to be decided here, not only in the button: a
   // panel that's already open, or a stale render, would bypass a check that
@@ -215,8 +226,50 @@ export function decideAction(
   if (state.activity === 'driving' && BLOCKED_WHILE_DRIVING.includes(action)) return { kind: 'blocked' }
   const call = resolveAction(action, state, map, payload)
   if (!call) return { kind: 'unavailable' }
-  if (!(confirmActions ?? DEFAULT_CONFIRM_ACTIONS).includes(action)) return { kind: 'ready', call }
+  if (!forceConfirm && !(confirmActions ?? DEFAULT_CONFIRM_ACTIONS).includes(action)) {
+    return { kind: 'ready', call }
+  }
   return { kind: 'confirm', answer: confirmed => (confirmed ? call : undefined) }
+}
+
+/**
+ * How the hero's lock pill presents itself. Here, and not in the section,
+ * for the same reason as `decideAction`: availability, the motion block and
+ * the in-flight action are rules, and a rule that lives in a `render()` is
+ * a rule no test can reach.
+ *
+ * The three shapes are not interchangeable. `text` is the pill exactly as
+ * it has always looked — it is what a car with no lock entity gets, and
+ * what a MOVING car gets, because `button.plain[disabled]` drops to 40%
+ * opacity and dimming a state readout would suggest the reading itself is
+ * doubtful when all that is missing is permission to act on it. `busy` stops
+ * being about the reading and starts being about the call: it lasts as long
+ * as one service call, the dimming is honest feedback that something is
+ * happening, and staying a `<button>` keeps the keyboard focus of whoever
+ * activated it.
+ */
+export function lockPillShape(
+  state: VehicleState,
+  map: EntityMap,
+  pending: ActionId | undefined,
+): 'text' | 'button' | 'busy' {
+  const action = lockToggleAction(state)
+  if (!isActionAvailable(action, state, map)) return 'text'
+  // Through the constant, and not `activity === 'driving'` on its own:
+  // which actions motion blocks is decided in a single place, and
+  // `decideAction` refuses this same tap on those same grounds.
+  if (state.activity === 'driving' && BLOCKED_WHILE_DRIVING.includes(action)) return 'text'
+  return pending === undefined ? 'button' : 'busy'
+}
+
+/**
+ * Which of the two lock actions a tap on the state offers. Comparison
+ * against `true`, like `toggleSwitch` and `actionIcon`: an unreadable lock
+ * offers to LOCK, never to open the car. The hero's pill shows the closed
+ * padlock in that same case, so what it promises and what it does agree.
+ */
+export function lockToggleAction(state: VehicleState): ActionId {
+  return state.lock.locked === true ? 'unlock' : 'lock'
 }
 
 /**

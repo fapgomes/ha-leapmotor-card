@@ -1,4 +1,5 @@
 import type { LogicalKey } from './keys'
+import type { TapActionConfig } from './tap-action'
 
 export type EntityMap = Partial<Record<LogicalKey, string>>
 
@@ -44,6 +45,13 @@ export interface LeapmotorCardConfig {
   map_zoom?: number
   tire_range?: [number, number]
   grid?: GridEntry[]
+  /**
+   * What a tap on the range does. Absent, it is the more-info of the sensor
+   * the number came from, whose dialog already carries the history graph —
+   * `resolveTapAction` is what decides it, and `none` puts the number back
+   * to inert text.
+   */
+  range_tap_action?: TapActionConfig
 }
 
 export type ChargingPhase = 'unplugged' | 'plugged' | 'charging' | 'complete' | 'scheduled'
@@ -94,7 +102,13 @@ export interface VehicleState {
   online: boolean
   lastUpdate?: Date
   battery?: number
-  range?: { km: number; unit: string; mode?: string }
+  /**
+   * `entityId` is the sensor the number ACTUALLY came from, out of the three
+   * `buildVehicleState` picks between. It travels with the value so that
+   * whoever wants to open its dialog opens the graph of the number on
+   * screen, and not of a sibling sensor reading something else.
+   */
+  range?: { km: number; unit: string; mode?: string; entityId?: string }
   chargeLimit?: number
   charging: {
     phase: ChargingPhase

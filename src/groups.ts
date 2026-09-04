@@ -29,7 +29,12 @@ export const GROUP_CATALOGUE: Record<GroupId, GroupDef> = {
     id: 'charging',
     icon: 'mdi:ev-station',
     titleKey: 'group.charging',
-    summaries: ['battery', 'limit', 'phase', 'eta'],
+    // `charge` first, so it is the default `resolveGrid` picks: the tile is
+    // titled "Battery", and the percentage on its own said nothing about
+    // the cable — it read as "Charging 28.8 %" with the car parked in the
+    // street and nothing plugged in. `battery` stays as the
+    // percentage-only option for whoever configured it.
+    summaries: ['charge', 'battery', 'limit', 'phase', 'eta'],
     panels: ['charging', 'schedule'],
     keys: ['chargeLimit', 'isCharging', 'isPluggedIn', 'scheduleStart', 'scheduleEnd'],
   },
@@ -189,20 +194,43 @@ function sortedTires(state: VehicleState): { value: number; labelKey: string }[]
     .sort((a, b) => a.value - b.value)
 }
 
+/**
+ * What the car is doing about charging, in words. Extracted because two
+ * summaries now say it — `phase` on its own and `charge` next to the
+ * percentage — and two copies of this `if` would eventually disagree about
+ * the same phase on the same screen.
+ */
+function chargingPhaseLabel(charging: VehicleState['charging'], t: TranslateFn): string {
+  if (charging.phase === 'charging') return t(charging.speed === 'fast' ? 'charging.fast' : 'charging.slow')
+  return t(`charging.${charging.phase}`)
+}
+
 function chargingSummary(group: ResolvedGroup, state: VehicleState, t: TranslateFn, language: string): string {
   const { charging } = state
   switch (group.summary) {
+    case 'battery':
+      return state.battery === undefined ? DASH : `${formatNumber(state.battery, 1)} %`
     case 'limit':
       return state.chargeLimit === undefined ? DASH : t('charging.limit', { percent: state.chargeLimit })
     case 'phase':
-      if (charging.phase === 'charging') return t(charging.speed === 'fast' ? 'charging.fast' : 'charging.slow')
-      return t(`charging.${charging.phase}`)
+      return chargingPhaseLabel(charging, t)
     case 'eta':
       if (charging.remainingMinutes !== undefined) return formatDuration(charging.remainingMinutes, t)
       if (charging.finishTime) return formatTimeOfDay(charging.finishTime, language)
       return DASH
-    default:
-      return state.battery === undefined ? DASH : `${formatNumber(state.battery, 1)} %`
+    default: {
+      // Percentage FIRST: `.tile-summary` is nowrap with an ellipsis, so
+      // the longest combination ("60.3 % · Plugged in, not charging") gets
+      // cut in a narrow tile — and what has to survive the cut is the
+      // number. The missing part is dropped rather than shown as a dash,
+      // exactly as `locationSummary` does with "Parked · Home": a dash
+      // would assert an unknown percentage beside a state that is perfectly
+      // known.
+      const percent = state.battery === undefined ? undefined : `${formatNumber(state.battery, 1)} %`
+      const parts = [percent, chargingPhaseLabel(charging, t)]
+        .filter((part): part is string => part !== undefined)
+      return parts.length > 0 ? parts.join(' · ') : DASH
+    }
   }
 }
 

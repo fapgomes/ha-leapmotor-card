@@ -305,7 +305,12 @@ export function buildVehicleState(hass: HomeAssistant, map: EntityMap, now: Date
 
   const rangePick = firstNum(hass, map, ['rangeLive', 'range', 'rangeMax'])
   const range = rangePick
-    ? { km: rangePick.value, unit: unit(hass, map, rangePick.key) ?? 'km', mode: str(hass, map, 'rangeMode') }
+    ? {
+        km: rangePick.value,
+        unit: unit(hass, map, rangePick.key) ?? 'km',
+        mode: str(hass, map, 'rangeMode'),
+        entityId: map[rangePick.key],
+      }
     : undefined
 
   const locked = bool(hass, map, 'lock')

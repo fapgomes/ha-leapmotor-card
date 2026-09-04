@@ -165,8 +165,48 @@ describe('missingForGroups', () => {
 })
 
 describe('summaryFor — charging', () => {
-  it('shows the battery percentage by default', () => {
-    expect(summaryFor(group('charging'), realState(), t, 'en')).toBe('60.3 %')
+  it('shows the percentage AND the charging state by default', () => {
+    // The tile is titled "Battery" and the percentage alone left it saying
+    // nothing about the cable: the reason this summary exists is a card that
+    // read as "Charging 28.8 %" with the car parked in the street and
+    // nothing plugged in.
+    expect(summaryFor(group('charging'), realState(), t, 'en'))
+      .toBe(`60.3 % · ${t('charging.unplugged')}`)
+  })
+
+  it('says which speed it is charging at, in the same line as the percentage', () => {
+    const state = realState({ 'binary_sensor/is_charging': 'on', 'binary_sensor/is_plugged_in': 'on' })
+    expect(summaryFor(group('charging'), state, t, 'en'))
+      .toBe(`60.3 % · ${t('charging.slow')}`)
+  })
+
+  it('distinguishes plugged in but not charging', () => {
+    const state = realState({ 'binary_sensor/is_plugged_in': 'on' })
+    expect(summaryFor(group('charging'), state, t, 'en'))
+      .toBe(`60.3 % · ${t('charging.plugged')}`)
+  })
+
+  it('says fully charged', () => {
+    const state = realState({ 'binary_sensor/fully_charged': 'on' })
+    expect(summaryFor(group('charging'), state, t, 'en'))
+      .toBe(`60.3 % · ${t('charging.complete')}`)
+  })
+
+  it('with no battery reading, the charging state stands on its own', () => {
+    // Mirrors what `locationSummary` does with "Parked · Home": the part
+    // that is missing is dropped, and a dash in its place would assert an
+    // unknown percentage next to a state that is perfectly known.
+    const state = realState({
+      'sensor/battery_percent': 'unavailable',
+      'sensor/battery_percent_precise': 'unavailable',
+    })
+    expect(summaryFor(group('charging'), state, t, 'en')).toBe(t('charging.unplugged'))
+  })
+
+  it('the percentage on its own is still available as `battery`', () => {
+    // Whoever already has `summary: battery` in their YAML keeps exactly
+    // what they configured.
+    expect(summaryFor(group('charging', 'battery'), realState(), t, 'en')).toBe('60.3 %')
   })
 
   it('shows the charge limit', () => {
@@ -183,7 +223,7 @@ describe('summaryFor — charging', () => {
 
   it('gives DASH for the battery when no battery sensor is valid', () => {
     const state = realState({ 'sensor/battery_percent': 'unavailable', 'sensor/battery_percent_precise': 'unavailable' })
-    expect(summaryFor(group('charging'), state, t, 'en')).toBe(DASH)
+    expect(summaryFor(group('charging', 'battery'), state, t, 'en')).toBe(DASH)
   })
 })
 

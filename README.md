@@ -102,6 +102,8 @@ grid:
     icon: mdi:road-variant
     summary: last7
 tire_range: [2.0, 2.6]
+range_tap_action:
+  action: more-info
 entities:
   rangeLive: sensor.my_car_live_remaining_range_km
 ```
@@ -116,16 +118,24 @@ entities:
 | `confirm_actions` | list of action IDs | `[unlock]` | Subset of `actions` (or any of the same valid action IDs) that ask for confirmation before calling the service. |
 | `grid` | list | *(all groups the car supports)* | Which groups the grid shows, in order. Each entry is either a group name (`charging`, `status`, `climate`, `tires`, `trip`, `location`) or a mapping with `group` plus any of `icon`, `title` and `summary`. An empty list hides the grid. With no `grid:` at all, every group whose entities the car reports is shown. |
 | `tire_range` | list of 2 numbers | `[2.0, 2.6]` | The tire pressure range treated as normal, in bar. A pressure outside it marks the tire, and the grid tile, as a warning. Check the sticker on the driver's door pillar for your car and tire size — the default is narrow and a correctly inflated car may fall outside it. |
+| `range_tap_action` | action mapping | `{action: more-info}` | What tapping the range number in the header does — see [Tapping the header](#tapping-the-header) below. |
 | `entities` | map of logical name → entity ID | *(none)* | Overrides automatic entity resolution for individual logical names — see [Entity overrides](#entity-overrides) below. |
 
 | Group | `summary` values (first is the default) |
 | --- | --- |
-| `charging` | `battery`, `limit`, `phase`, `eta` |
+| `charging` | `charge`, `battery`, `limit`, `phase`, `eta` |
 | `status` | `lock`, `openings`, `trunk` |
 | `climate` | `interior`, `target`, `state` |
 | `tires` | `range`, `min`, `worst` |
 | `trip` | `odometer`, `last7`, `consumption` |
 | `location` | `activity`, `zone`, `age` |
+
+The battery tile's default summary, `charge`, gives the percentage and the
+charging state together — `60.3 % · Not plugged in`, `28.8 % · Slow charging`
+— because the percentage on its own said nothing about the cable. Use
+`battery` for the percentage alone, or `phase` for the charging state alone.
+Tile summaries are a single line and are cut with an ellipsis when they do
+not fit, so the percentage comes first.
 
 `setChargeLimit` and `setClimate` are absent from the `actions`/
 `confirm_actions` list above: neither works as an action-row button, because
@@ -149,7 +159,68 @@ group it already finds in long form, but has no fields of its own for them.
 Its action picker offers only 12 of the 15 action IDs — `steeringWheelHeat`,
 `mirrorHeat` and `batteryPreheat` belong to the comfort section rather than
 the quick-action row, so they can be added to `actions`/`confirm_actions`
-only via YAML. `entities` remains YAML-only too.
+only via YAML. `entities` remains YAML-only too. `range_tap_action` does have
+a field, using Home Assistant's own action picker.
+
+## Tapping the header
+
+Two things in the card header react to a tap.
+
+**The range number.** By default it opens the more-info dialog of the range
+sensor, which already carries the history graph — no configuration needed.
+The card reads the range from `rangeLive`, `range` or `rangeMax`, whichever
+reports first, and the dialog opens the one the number on screen actually
+came from. `range_tap_action` changes what the tap does, using Home
+Assistant's own action vocabulary:
+
+```yaml
+# The default: the graph of the sensor being shown.
+range_tap_action:
+  action: more-info
+
+# The graph of a different entity.
+range_tap_action:
+  action: more-info
+  entity: sensor.my_car_wltp_max_range_km
+
+# Jump to a view of your own.
+range_tap_action:
+  action: navigate
+  navigation_path: /lovelace/energy
+
+# Open a page.
+range_tap_action:
+  action: url
+  url_path: https://example.org/trips
+
+# Call a service.
+range_tap_action:
+  action: perform-action
+  perform_action: script.plan_next_charge
+  data:
+    reserve: 20
+
+# Back to plain, untappable text.
+range_tap_action:
+  action: none
+```
+
+The older `call-service` spelling, with `service` and `service_data`, is
+accepted as well. Anything the card cannot make sense of leaves the number
+as plain text rather than breaking the card.
+
+**The lock state.** Tapping "Doors locked" locks or unlocks the car,
+whichever the current state calls for, and always asks for confirmation
+first — in both directions, regardless of `confirm_actions`, because it is a
+state readout rather than a labelled button and an accidental tap must not
+command the car.
+
+It stays the plain, untappable readout it has always been while the car is
+moving — the same rule that dims `lock` and `unlock` in the action row — and
+when the car exposes no lock entity. While a service call is in flight it
+dims instead, as the action buttons do, so there is some sign that something
+is happening. When the lock state cannot be read at all, a tap offers to
+lock, never to open the car. This behaviour is fixed and has no option.
 
 ## Entity overrides
 

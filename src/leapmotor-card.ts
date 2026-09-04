@@ -1,8 +1,8 @@
 import { LitElement, css, html, nothing, type TemplateResult } from 'lit'
 import { customElement, state as internalState } from 'lit/decorators.js'
 import {
-  DEFAULT_FAN_SPEED, actionLabel, composeClimateCommand, decideAction, forgetRequest, pendingValue,
-  pruneRequests, resolveAction,
+  DEFAULT_FAN_SPEED, actionLabel, composeClimateCommand, decideAction, forgetRequest, lockToggleAction,
+  pendingValue, pruneRequests, resolveAction,
   type ActionEventDetail, type ActionPayload, type ClimateChange, type ClimateIntent, type ExpandPanel,
   type SeatLevels, type SeatRequests, type ServiceCall,
 } from './actions'
@@ -16,6 +16,7 @@ import { SEAT_LEVEL_KEYS, isSeatLevelKey, type LogicalKey } from './keys'
 import { createTranslator, pickLanguage, type TranslateFn } from './localize'
 import { loadRegistryFallback, resolveEntities, type ResolveResult } from './resolver'
 import type { GridTile, LeapmotorGroupGrid } from './sections/group-grid'
+import { resolveTapAction, type TapDecision } from './tap-action'
 import { sharedStyles } from './theme'
 import {
   DEFAULT_ACTIONS, clampMapZoom, clampTireRange, mapRequestChanged,
@@ -268,12 +269,14 @@ export class LeapmotorCard extends LitElement {
     map: ResolveResult['map'],
     t: TranslateFn,
     payload?: ActionPayload,
+    /** See `decideAction`: it is the hero's lock pill that asks for this. */
+    forceConfirm?: boolean,
   ) {
     // The decision is made by `decideAction`, which is pure and tested: an
     // in-progress lock, availability, and the need for confirmation cannot
     // live here, where no test can reach them. What remains here is the DOM
     // wiring.
-    const decision = decideAction(action, state, map, this._config?.confirm_actions, payload)
+    const decision = decideAction(action, state, map, this._config?.confirm_actions, payload, forceConfirm)
     if (decision.kind === 'blocked' || decision.kind === 'unavailable') return
 
     // `answer` requires the user's response as an argument, and it is the
@@ -362,6 +365,41 @@ export class LeapmotorCard extends LitElement {
       if (dropped) this.requestUpdate()
       this.notifyError(err)
     })
+  }
+
+  /**
+   * Carries out a tap already decided by `resolveTapAction`. It is the dirty
+   * half — events, history, `window`, `hass` — deliberately kept apart from
+   * the pure half, which is the one the tests can reach.
+   */
+  private performTap(decision: TapDecision): void {
+    switch (decision.kind) {
+      case 'none':
+        return
+      case 'more-info':
+        // The event Home Assistant's frontend listens for to open the
+        // dialog, which for a sensor already comes with the history graph.
+        this.dispatchEvent(new CustomEvent('hass-more-info', {
+          detail: { entityId: decision.entityId }, bubbles: true, composed: true,
+        }))
+        return
+      case 'navigate':
+        // `pushState` plus `location-changed` is how HA navigates inside the
+        // app. Assigning to `window.location` would work too, and would
+        // reload the whole dashboard to get to the next view.
+        history.pushState(null, '', decision.path)
+        window.dispatchEvent(new CustomEvent('location-changed', { detail: { replace: false } }))
+        return
+      case 'url':
+        // `noreferrer` also implies `noopener`: the opened page gets no
+        // handle on the dashboard's window.
+        window.open(decision.url, '_blank', 'noreferrer')
+        return
+      case 'perform-action':
+        if (!this._hass) return
+        void this._hass.callService(decision.domain, decision.service, decision.data, decision.target)
+          .catch(err => this.notifyError(err))
+    }
   }
 
   private async doCall(call: ServiceCall, extra?: Record<string, unknown>) {
@@ -474,8 +512,25 @@ export class LeapmotorCard extends LitElement {
     const showImage = imageMode !== 'none' && !(imageMode === 'entity' && !imageUrl)
     const allowSilhouette = imageMode !== 'entity'
 
+    // Decided here, and not in the hero: the section sees neither the
+    // configuration nor `hass`. The default target is the sensor the number
+    // on screen actually came from — `buildVehicleState` picks between
+    // three, and `state.range.entityId` is the one that won.
+    const rangeTap = resolveTapAction(config.range_tap_action, state.range?.entityId)
+
     const onAction = (e: CustomEvent<ActionEventDetail>) => {
       void this.callAction(e.detail.action, state, map, t, e.detail.payload)
+    }
+    const onRangeTap = () => {
+      this.performTap(rangeTap)
+    }
+    const onLockTap = () => {
+      // `forceConfirm`: the pill is a state readout, and an accidental tap
+      // on it must not command the car — not even to lock it, which is
+      // outside DEFAULT_CONFIRM_ACTIONS. The action comes from the same
+      // function the hero used for the tooltip, so what was promised and
+      // what gets called cannot diverge.
+      void this.callAction(lockToggleAction(state), state, map, t, undefined, true)
     }
     const onExpand = (e: CustomEvent<{ panel: ExpandPanel | null }>) => {
       // Only a single expandable panel remains, the sunshade:
@@ -627,6 +682,8 @@ export class LeapmotorCard extends LitElement {
       @leapmotor-fan-speed=${onFanSpeed}
       @leapmotor-climate-change=${onClimateChange}
       @leapmotor-expand=${onExpand}
+      @leapmotor-range-tap=${onRangeTap}
+      @leapmotor-lock-tap=${onLockTap}
     >
       <div class="body">
         ${/*
@@ -648,6 +705,7 @@ export class LeapmotorCard extends LitElement {
           .language=${language} .imageUrl=${imageUrl}
           .showImage=${showImage} .allowSilhouette=${allowSilhouette}
           .compact=${openGroup !== undefined}
+          .rangeTap=${rangeTap} .map=${map} .pending=${this._pending}
         ></leapmotor-hero>
 
         ${openGroup === undefined

@@ -1,9 +1,11 @@
 import { LitElement, css, html, nothing, type PropertyValues } from 'lit'
 import { customElement, property, state as internalState } from 'lit/decorators.js'
+import { actionLabel, lockPillShape, lockToggleAction } from '../actions'
 import { formatAgo, formatNumber, formatTimeOfDay, formatUpdated } from '../format'
 import { DASH, formatDuration, type TranslateFn } from '../localize'
+import type { TapDecision } from '../tap-action'
 import { batteryColor, sharedStyles } from '../theme'
-import type { VehicleState } from '../types'
+import type { ActionId, EntityMap, VehicleState } from '../types'
 import { CAR_SILHOUETTE } from '../car-silhouette'
 
 @customElement('leapmotor-hero')
@@ -29,6 +31,23 @@ export class LeapmotorHero extends LitElement {
    * gives way to the sub-view's data. See spec §3.3.
    */
   @property({ type: Boolean }) compact = false
+
+  /**
+   * The tap on the range, ALREADY decided by the card: this section never
+   * sees `hass` or the configuration, the same contract as the map in
+   * `leapmotor-location`. `none` is what puts the number back to being
+   * inert text.
+   */
+  @property({ attribute: false }) rangeTap: TapDecision = { kind: 'none' }
+
+  /**
+   * The two the lock pill needs to know whether it can command the car:
+   * `map` says whether there is a lock entity at all, `pending` whether
+   * another action is already in flight. Same pair the actions row receives,
+   * and for the same reason.
+   */
+  @property({ attribute: false }) map: EntityMap = {}
+  @property({ attribute: false }) pending?: ActionId
 
   @internalState() private imageFailed = false
 
@@ -96,9 +115,75 @@ export class LeapmotorHero extends LitElement {
     </div>`
   }
 
+  private fire(name: string, detail?: unknown) {
+    this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }))
+  }
+
+  /** The number and its unit, the same in both shapes of the block. */
+  private rangeValue() {
+    const { range } = this.state
+    return html`
+      <span class="big">${range ? formatNumber(range.km) : DASH}</span>
+      <span class="unit muted">${range?.unit ?? ''}</span>`
+  }
+
+  /**
+   * The range, as a button when the tap does something and as the text it
+   * always was when it does not. A `<button>` and not a `@click` on the div:
+   * keyboard, focus ring and the `Enter`/`Space` keys come with it, and
+   * `button` is already in `INTERACTIVE_SELECTOR`, which is what exempts it
+   * from the swipe between sub-views.
+   */
+  private rangeBlock() {
+    if (this.rangeTap.kind === 'none') return html`<div class="value">${this.rangeValue()}</div>`
+    const { range } = this.state
+    const reading = range ? `${formatNumber(range.km)} ${range.unit}` : DASH
+    return html`<button
+      class="plain value"
+      title=${this.t('range_tap')}
+      aria-label="${reading} — ${this.t('range_tap')}"
+      @click=${() => this.fire('leapmotor-range-tap')}
+    >${this.rangeValue()}</button>`
+  }
+
+  /** The padlock and its two lines of text, the same in both shapes. */
+  private lockBody() {
+    const { lock } = this.state
+    return html`
+      <ha-icon icon=${lock.locked === false ? 'mdi:lock-open-variant-outline' : 'mdi:lock-outline'}></ha-icon>
+      <div class="lock-text">
+        <div>${this.lockLabel()}</div>
+        ${lock.stale && lock.ageSeconds !== undefined
+          ? html`<div class="ago muted">${formatAgo(lock.ageSeconds, this.t)}</div>`
+          : nothing}
+      </div>`
+  }
+
+  /**
+   * The lock state in whichever of the three shapes `lockPillShape` decides
+   * — the plain readout it always was, a live button, or a disabled one
+   * while a call is in flight. The action comes from `lockToggleAction`,
+   * the same function the card calls to decide the service: this way what
+   * the tooltip promises and what the car receives cannot disagree.
+   */
+  private lockBlock() {
+    const { lock } = this.state
+    const classes = `lock ${lock.stale ? 'stale' : ''}`
+    const shape = lockPillShape(this.state, this.map, this.pending)
+    if (shape === 'text') return html`<div class=${classes}>${this.lockBody()}</div>`
+    const label = actionLabel(lockToggleAction(this.state), this.state, this.t)
+    return html`<button
+      class="plain ${classes}"
+      ?disabled=${shape === 'busy'}
+      title=${label}
+      aria-label="${this.lockLabel()} — ${label}"
+      @click=${() => this.fire('leapmotor-lock-tap')}
+    >${this.lockBody()}</button>`
+  }
+
   override render() {
     if (this.compact) return this.renderCompact()
-    const { range, lock, activity } = this.state
+    const { activity } = this.state
     return html`
       <div class="head">
         <div class="title">${this.name || DASH}</div>
@@ -107,23 +192,12 @@ export class LeapmotorHero extends LitElement {
 
       <div class="row main">
         <div class="range">
-          <div class="value">
-            <span class="big">${range ? formatNumber(range.km) : DASH}</span>
-            <span class="unit muted">${range?.unit ?? ''}</span>
-          </div>
+          ${this.rangeBlock()}
           ${this.bar()}
           ${this.chargingChip()}
         </div>
 
-        <div class="lock ${lock.stale ? 'stale' : ''}">
-          <ha-icon icon=${lock.locked === false ? 'mdi:lock-open-variant-outline' : 'mdi:lock-outline'}></ha-icon>
-          <div class="lock-text">
-            <div>${this.lockLabel()}</div>
-            ${lock.stale && lock.ageSeconds !== undefined
-              ? html`<div class="ago muted">${formatAgo(lock.ageSeconds, this.t)}</div>`
-              : nothing}
-          </div>
-        </div>
+        ${this.lockBlock()}
       </div>
 
       ${this.showImage
@@ -146,6 +220,17 @@ export class LeapmotorHero extends LitElement {
     .main { margin-top: var(--lm-gap); align-items: flex-start; }
     .range { min-width: 0; flex: 1 1 auto; }
     .value { display: flex; align-items: baseline; gap: 6px; }
+    /*
+     * Compound selectors, and not .value / .lock: button.plain from theme.ts
+     * does all: unset at (0,1,1) and would strip the display, the alignment
+     * and the gap these two boxes depend on — the interactive shape would
+     * come out laid out differently from the inert one, on the same card,
+     * depending only on whether there is a lock entity. See the warning in
+     * theme.ts: this family of defect has already reached a user's
+     * dashboard six times in this project.
+     */
+    button.plain.value { display: flex; align-items: baseline; gap: 6px; text-align: start; }
+    button.plain.lock { display: flex; align-items: flex-start; gap: 8px; text-align: start; flex: 0 0 auto; }
     .big { font-size: 2.6rem; font-weight: 300; line-height: 1; }
     .unit { font-size: 1rem; }
     .bar {

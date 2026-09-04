@@ -23,7 +23,9 @@ describe('buildVehicleState — battery and range', () => {
 
   it('uses live_range, which is the number the app shows, and not remaining_range', () => {
     // App: 126 km at 29% → ratio ~434. live=261 at 60% → 435. range=217 → 361.
-    expect(build().range).toEqual({ km: 261, unit: 'km', mode: 'CLTC' })
+    expect(build().range).toEqual({
+      km: 261, unit: 'km', mode: 'CLTC', entityId: 'sensor.leapmotor_b10_000000_main_live_range',
+    })
   })
 
   it('does not use wltp_max when rangeLive is present — the precedence is rangeLive > range > rangeMax', () => {
@@ -31,6 +33,16 @@ describe('buildVehicleState — battery and range', () => {
     // reversed (['rangeMax', 'range', 'rangeLive']) this value would show up
     // instead of 261.
     expect(build().range?.km).not.toBe(434)
+  })
+
+  it('says which sensor the number came from', () => {
+    // The value comes from whichever of the three sensors reads first, so
+    // the entity has to travel with it: a tap that opened the more-info of
+    // `range` while the screen shows `live_range`'s number would graph a
+    // different number from the one the user is looking at.
+    expect(build().range?.entityId).toBe('sensor.leapmotor_b10_000000_main_live_range')
+    expect(build({ 'sensor/live_remaining_range_km': 'unavailable' }).range?.entityId)
+      .toBe('sensor.leapmotor_b10_000000_demo_range')
   })
 
   it('falls back to remaining_range and then to wltp_max', () => {

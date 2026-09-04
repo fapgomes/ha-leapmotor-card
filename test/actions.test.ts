@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   BLOCKED_WHILE_DRIVING, PAYLOAD_ACTIONS, TARGET_TEMP_DECIMALS, TEMP_MAX, TEMP_MIN, actionIcon, actionLabel,
-  composeClimateCommand, decideAction, forgetRequest, isActionAvailable, nextStepTemperature, pendingValue,
+  composeClimateCommand, decideAction, forgetRequest, isActionAvailable, lockPillShape, lockToggleAction,
+  nextStepTemperature, pendingValue,
   pruneRequests, resolveAction, shownLevel,
   type ClimateIntent,
 } from '../src/actions'
@@ -480,6 +481,86 @@ describe('decideAction', () => {
   it('an action with no entity is not executable', () => {
     const { state } = ctx()
     expect(decideAction('trunk', state, {}, undefined).kind).toBe('unavailable')
+  })
+
+  it('forceConfirm asks even for an action outside the list', () => {
+    // The hero's lock pill is a state readout, not a button labelled
+    // "Lock": an accidental tap on it must not command the car. It confirms
+    // in both directions without `lock` entering DEFAULT_CONFIRM_ACTIONS,
+    // which would change the actions-row button for everyone who already
+    // uses it.
+    const { map, state } = ctx()
+    const decision = decideAction('lock', state, map, [], undefined, true)
+    expect(decision.kind).toBe('confirm')
+    if (decision.kind !== 'confirm') return
+    expect(decision.answer(false)).toBeUndefined()
+    expect(decision.answer(true)).toEqual({
+      domain: 'lock', service: 'lock', entityId: 'lock.leapmotor_b10_000000_demo_lock',
+    })
+  })
+
+  it('forceConfirm does not get past the while-driving block', () => {
+    const { map, state } = ctx({ 'binary_sensor/is_driving': 'on' })
+    expect(decideAction('lock', state, map, [], undefined, true).kind).toBe('blocked')
+  })
+
+  it('forceConfirm does not invent a call for an action with no entity', () => {
+    const { state } = ctx()
+    expect(decideAction('lock', state, {}, [], undefined, true).kind).toBe('unavailable')
+  })
+})
+
+describe('lockPillShape', () => {
+  it('is a live button when the car is parked and there is a lock entity', () => {
+    const { map, state } = ctx()
+    expect(lockPillShape(state, map, undefined)).toBe('button')
+  })
+
+  it('goes back to plain text with no lock entity', () => {
+    // Not a disabled button: `button.plain[disabled]` drops to 40% opacity,
+    // and dimming the reading would suggest the state itself is doubtful
+    // when all that is missing is a way to act on it.
+    const { state } = ctx()
+    expect(lockPillShape(state, {}, undefined)).toBe('text')
+  })
+
+  it('goes back to plain text while the car is moving', () => {
+    // What the user asked for, and what the actions row already does: no
+    // commanding the locks in motion. Text, not a dimmed button — the
+    // reading stays as true and as legible as when parked.
+    const { map, state } = ctx({ 'binary_sensor/is_driving': 'on' })
+    expect(lockPillShape(state, map, undefined)).toBe('text')
+  })
+
+  it('is a busy button while another action is in flight', () => {
+    // A button, and disabled, rather than text: this state lasts for the
+    // duration of a service call, the dimming is honest feedback that
+    // something is happening, and keeping the element a button keeps the
+    // keyboard focus that activated it.
+    const { map, state } = ctx()
+    expect(lockPillShape(state, map, 'refresh')).toBe('busy')
+  })
+})
+
+describe('lockToggleAction', () => {
+  it('offers unlocking only when the car reports itself locked', () => {
+    const { state } = ctx()
+    expect(state.lock.locked).toBe(true)
+    expect(lockToggleAction(state)).toBe('unlock')
+  })
+
+  it('offers locking when the car reports itself unlocked', () => {
+    const { state } = ctx({ 'lock/vehicle_lock': 'unlocked' })
+    expect(state.lock.locked).toBe(false)
+    expect(lockToggleAction(state)).toBe('lock')
+  })
+
+  it('offers locking, never unlocking, when the state is unknown', () => {
+    // Comparison against `true`, like `toggleSwitch` and `actionIcon`: an
+    // unreadable lock must never make the card offer to open the car.
+    const { state } = ctx({ 'lock/vehicle_lock': 'unavailable' })
+    expect(state.lock.locked).toBeUndefined()
+    expect(lockToggleAction(state)).toBe('lock')
   })
 })
 

@@ -98,6 +98,15 @@ export class LeapmotorCardEditor extends LitElement {
         name: 'map_zoom',
         selector: { number: { min: MAP_ZOOM_MIN, max: MAP_ZOOM_MAX, mode: 'box' } },
       },
+      {
+        name: 'range_tap_action',
+        // HA's own action picker, the same one the tile card's features use.
+        // The list is explicit and does not include `toggle` or `assist`:
+        // the editor must not be able to write an action the card ignores,
+        // which would leave the number looking configured and doing
+        // nothing.
+        selector: { ui_action: { actions: ['more-info', 'navigate', 'url', 'perform-action', 'none'] } },
+      },
     ]
   }
 
@@ -113,6 +122,7 @@ export class LeapmotorCardEditor extends LitElement {
   private computeLabel = (t: (k: string) => string) => (s: { name: string }): string => {
     if (s.name === 'map_zoom') return t('editor.map_zoom')
     if (s.name === 'tire_range') return t('editor.tire_range')
+    if (s.name === 'range_tap_action') return t('editor.range_tap_action')
     return s.name
   }
 
