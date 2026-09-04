@@ -5,6 +5,36 @@ Every notable change to this project is recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.8] — 2026-09-04
+
+### Added
+
+- The range number in the header opens a dialog. With no configuration that is
+  the more-info of the range sensor, whose dialog already carries the history
+  graph, and it is the sensor the number actually came from — the card picks
+  between `rangeLive`, `range` and `rangeMax`, and opening a sibling would
+  graph a different number from the one on screen. `range_tap_action`
+  configures it in Home Assistant's own action vocabulary (`more-info`,
+  `navigate`, `url`, `perform-action`, `none`), and the visual editor has a
+  field for it using HA's action picker.
+- Tapping the lock state locks or unlocks the car, whichever the current state
+  calls for. It always asks for confirmation, in both directions, because it is
+  a state readout rather than a labelled button and an accidental tap must not
+  command the car. It is not tappable while the car is moving, while another
+  action is in flight, or when the car exposes no lock entity; with the lock
+  state unreadable, a tap offers to lock and never to open the car.
+- The battery tile's summary says the charging state next to the percentage
+  (`60.3 % · Not plugged in`), which is the new default. `summary: battery`
+  still gives the percentage alone and `summary: phase` the state alone.
+
+### Fixed
+
+- The battery tile no longer reads as a claim that the car is charging. Its
+  English label was "Charging" where the Portuguese was the noun "Carga", so
+  beside a bare percentage it read as "is charging" — with the car parked in
+  the street and nothing plugged in. Both languages now name the battery. The
+  group's id stays `charging`, so existing `grid:` configurations keep working.
+
 ## [0.4.7] — 2026-08-31
 
 ### Changed
