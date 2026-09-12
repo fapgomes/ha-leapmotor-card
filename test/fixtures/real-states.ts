@@ -33,22 +33,64 @@ const M = 'leapmotor_b10_000000_main'
  *    still counts as a genuine day at 0 km.
  *  - **Energy in whole kilowatt-hours.** Never a tenth, on any day.
  *
- * The numbers hold together with the rest of the fixture, so a test that
- * sums them is testing something: the distances add up to the 642 km of
- * `last_7_days_mileage_km`, the energies to the 127.0 kWh of
- * `last_7_days_energy_kwh`, and the running odometer arrives at the 659 km
- * of `odometer_km`. 127 kWh over 642 km is 19.8 kWh/100 km, next to the
- * 19.9 the lifetime totals give.
+ * What these numbers are answerable to, since a fixture nobody can check is
+ * a fixture that drifts:
+ *
+ *  - The distances add up to the 642 km of `last_7_days_mileage_km`, the
+ *    energies to the 115.0 kWh of `last_7_days_energy_kwh`, and the running
+ *    odometer arrives at the 659 km of `odometer_km`, each day's step being
+ *    that day's `mileage_km`.
+ *  - They agree with `weekly_consumption`, which the sub-view draws three
+ *    lines above this block and which was here first. The four days of week
+ *    2026-08-17…23 that fall inside this window are 363 km on 75 kWh, or
+ *    20.7 kWh/100 km, which is what that week reports to the tenth. The four
+ *    of week 2026-08-24…30 are 279 km on 40 kWh, or 14.3 against the 14.2
+ *    reported — the gap is the whole kilowatt-hour these rows are quantized
+ *    to, and it is the closest agreement integers allow.
+ *
+ * What they are NOT answerable to, and it predates them: `total_energy_kwh`
+ * over `total_mileage_km` is 131.0 / 661 = 19.8 kWh/100 km, well above the
+ * 17.9 these eight days come to. That tension is between the lifetime totals
+ * and `weekly_consumption`, both captured from the real car at different
+ * moments, and it existed before there were any daily rows — 642 of those
+ * 661 km are the two weeks reporting 20.7 and 14.2. These rows take the side
+ * of the weekly series, which is the block they sit next to and the one they
+ * would visibly contradict; rewriting the lifetime totals instead would mean
+ * editing numbers a dozen other tests assert.
  */
 const DAILY_DETAIL = [
   { date: '2026-08-20', timestamp: 1787184000000, odometer_km: 77.0, mileage_km: 60.0, mileage_mi: 37.3, energy_kwh: 12.0 },
-  { date: '2026-08-21', timestamp: 1787270400000, odometer_km: 172.0, mileage_km: 95.0, mileage_mi: 59.0, energy_kwh: 19.0 },
-  { date: '2026-08-22', timestamp: 1787356800000, odometer_km: 260.0, mileage_km: 88.0, mileage_mi: 54.7, energy_kwh: 17.0 },
-  { date: '2026-08-23', timestamp: 1787443200000, odometer_km: 380.0, mileage_km: 120.0, mileage_mi: 74.6, energy_kwh: 24.0 },
-  { date: '2026-08-24', timestamp: 1787529600000, odometer_km: 427.0, mileage_km: 47.0, mileage_mi: 29.2, energy_kwh: 9.0 },
-  { date: '2026-08-25', timestamp: 1787616000000, odometer_km: 560.0, mileage_km: 133.0, mileage_mi: 82.6, energy_kwh: 26.0 },
-  { date: '2026-08-26', timestamp: 1787702400000, odometer_km: 659.0, mileage_km: 99.0, mileage_mi: 61.5, energy_kwh: 20.0 },
+  { date: '2026-08-21', timestamp: 1787270400000, odometer_km: 172.0, mileage_km: 95.0, mileage_mi: 59.0, energy_kwh: 20.0 },
+  { date: '2026-08-22', timestamp: 1787356800000, odometer_km: 260.0, mileage_km: 88.0, mileage_mi: 54.7, energy_kwh: 18.0 },
+  { date: '2026-08-23', timestamp: 1787443200000, odometer_km: 380.0, mileage_km: 120.0, mileage_mi: 74.6, energy_kwh: 25.0 },
+  { date: '2026-08-24', timestamp: 1787529600000, odometer_km: 427.0, mileage_km: 47.0, mileage_mi: 29.2, energy_kwh: 7.0 },
+  { date: '2026-08-25', timestamp: 1787616000000, odometer_km: 560.0, mileage_km: 133.0, mileage_mi: 82.6, energy_kwh: 19.0 },
+  { date: '2026-08-26', timestamp: 1787702400000, odometer_km: 659.0, mileage_km: 99.0, mileage_mi: 61.5, energy_kwh: 14.0 },
   { date: '2026-08-27', timestamp: 1787788800000, odometer_km: 0.0, mileage_km: 0.0, mileage_mi: 0.0, energy_kwh: 0.0 },
+]
+
+/**
+ * The same eight days as the card ends up holding them, once the parser has
+ * had them: the day, the distance and the energy, and nothing else —
+ * `odometer_km`, `mileage_mi` and `timestamp` are dropped on the way in
+ * because the card has no use for them, and a structure carrying them would
+ * invite one.
+ *
+ * It lives beside the payload it is the projection of, so that a change to
+ * one is made in sight of the other, and it is shared by the parser's tests
+ * and the section's.
+ */
+export const EXPECTED_DAYS = [
+  { date: '2026-08-20', distanceKm: 60, energyKwh: 12 },
+  { date: '2026-08-21', distanceKm: 95, energyKwh: 20 },
+  { date: '2026-08-22', distanceKm: 88, energyKwh: 18 },
+  { date: '2026-08-23', distanceKm: 120, energyKwh: 25 },
+  { date: '2026-08-24', distanceKm: 47, energyKwh: 7 },
+  { date: '2026-08-25', distanceKm: 133, energyKwh: 19 },
+  { date: '2026-08-26', distanceKm: 99, energyKwh: 14 },
+  // The day still in progress, which the API sends zeroed. A day at 0 km is
+  // a day, and it keeps its place in the period.
+  { date: '2026-08-27', distanceKm: 0, energyKwh: 0 },
 ]
 
 /** The attribute block both seven-day sensors publish, byte for byte. */
@@ -142,7 +184,7 @@ export const REAL_SPECS: FakeEntitySpec[] = [
   { key: 'sensor/odometer_km', entity_id: `sensor.${P}_odometer`, state: '659', unit: 'km' },
   { key: 'sensor/total_mileage_km', entity_id: `sensor.${P}_total_mileage`, state: '661', unit: 'km' },
   { key: 'sensor/last_7_days_mileage_km', entity_id: `sensor.${P}_last_7_days_mileage`, state: '642', unit: 'km', attributes: SEVEN_DAY_ATTRIBUTES },
-  { key: 'sensor/last_7_days_energy_kwh', entity_id: `sensor.${P}_last_7_days_energy`, state: '127.0', unit: 'kWh', attributes: SEVEN_DAY_ATTRIBUTES },
+  { key: 'sensor/last_7_days_energy_kwh', entity_id: `sensor.${P}_last_7_days_energy`, state: '115.0', unit: 'kWh', attributes: SEVEN_DAY_ATTRIBUTES },
   {
     key: 'sensor/average_consumption_6w_kwh_100km',
     entity_id: `sensor.${P}_6_week_average_consumption_kwh_100_km`,

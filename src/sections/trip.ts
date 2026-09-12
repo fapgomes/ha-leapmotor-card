@@ -240,7 +240,17 @@ export class LeapmotorTrip extends LitElement {
             value: trip.odometerKm !== undefined ? `${formatNumber(trip.odometerKm)} km` : DASH,
           },
           {
-            label: this.t('trip.last7days'),
+            /*
+             * NOT "last 7 days", which is what this row said until the block
+             * below started drawing the days it actually covers: on the car
+             * this was built against the sensor answered with eight of them,
+             * and the row sat three lines above eight bars adding up to
+             * exactly the number beside it. The sensor's own name in Home
+             * Assistant is upstream's and stays as it is; what the card
+             * prints is the card's, and it now names the period the only way
+             * it honestly can from a bare total — as the recent one.
+             */
+            label: this.t('trip.recent_days'),
             value: trip.last7DaysKm !== undefined ? `${formatNumber(trip.last7DaysKm)} km` : DASH,
           },
         ],
@@ -367,13 +377,24 @@ export class LeapmotorTrip extends LitElement {
      */
     .day .value { text-align: end; font-variant-numeric: tabular-nums; }
     /*
-     * The same track and the same fully round ends as the battery bar in
-     * hero.ts — one bar idiom in the card, not two. The track is --lm-chip
-     * over a panel that is already --lm-chip: the tint is translucent, so
-     * laying it over itself is exactly what makes the empty part of the bar
-     * visible without inventing a color.
+     * The same fully round ends as the battery bar in hero.ts — one bar
+     * idiom in the card, not two — but NOT its --lm-chip track. That bar
+     * sits on the card; this one sits inside a .panel, which is itself
+     * --lm-chip, and the only reason the two do not cancel out today is that
+     * the token's default value happens to be translucent. A user who points
+     * --leapmotor-chip at an opaque color would lose the track entirely and
+     * have no way to know why.
+     *
+     * So the track mixes its own tint out of the text color, which no token
+     * can flatten and which follows a light or a dark theme without being
+     * told. The flat gray on the line before is the fallback for a renderer
+     * without color-mix: same weight, just not theme-aware.
      */
-    .bar { height: 6px; border-radius: 999px; background: var(--lm-chip); overflow: hidden; }
+    .bar {
+      height: 6px; border-radius: 999px; overflow: hidden;
+      background: rgba(127, 127, 127, 0.25);
+      background: color-mix(in srgb, currentColor 15%, transparent);
+    }
     /*
      * The fill is the muted text color, which is a token the theme already
      * defines and the reader already reads as secondary. A bar of days is

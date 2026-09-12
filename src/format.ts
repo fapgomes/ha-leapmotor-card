@@ -21,9 +21,16 @@ export function formatDayLabel(d: Date, now: Date, t: TranslateFn, language: str
  * month, in the reader's language. Shared by the two functions below so that
  * a range and a single day are written on the same scale, and so that
  * `timeZone: 'UTC'` — see `formatDayRange` — is stated once.
+ *
+ * `day: 'numeric'` and not `'2-digit'`, which is what `formatDayLabel` above
+ * uses, because `Intl` pads a single date and does NOT pad the ends of a
+ * range: with `'2-digit'` the per-day breakdown wrote `Sep 4 – 11` in its
+ * heading and `Sep 04` in the rows beneath it, which is one block spelling
+ * the same day two ways. Between padding a range `Intl` will not pad and
+ * unpadding a single day, unpadding is the one available.
  */
 function calendarDayFormat(language: string): Intl.DateTimeFormat {
-  return new Intl.DateTimeFormat(language, { day: '2-digit', month: 'short', timeZone: 'UTC' })
+  return new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
 
 /**
@@ -42,7 +49,7 @@ function calendarDayFormat(language: string): Intl.DateTimeFormat {
  *  - **`formatRange`, and not two dates glued together.** It is the one that
  *    knows how to collapse the repeated month — joining `Intl.format()` from
  *    each end gave `Aug 24 – Aug 30` in English and an extra month in
- *    Portuguese. The options are the same as `formatDayLabel` right above,
+ *    Portuguese. The fields are the same as `formatDayLabel` right above,
  *    day and short month, so the card does not invent a date scale here that
  *    it does not use anywhere else.
  *  - **`timeZone: 'UTC'`.** The API sends calendar days (`2026-08-24`), which
@@ -58,8 +65,8 @@ export function formatDayRange(start: string, end: string, language: string): st
 }
 
 /**
- * One end of that same scale: a single calendar day, `04 de set.` or
- * `Sep 04`. Returns `undefined` for a date that does not read, for the same
+ * One end of that same scale: a single calendar day, `4 de set.` or
+ * `Sep 4`. Returns `undefined` for a date that does not read, for the same
  * reason as above — the caller has a dash to write, `Intl` would write
  * `Invalid Date`.
  *

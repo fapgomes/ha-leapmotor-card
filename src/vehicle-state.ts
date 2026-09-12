@@ -199,13 +199,36 @@ function buildLocation(hass: HomeAssistant, map: EntityMap): VehicleState['locat
  */
 function coerceNumber(value: unknown): number | undefined {
   if (typeof value !== 'number' && typeof value !== 'string') return undefined
+  // `Number('')` and `Number('   ')` are both 0, and that zero is the same
+  // trap as the one above with a different mask: an empty reading would
+  // arrive as a measurement of zero. It matters most in the daily rows,
+  // where a genuine zero is kept as a zero — "the car did not move" — and so
+  // there is nothing further downstream to catch it.
+  if (typeof value === 'string' && value.trim() === '') return undefined
   const n = Number(value)
   return Number.isFinite(n) ? n : undefined
 }
 
-/** A date that reads: a calendar day that `Date` manages to parse. */
-function isReadableDate(value: unknown): value is string {
-  return typeof value === 'string' && value !== '' && !Number.isNaN(new Date(value).getTime())
+const CALENDAR_DAY = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * A calendar day, in the `2026-08-26` form this API writes and nothing else.
+ *
+ * "A date that `Date` manages to parse" is far too generous a test, which is
+ * what this used to be. V8 keeps a legacy fallback parser that accepts
+ * `Dec 25, 1995` and, worse, rolls `2026-09-31` forward into October instead
+ * of rejecting it — so a row carrying a day that does not exist would have
+ * been kept, sorted to a place no real row occupies, and taken as one end of
+ * the period the card writes in the heading.
+ *
+ * Hence both halves of the check. The shape has to be right, and the day has
+ * to survive the round trip through `Date`: `2026-09-31` comes back as
+ * `2026-10-01`, which is not what was written, and it goes.
+ */
+function isCalendarDay(value: unknown): value is string {
+  if (typeof value !== 'string' || !CALENDAR_DAY.test(value)) return false
+  const parsed = new Date(value)
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
 }
 
 /**
@@ -227,9 +250,9 @@ function isReadableDate(value: unknown): value is string {
  *
  *  - **With no period, the entry is DROPPED.** A row with no dates cannot
  *    be labeled, and a row with a number no one knows which week it belongs
- *    to is exactly the defect this version came to fix. Both dates are
- *    required to actually read, not just to be non-empty: a date `Date`
- *    cannot parse also gives no label at all.
+ *    to is exactly the defect this version came to fix. Both dates have to be
+ *    calendar days the API could have meant, not merely non-empty text: see
+ *    `isCalendarDay`, which is stricter than `Date` is.
  *  - **With no consumption, the entry STAYS, with the consumption as
  *    `undefined`.** A `hundredKmEC` of zero is the API's way of saying "I
  *    did not drive this week" — the first weeks of a freshly delivered car
@@ -245,7 +268,7 @@ export function parseWeeklyConsumption(value: unknown): WeeklyConsumption[] {
   for (const entry of value as unknown[]) {
     if (entry === null || typeof entry !== 'object') continue
     const { weekStart, weekEnd, hundredKmEC } = entry as Record<string, unknown>
-    if (!isReadableDate(weekStart) || !isReadableDate(weekEnd)) continue
+    if (!isCalendarDay(weekStart) || !isCalendarDay(weekEnd)) continue
 
     const parsed = coerceNumber(hundredKmEC)
     weeks.push({
@@ -281,19 +304,35 @@ function nonNegative(value: unknown): number | undefined {
  *  - **With a day and no numbers, the row STAYS**, with each missing number
  *    as `undefined`. It is the section that writes the absence, and nothing
  *    downstream may read an absent number as a zero.
+ *  - **A day already seen is DROPPED**, the first row for it winning. Two
+ *    rows for one day would draw two bars carrying the same label, and there
+ *    is no way to tell the reader which of them is that day — nor any way
+ *    for the card to know which is right. One bar per day is the only
+ *    reading of the block that is true.
  *
  * The sort is here, and not in the section, so that the first and last
  * elements are the period's real ends whoever holds the array. The API sends
  * the rows in order today; this does not depend on it continuing to.
+ *
+ * What is deliberately NOT done: the same attributes carry a `detail_days`
+ * count, and it is not compared with the number of rows that survive here.
+ * A disagreement would say a row was dropped, which the card already knows
+ * and has already acted on, and it names no day and no number — there is
+ * nothing it could tell the reader that the reader could do anything with.
+ * The block shows the days it has and claims nothing about the ones it does
+ * not; because it displays no total, a missing row corrupts no figure on
+ * screen. Surfacing the count would add a warning with no remedy.
  */
 export function parseDailyDetail(value: unknown): TripDay[] {
   if (!Array.isArray(value)) return []
 
   const days: TripDay[] = []
+  const seen = new Set<string>()
   for (const entry of value as unknown[]) {
     if (entry === null || typeof entry !== 'object') continue
     const { date: day, mileage_km: distance, energy_kwh: energy } = entry as Record<string, unknown>
-    if (!isReadableDate(day)) continue
+    if (!isCalendarDay(day) || seen.has(day)) continue
+    seen.add(day)
 
     days.push({
       date: day,
@@ -305,12 +344,21 @@ export function parseDailyDetail(value: unknown): TripDay[] {
 }
 
 /**
- * The two sensors that carry the breakdown, in the order they are asked. The
- * distance one comes first on purpose: when the energy readings are
- * incomplete the integration makes the ENERGY sensor unavailable, and an
- * unavailable entity is one whose attributes may or may not still be there.
- * The distance sensor is the one that survives that case, and it carries the
- * same rows.
+ * The two sensors that carry the breakdown, in the order they are asked.
+ *
+ * The distance one comes first because it is the one that is still speaking
+ * in the case that matters. When the energy readings are incomplete the
+ * integration marks the ENERGY sensor unavailable, and Home Assistant writes
+ * an unavailable entity with its extra attributes stripped — not kept, not
+ * sometimes kept: the rows are gone from that sensor entirely. Asking it
+ * first would mean the whole block disappearing exactly when the card has a
+ * complete set of distances to show and one honest sentence to say about the
+ * energy.
+ *
+ * The fallback to the energy sensor is therefore NOT for that case, which it
+ * could not rescue. It is for the reader who mapped `entities:` by hand and
+ * pointed only one of the two names at anything — which is the case the test
+ * for it exercises.
  */
 const DAILY_DETAIL_KEYS: readonly LogicalKey[] = ['last7DaysKm', 'last7DaysEnergy']
 

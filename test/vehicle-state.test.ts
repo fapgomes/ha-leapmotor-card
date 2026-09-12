@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { resolveEntities } from '../src/resolver'
 import { buildVehicleState, parseDailyDetail, parseWeeklyConsumption } from '../src/vehicle-state'
 import { fakeHass, type FakeEntitySpec } from './helpers/fake-hass'
-import { REAL_NOW, REAL_SPECS, SEVEN_DAY_ATTRIBUTES, realHass } from './fixtures/real-states'
+import { EXPECTED_DAYS, REAL_NOW, REAL_SPECS, SEVEN_DAY_ATTRIBUTES, realHass } from './fixtures/real-states'
 
 const CONFIG = { type: 'custom:leapmotor-card' }
 
@@ -304,25 +304,6 @@ describe('buildVehicleState — climate', () => {
     expect(build({ 'binary_sensor/climate_on': 'on' }).climate.on).toBe(true)
   })
 })
-
-/**
- * The eight days of the fixture as the card ends up holding them: the day,
- * the distance and the energy, and nothing else — `odometer_km`,
- * `mileage_mi` and `timestamp` are dropped on the way in because the card
- * has no use for them, and a structure that carried them would invite one.
- */
-const EXPECTED_DAYS = [
-  { date: '2026-08-20', distanceKm: 60, energyKwh: 12 },
-  { date: '2026-08-21', distanceKm: 95, energyKwh: 19 },
-  { date: '2026-08-22', distanceKm: 88, energyKwh: 17 },
-  { date: '2026-08-23', distanceKm: 120, energyKwh: 24 },
-  { date: '2026-08-24', distanceKm: 47, energyKwh: 9 },
-  { date: '2026-08-25', distanceKm: 133, energyKwh: 26 },
-  { date: '2026-08-26', distanceKm: 99, energyKwh: 20 },
-  // The day still in progress, which the API sends zeroed. A day at 0 km is
-  // a day, and it keeps its place in the period.
-  { date: '2026-08-27', distanceKm: 0, energyKwh: 0 },
-]
 
 describe('buildVehicleState — tires, trip, comfort, schedule', () => {
   it('reads the four pressures', () => {
@@ -691,7 +672,7 @@ describe('parseDailyDetail', () => {
   /** One well-formed row, cloned and altered by the tests that need to. */
   const ROW = {
     date: '2026-08-26', timestamp: 1787702400000,
-    odometer_km: 659.0, mileage_km: 99.0, mileage_mi: 61.5, energy_kwh: 20.0,
+    odometer_km: 659.0, mileage_km: 99.0, mileage_mi: 61.5, energy_kwh: 14.0,
   }
 
   it('reads the real payload: EIGHT days on a sensor named for seven', () => {
@@ -726,7 +707,7 @@ describe('parseDailyDetail', () => {
     for (const broken of [{}, { date: '' }, { date: 'segunda' }, { date: 42 }, null, 'row', undefined]) {
       const days = parseDailyDetail([broken, ROW])
       expect(days, JSON.stringify(broken) ?? 'undefined').toEqual([
-        { date: '2026-08-26', distanceKm: 99, energyKwh: 20 },
+        { date: '2026-08-26', distanceKm: 99, energyKwh: 14 },
       ])
     }
   })
@@ -748,8 +729,8 @@ describe('parseDailyDetail', () => {
   it('reads a number that came as text, which this API does', () => {
     // In the weekly series the SAME object sends `hundredKmEC` as a number
     // and `hundredMiKwhEC` as text. Nothing promises this block is different.
-    expect(parseDailyDetail([{ ...ROW, mileage_km: '99.0', energy_kwh: '20' }])).toEqual([
-      { date: '2026-08-26', distanceKm: 99, energyKwh: 20 },
+    expect(parseDailyDetail([{ ...ROW, mileage_km: '99.0', energy_kwh: '14' }])).toEqual([
+      { date: '2026-08-26', distanceKm: 99, energyKwh: 14 },
     ])
   })
 
@@ -765,6 +746,38 @@ describe('parseDailyDetail', () => {
     // would have been an efficiency the car never had.
     expect(parseDailyDetail([{ ...ROW, mileage_km: 0, energy_kwh: 0 }])).toEqual([
       { date: '2026-08-26', distanceKm: 0, energyKwh: 0 },
+    ])
+  })
+
+  it('a blank reading is an absence, NOT a day the car did not move', () => {
+    // `Number('')` and `Number('   ')` are both 0, which would have put
+    // `0 km · 0 kWh` on screen for a day the car never reported. The zero
+    // this block does keep is a zero the API actually sent.
+    expect(parseDailyDetail([{ date: '2026-08-26', mileage_km: '', energy_kwh: '   ' }])).toEqual([
+      { date: '2026-08-26', distanceKm: undefined, energyKwh: undefined },
+    ])
+  })
+
+  it('drops a day that does not exist, however willing `Date` is to read it', () => {
+    // V8's legacy parser rolls 31 September forward into October and accepts
+    // `Dec 25, 1995` outright. Either would have survived as a row, sorted to
+    // a place no real day occupies, and become one end of the period the
+    // heading names.
+    for (const day of ['2026-09-31', '2026-02-30', 'Dec 25, 1995', '2026-8-3', '2026-08-26T00:00:00Z']) {
+      expect(parseDailyDetail([{ ...ROW, date: day }]), day).toEqual([])
+    }
+  })
+
+  it('keeps one row per day when the API repeats one, the first winning', () => {
+    // Two bars carrying the same label are two bars the reader cannot tell
+    // apart, and nothing here knows which of them is the day.
+    expect(parseDailyDetail([
+      { date: '2026-08-26', mileage_km: 99.0, energy_kwh: 14.0 },
+      { date: '2026-08-26', mileage_km: 5.0, energy_kwh: 1.0 },
+      { date: '2026-08-27', mileage_km: 0.0, energy_kwh: 0.0 },
+    ])).toEqual([
+      { date: '2026-08-26', distanceKm: 99, energyKwh: 14 },
+      { date: '2026-08-27', distanceKm: 0, energyKwh: 0 },
     ])
   })
 
@@ -809,7 +822,7 @@ describe('buildVehicleState — daily breakdown', () => {
     // up to them the card is showing two versions of the same week.
     const days = build().trip.dailyBreakdown?.days ?? []
     expect(days.reduce((sum, day) => sum + (day.distanceKm ?? 0), 0)).toBe(642)
-    expect(days.reduce((sum, day) => sum + (day.energyKwh ?? 0), 0)).toBe(127)
+    expect(days.reduce((sum, day) => sum + (day.energyKwh ?? 0), 0)).toBe(115)
   })
 
   it('is undefined when the integration publishes no such attribute', () => {

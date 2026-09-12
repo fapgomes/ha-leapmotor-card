@@ -107,7 +107,7 @@
   "trip.heading_weekly": "Weekly consumption",
   "trip.heading_daily": "Per day",
   "trip.odometer": "Odometer",
-  "trip.last7days": "Last 7 days",
+  "trip.recent_days": "Recent days",
   "trip.consumption": "6 week average",
   "trip.lifetime": "All time",
   "trip.energy_driving": "Driving",

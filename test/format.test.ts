@@ -83,15 +83,17 @@ describe('areOpeningsUnknown', () => {
   })
 })
 
-describe('formatDayRange', () => {
-  /*
-   * The separator that `Intl` puts between the two ends of a range is NOT a
-   * hyphen between spaces: it's a short dash (U+2013) between two thin spaces
-   * (U+2009). Written by hand, the test failed with two visually identical
-   * strings, and written as escapes the reason is immediately visible.
-   */
-  const TO = '\u2009\u2013\u2009'
+/*
+ * The separator that `Intl` puts between the two ends of a range is NOT a
+ * hyphen between spaces: it's a short dash (U+2013) between two thin spaces
+ * (U+2009). Written by hand, the test failed with two visually identical
+ * strings, and written as escapes the reason is immediately visible. At
+ * module scope because `formatCalendarDay`'s tests compare against ranges
+ * too, to pin the two functions to a single scale.
+ */
+const TO = '\u2009\u2013\u2009'
 
+describe('formatDayRange', () => {
   it('collapses the repeated month in Portuguese', () => {
     // `formatRange` is what knows how to do this: two dates formatted
     // separately and glued together gave "24 de ago. – 30 de ago.", with an
@@ -139,10 +141,23 @@ describe('formatCalendarDay', () => {
     expect(formatCalendarDay('2026-08-26', 'en')).toBe('Aug 26')
   })
 
+  it('pads a single day exactly as much as the range pads its ends: not at all', () => {
+    /*
+     * `Intl` pads a lone date under `day: '2-digit'` and does not pad the
+     * ends of a range under the same option, so the per-day block wrote
+     * `Aug 1 – 9` in its heading and `Aug 01` in the row below it. The two
+     * are one scale or they are not; this is the test that says which.
+     */
+    expect(formatCalendarDay('2026-08-01', 'en')).toBe('Aug 1')
+    expect(formatDayRange('2026-08-01', '2026-08-09', 'en')).toBe(`Aug 1${TO}9`)
+    expect(formatCalendarDay('2026-08-01', 'pt')).toBe('1 de ago.')
+    expect(formatDayRange('2026-08-01', '2026-08-09', 'pt')).toBe(`1${TO}9 de ago.`)
+  })
+
   it('names the day the API sent, without rolling it back', () => {
     // Same reason as the range above: `2026-08-01` is midnight UTC, and west
     // of Greenwich a reader would otherwise be shown July 31.
-    expect(formatCalendarDay('2026-08-01', 'pt')).toBe('01 de ago.')
+    expect(formatCalendarDay('2026-08-01', 'pt')).toBe('1 de ago.')
   })
 
   it('returns undefined for a day that cannot be read', () => {

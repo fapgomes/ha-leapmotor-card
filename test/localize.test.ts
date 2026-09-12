@@ -102,16 +102,33 @@ describe('translation catalogs', () => {
   })
 
   /*
-   * The heading of the per-day breakdown must not count the days. The two
-   * sensors behind that block are named for seven days and the API has been
-   * observed answering with eight, so the block is titled by what it is and
-   * the period it covers is written from the data beside it. A digit in this
-   * heading means someone has put a promise back into it.
+   * Neither label in the Trip sub-view that describes the cloud's short-term
+   * period may count its days. The two sensors behind it are named for seven
+   * and the API has been observed answering with eight, so the total is
+   * labeled as recent and the block below it is titled by what it is, with
+   * the period written from the data beside it.
+   *
+   * BOTH keys, because the first version of this guard covered only the
+   * heading and left the row three lines above it still reading "Last 7
+   * days" over eight bars that summed to the number next to it.
+   *
+   * And words as well as digits: `/\d/` alone would have waved through
+   * "Last seven days" and "Últimos sete dias", which say exactly the same
+   * wrong thing.
    */
-  it('the per-day heading names no number of days', () => {
-    for (const [language, catalogue] of Object.entries({ en, pt })) {
-      expect(catalogue['trip.heading_daily'], language).toBeDefined()
-      expect(catalogue['trip.heading_daily'], language).not.toMatch(/\d/)
+  const COUNTED_IN_WORDS = new RegExp([
+    'one|two|three|four|five|six|seven|eight|nine|ten|week',
+    'um|uma|dois|duas|tr[êe]s|quatro|cinco|seis|sete|oito|nove|dez|semana',
+  ].join('|'), 'i')
+
+  it('the labels of the recent period name no number of days', () => {
+    for (const key of ['trip.recent_days', 'trip.heading_daily']) {
+      for (const [language, catalogue] of Object.entries({ en, pt })) {
+        const label = (catalogue as Record<string, string>)[key]
+        expect(label, `${key} in ${language}`).toBeDefined()
+        expect(label, `${key} in ${language}`).not.toMatch(/\d/)
+        expect(label, `${key} in ${language}`).not.toMatch(COUNTED_IN_WORDS)
+      }
     }
   })
 
