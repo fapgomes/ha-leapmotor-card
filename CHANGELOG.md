@@ -5,6 +5,31 @@ Every notable change to this project is recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.10] — 2026-09-12
+
+### Removed
+
+- The per-day rows no longer show energy. 0.4.9 shipped them; measurement on a
+  real B10 then showed the source field disagrees with the car's actual
+  consumption by roughly a factor of two, so the card stopped printing it.
+
+  Over 2026-09-04 to 2026-09-12 the car drove 217 km and `daily_detail`
+  reported 21.0 kWh, while the garage charger's own meter delivered 53.56 kWh
+  in the same window and the battery began at 28.0 % and ended at 27.3 % — so
+  essentially everything delivered was consumed. After charging losses that is
+  roughly 45–48 kWh, about 21–22 kWh/100 km against the 9.7 the attribute
+  implies. The integration's own lifetime figure (17.9) and its six-week
+  average (19.3) both sit near the meter, not near the detail list.
+
+  The per-day fraction ranges from 36 % to 58 % of measured, so it is not a
+  scale or unit error but a different quantity carrying the name of energy.
+  What it does count is unknown and asked upstream in
+  [kerniger/leapmotor-ha#67](https://github.com/kerniger/leapmotor-ha/issues/67).
+  The distances are unaffected and stay.
+
+- With no energy in the rows, the `energy_complete` handling and its note have
+  nothing left to guard and are gone with it.
+
 ## [0.4.9] — 2026-09-12
 
 ### Added
