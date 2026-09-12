@@ -5,6 +5,33 @@ Every notable change to this project is recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.9] — 2026-09-12
+
+### Added
+
+- A per-day breakdown in the Trip sub-view, from the `daily_detail` attribute
+  that integration v0.7.0 exposes after
+  [kerniger/leapmotor-ha#67](https://github.com/kerniger/leapmotor-ha/issues/67).
+  One row per day — date, a bar scaled to the longest day of the period, then
+  distance and energy. The block does not render at all on integrations that
+  do not publish the attribute.
+
+### Changed
+
+- The distance row no longer says "Last 7 days". The cloud API returns eight
+  days on a real B10, so the card labels the period from the dates it actually
+  received rather than from the sensor's name. Nothing in the code, the styles
+  or the catalogs names a number of days any more, and a test fails if one
+  reappears.
+
+### Notes
+
+- No per-day consumption figure is shown. Daily energy arrives in whole
+  kilowatt-hours, so kWh/100 km on a short day would be quantization noise
+  presented as a fact.
+- When `energy_complete` is false the energy leaves every row and one line says
+  why, rather than eight dashes. Only a literal `true` is treated as a promise.
+
 ## [0.4.8] — 2026-09-04
 
 ### Added
