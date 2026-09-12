@@ -100,7 +100,7 @@ grid:
   - tires
   - group: trip
     icon: mdi:road-variant
-    summary: last7
+    summary: recentDays
 tire_range: [2.0, 2.6]
 range_tap_action:
   action: more-info
@@ -127,7 +127,7 @@ entities:
 | `status` | `lock`, `openings`, `trunk` |
 | `climate` | `interior`, `target`, `state` |
 | `tires` | `range`, `min`, `worst` |
-| `trip` | `odometer`, `last7`, `consumption` |
+| `trip` | `odometer`, `recentDays`, `consumption` |
 | `location` | `activity`, `zone`, `age` |
 
 The battery tile's default summary, `charge`, gives the percentage and the
@@ -221,6 +221,46 @@ when the car exposes no lock entity. While a service call is in flight it
 dims instead, as the action buttons do, so there is some sign that something
 is happening. When the lock state cannot be read at all, a tap offers to
 lock, never to open the car. This behaviour is fixed and has no option.
+
+## The per-day breakdown
+
+The Trip sub-view ends with one line per day: the date, a bar scaled to the
+longest day of the period, and the distance driven, with the energy spent
+next to it. It is the only block of that sub-view whose rows are the data
+itself rather than a fixed set of questions.
+
+**It needs [kerniger/leapmotor-ha](https://github.com/kerniger/leapmotor-ha)
+v0.7.0 or later.** The card reads the days from the `daily_detail` attribute
+of the seven-day sensors, and that attribute arrived in v0.7.0 — before it,
+the integration threw the daily rows away. On an older version the block
+simply does not appear: nothing else in the sub-view changes, and there is
+no warning about it, because it is not something an `entities:` override
+could fix.
+
+**The period is named from the dates that arrived, not from the sensor.**
+The sensors are called "last 7 days" and the cloud API has been observed
+answering with eight days on a real B10 — so the heading reads *Per day*,
+with the first and last date it actually received beside it, and no count of
+days anywhere. A block titled for seven days above eight bars would be the
+card contradicting the data it is drawing on the same screen. That is also
+why the *Recent days* row further up is no longer called "last 7 days": the
+total beside it covers whatever period the API decided to send. The upstream
+issue is
+[kerniger/leapmotor-ha#67](https://github.com/kerniger/leapmotor-ha/issues/67).
+
+**There is no per-day consumption figure, and there will not be.** The daily
+energy arrives in whole kilowatt-hours — the values observed are 1, 2, 3 —
+and one kilowatt-hour of rounding on an eleven-kilometer day moves a
+kWh/100 km result by nine units. The number would look like a measurement
+and be quantization noise. Consumption is a question the sub-view already
+answers over six weeks, where the rounding washes out. The energy shown per
+day carries no decimal for the same reason: `4 kWh` is what is known, and
+`4.0 kWh` would offer a tenth the source does not have.
+
+When the integration reports that some of the period's energy readings did
+not arrive, the energy disappears from every row at once and a single line
+under the block says so — it is one fact about the period, not eight
+separate absences. The distances are unaffected and stay.
 
 ## Entity overrides
 

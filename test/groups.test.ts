@@ -105,6 +105,15 @@ describe('resolveGrid — hand-written grid', () => {
     expect(resolveGrid(config, realMap()).groups[0]?.summary).toBe(GROUP_CATALOGUE.tires.summaries[0])
   })
 
+  it('maps the retired `last7` spelling onto the summary\'s current name', () => {
+    // `last7` shipped in a released card, so somebody's YAML says it. It
+    // resolves to `recentDays` in silence — no warning, because the name was
+    // ours and not their mistake — and the fallback to the group's default
+    // must never be what catches it.
+    const config: LeapmotorCardConfig = { ...CONFIG, grid: [{ group: 'trip', summary: 'last7' }] }
+    expect(resolveGrid(config, realMap()).groups[0]?.summary).toBe('recentDays')
+  })
+
   it('names an unknown group instead of silently ignoring it', () => {
     const config = { ...CONFIG, grid: ['tires', 'radio'] } as unknown as LeapmotorCardConfig
     const { groups, unknown } = resolveGrid(config, realMap())
@@ -340,6 +349,16 @@ describe('summaryFor — climate, tires, trip and location', () => {
 
   it('shows the odometer by default in the trip', () => {
     expect(summaryFor(group('trip'), realState(), t, 'en')).toMatch(/ km$/)
+  })
+
+  it('renders the same thing for `last7` as for the `recentDays` that replaced it', () => {
+    // The point of the alias is that nothing changes on screen for whoever
+    // already has the old name in their YAML. The `km` assertion is what
+    // keeps this from passing on two dashes if the summary ever stops
+    // resolving at all.
+    const current = summaryFor(group('trip', 'recentDays'), realState(), t, 'en')
+    expect(current).toMatch(/ km$/)
+    expect(summaryFor(group('trip', 'last7'), realState(), t, 'en')).toBe(current)
   })
 
   /*

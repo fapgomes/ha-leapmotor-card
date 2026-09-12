@@ -70,7 +70,14 @@ export const GROUP_CATALOGUE: Record<GroupId, GroupDef> = {
     id: 'trip',
     icon: 'mdi:road-variant',
     titleKey: 'group.trip',
-    summaries: ['odometer', 'last7', 'consumption'],
+    // `recentDays` and not the `last7` it was called until the sub-view
+    // started drawing the days it actually covers: the sensor behind it is
+    // named for seven days and the API has been observed answering with
+    // eight. The rendered value was never a lie — it is a bare `217 km`,
+    // with no period in it — but the name is public configuration, and it
+    // named a window the card cannot promise. `last7` still works, see
+    // `SUMMARY_ALIASES`.
+    summaries: ['odometer', 'recentDays', 'consumption'],
     panels: ['trip'],
     keys: [
       'odometer', 'last7DaysKm', 'avgConsumption6w', 'totalEnergy',
@@ -85,6 +92,22 @@ export const GROUP_CATALOGUE: Record<GroupId, GroupDef> = {
     panels: ['location'],
     keys: ['location'],
   },
+}
+
+/**
+ * Summary names the card once published, mapped onto the name the catalog
+ * carries today. A value here behaves exactly as the name it points at:
+ * `resolveGrid` swaps it before anything else looks at it, so there is one
+ * spelling downstream and no chance of the two drifting apart.
+ *
+ * **Silently, and with no deprecation warning.** These names were ours, not
+ * a mistake by whoever wrote them in their YAML, and a card that starts
+ * complaining about a configuration it told people to write is a card that
+ * punishes them for having followed the documentation. The old name simply
+ * keeps working; only the new one is documented.
+ */
+const SUMMARY_ALIASES: Readonly<Record<string, string | undefined>> = {
+  last7: 'recentDays',
 }
 
 /** The default grid order. */
@@ -138,8 +161,16 @@ export function resolveGrid(config: LeapmotorCardConfig, map: EntityMap): GridRe
     // See spec §5.6.
     if (!explicit && !def.keys.some(key => map[key] !== undefined)) continue
 
-    const summary = entry.summary !== undefined && def.summaries.includes(entry.summary)
-      ? entry.summary
+    // The alias is applied before the validation, and not after it: a
+    // retired name has to reach `def.summaries.includes` under its current
+    // spelling, or it would fail the check and fall back to the default —
+    // which is precisely the silent change of behavior the alias exists to
+    // prevent.
+    const wanted = entry.summary === undefined
+      ? undefined
+      : SUMMARY_ALIASES[entry.summary] ?? entry.summary
+    const summary = wanted !== undefined && def.summaries.includes(wanted)
+      ? wanted
       : def.summaries[0]!
 
     groups.push({
@@ -298,7 +329,7 @@ function tiresSummary(group: ResolvedGroup, state: VehicleState, t: TranslateFn)
 function tripSummary(group: ResolvedGroup, state: VehicleState): string {
   const { trip } = state
   switch (group.summary) {
-    case 'last7':
+    case 'recentDays':
       return trip.last7DaysKm === undefined ? DASH : `${formatNumber(trip.last7DaysKm)} km`
     case 'consumption':
       return trip.avgConsumption === undefined ? DASH : `${formatNumber(trip.avgConsumption, 1)} kWh/100 km`
