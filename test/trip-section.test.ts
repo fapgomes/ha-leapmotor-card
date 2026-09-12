@@ -11,11 +11,10 @@ import { EXPECTED_DAYS, REAL_NOW, REAL_SPECS, SEVEN_DAY_ATTRIBUTES } from './fix
  *
  * Until it existed, `src/sections/trip.ts` was loaded by nothing: replacing a
  * method header in it with syntax garbage still left the suite reporting all
- * green, and three of the rules this sub-view exists to keep — the energy
- * disappearing when the API says it is incomplete, no per-day consumption
- * figure ever, and no block at all when the car does not send the data — were
- * guarded by `tsc` and by nothing else. Five separate mutations of the render
- * path survived a full run.
+ * green, and three of the rules this sub-view exists to keep — no energy on a
+ * day's row, no per-day consumption figure ever, and no block at all when the
+ * car does not send the data — were guarded by `tsc` and by nothing else.
+ * Five separate mutations of the render path survived a full run.
  *
  * The suite runs on `environment: 'node'`, and it stays there: what this file
  * does is replace `lit` with a stub through `vi.mock`, which is vitest's own
@@ -81,7 +80,7 @@ function render(
   return flatten(panel.render())
 }
 
-/** The text of each day row, tags stripped: `Aug 26 99 km · 14 kWh`. */
+/** The text of each day row, tags stripped: `Aug 26 99 km`. */
 function dayRows(markup: string): string[] {
   return [...markup.matchAll(/<div class="day">([\s\S]*?)<\/div>/g)]
     .map(match => (match[1] ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim())
@@ -107,14 +106,14 @@ describe('leapmotor-trip — the per-day block', () => {
     // so by naming them, not by counting them.
     expect(markup).toContain(`<span class="unit">Aug 20${TO}27</span>`)
     expect(dayRows(markup)).toEqual([
-      'Aug 27 0 km · 0 kWh',
-      'Aug 26 99 km · 14 kWh',
-      'Aug 25 133 km · 19 kWh',
-      'Aug 24 47 km · 7 kWh',
-      'Aug 23 120 km · 25 kWh',
-      'Aug 22 88 km · 18 kWh',
-      'Aug 21 95 km · 20 kWh',
-      'Aug 20 60 km · 12 kWh',
+      'Aug 27 0 km',
+      'Aug 26 99 km',
+      'Aug 25 133 km',
+      'Aug 24 47 km',
+      'Aug 23 120 km',
+      'Aug 22 88 km',
+      'Aug 21 95 km',
+      'Aug 20 60 km',
     ])
   })
 
@@ -126,7 +125,7 @@ describe('leapmotor-trip — the per-day block', () => {
       { date: '2026-08-09', mileage_km: 20.0, energy_kwh: 4.0 },
     ] })
     expect(markup).toContain(`<span class="unit">Aug 1${TO}9</span>`)
-    expect(dayRows(markup)).toEqual(['Aug 9 20 km · 4 kWh', 'Aug 1 40 km · 8 kWh'])
+    expect(dayRows(markup)).toEqual(['Aug 9 20 km', 'Aug 1 40 km'])
   })
 
   it('scales every bar to the longest day of the period', () => {
@@ -148,21 +147,44 @@ describe('leapmotor-trip — the per-day block', () => {
     expect(markup).toContain('trip.heading_weekly')
   })
 
-  it('takes the energy off every row when the API says it is incomplete', () => {
-    const markup = render({ ...SEVEN_DAY_ATTRIBUTES, energy_complete: false })
+  it('writes a day as its distance and NOTHING else', () => {
+    /*
+     * The rows used to read `40 km · 5 kWh`, from `daily_detail`'s
+     * `energy_kwh`. Measured against the garage charger's meter over
+     * 2026-09-04 to 2026-09-12 — 217 km, 21.0 kWh claimed, 53.56 kWh
+     * delivered, the battery ending the window where it started — the field
+     * is about half of what the car used, by a fraction that varies from day
+     * to day, and nobody knows what it counts. It is asked upstream at
+     * kerniger/leapmotor-ha#67 and it is not on screen until it is answered.
+     *
+     * The fixture still SENDS the energy, byte for byte as the integration
+     * does, so this asserts the card dropping it and not the fixture lacking
+     * it. The whole block is checked and not just the rows: an energy
+     * anywhere under the heading is an energy the reader would read as the
+     * day's.
+     */
+    const markup = render()
     const rows = dayRows(markup)
     expect(rows).toHaveLength(8)
     for (const row of rows) {
-      expect(row, row).not.toContain('kWh')
       expect(row, row).toContain('km')
+      expect(row, row).not.toContain('kWh')
     }
-    // Said once, where it belongs, instead of eight dashes saying it eight
-    // times.
-    expect(markup).toContain('trip.energy_incomplete')
+    // The week's energy block, three headings up, is untouched by this and
+    // keeps its own kWh — so the search is for the day rows' own markup.
+    const block = markup.slice(markup.indexOf('trip.heading_daily'))
+    expect(block).not.toContain('kWh')
   })
 
-  it('does not say the energy is incomplete when it is not', () => {
-    expect(render()).not.toContain('trip.energy_incomplete')
+  it('shows no energy even when the API vouches for it', () => {
+    // `energy_complete` used to decide whether the kWh appeared. Nothing
+    // reads it now, and a `true` must not bring the number back.
+    for (const flag of [true, false, undefined]) {
+      const markup = render({ ...SEVEN_DAY_ATTRIBUTES, energy_complete: flag })
+      const block = markup.slice(markup.indexOf('trip.heading_daily'))
+      expect(block, String(flag)).not.toContain('kWh')
+      expect(dayRows(markup)[0], String(flag)).toBe('Aug 27 0 km')
+    }
   })
 
   it('never writes a consumption figure for a single day', () => {
@@ -184,7 +206,7 @@ describe('leapmotor-trip — the per-day block', () => {
     expect(dayRows(markup)).toEqual([
       'Aug 27 —',
       'Aug 26 —',
-      'Aug 25 133 km · 19 kWh',
+      'Aug 25 133 km',
     ])
     expect(barWidths(markup)).toEqual(['0.0', '0.0', '100.0'])
   })
@@ -197,7 +219,7 @@ describe('leapmotor-trip — the per-day block', () => {
       { date: '2026-08-27', mileage_km: 0.0, energy_kwh: 0.0 },
     ] })
     expect(barWidths(markup)).toEqual(['0.0', '0.0'])
-    expect(dayRows(markup)).toEqual(['Aug 27 0 km · 0 kWh', 'Aug 26 0 km · 0 kWh'])
+    expect(dayRows(markup)).toEqual(['Aug 27 0 km', 'Aug 26 0 km'])
   })
 
   it('labels the recent total without counting its days either', () => {
@@ -214,7 +236,7 @@ describe('leapmotor-trip — the per-day block', () => {
     const markup = render({ ...SEVEN_DAY_ATTRIBUTES, daily_detail: [
       { date: '2026-08-27', mileage_km: 12.0, energy_kwh: 2.0 },
     ] })
-    expect(dayRows(markup)).toEqual(['Aug 27 12 km · 2 kWh'])
+    expect(dayRows(markup)).toEqual(['Aug 27 12 km'])
     expect(barWidths(markup)).toEqual(['100.0'])
   })
 
@@ -226,7 +248,6 @@ describe('leapmotor-trip — the per-day block', () => {
         days: [{ date: 'nunca', distanceKm: 10 }],
         start: 'nunca',
         end: 'nunca',
-        energyComplete: true,
       }
     })
     expect(dayRows(markup)).toEqual(['— 10 km'])

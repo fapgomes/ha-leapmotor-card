@@ -225,9 +225,9 @@ lock, never to open the car. This behaviour is fixed and has no option.
 ## The per-day breakdown
 
 The Trip sub-view ends with one line per day: the date, a bar scaled to the
-longest day of the period, and the distance driven, with the energy spent
-next to it. It is the only block of that sub-view whose rows are the data
-itself rather than a fixed set of questions.
+longest day of the period, and the distance driven. It is the only block of
+that sub-view whose rows are the data itself rather than a fixed set of
+questions.
 
 **It needs [kerniger/leapmotor-ha](https://github.com/kerniger/leapmotor-ha)
 v0.7.0 or later.** The card reads the days from the `daily_detail` attribute
@@ -248,19 +248,39 @@ total beside it covers whatever period the API decided to send. The upstream
 issue is
 [kerniger/leapmotor-ha#67](https://github.com/kerniger/leapmotor-ha/issues/67).
 
-**There is no per-day consumption figure, and there will not be.** The daily
-energy arrives in whole kilowatt-hours — the values observed are 1, 2, 3 —
-and one kilowatt-hour of rounding on an eleven-kilometer day moves a
-kWh/100 km result by nine units. The number would look like a measurement
-and be quantization noise. Consumption is a question the sub-view already
-answers over six weeks, where the rounding washes out. The energy shown per
-day carries no decimal for the same reason: `4 kWh` is what is known, and
-`4.0 kWh` would offer a tenth the source does not have.
+**No energy is shown per day, and the card does not know what the number
+would mean.** Version 0.4.9 printed the `energy_kwh` that comes with each
+row, as `40 km · 5 kWh`. It was then checked against a meter. Over
+2026-09-04 to 2026-09-12 the car drove 217 km, for which `daily_detail`
+reported 21.0 kWh, while the garage charger delivered 53.56 kWh — and the
+battery began that window at 28.0 % and ended it at 27.3 %, so there is no
+stored energy hiding in the difference. Allowing for charging losses the car
+used something like 45–48 kWh, or 21–22 kWh/100 km, against the 9.7 the
+attribute implies. The car's own lifetime figure (17.9 kWh/100 km) and its
+six-week average sensor (19.3) both agree with the meter; only this field
+does not.
 
-When the integration reports that some of the period's energy readings did
-not arrive, the energy disappears from every row at once and a single line
-under the block says so — it is one fact about the period, not eight
-separate absences. The distances are unaffected and stay.
+The shortfall is not a constant, either: day by day the attribute is between
+36 % and 58 % of the measured value, so it is not a constant factor and not
+a unit mix-up. Traction-only energy, energy net of regeneration, rounding down
+to the whole kilowatt-hour and battery percentage were each checked and none
+of them fits. **What the field actually counts is an open question**, asked
+upstream at
+[kerniger/leapmotor-ha#67](https://github.com/kerniger/leapmotor-ha/issues/67),
+and until it has an answer the card will not put the number on screen as
+though it were the day's consumption. The distances are not in doubt and are
+unaffected, and neither is anything else in the sub-view: the weekly
+consumption series, the lifetime average, the six-week average and the
+driving/climate/other split are all consistent with the measurement and are
+all still shown.
+
+**There would be no per-day consumption figure in any case.** Even taking
+the daily energy at face value it arrives in whole kilowatt-hours — the
+values observed are 1, 2, 3 — and one kilowatt-hour of rounding on an
+eleven-kilometer day moves a kWh/100 km result by nine units. The number
+would look like a measurement and be quantization noise. Consumption is a
+question the sub-view already answers over six weeks, where the rounding
+washes out.
 
 ## Entity overrides
 

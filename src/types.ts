@@ -86,19 +86,26 @@ export interface WeeklyConsumption {
  * strings: they carry no time of day, and turning them into a `Date` here
  * would force this layer to pick a timezone.
  *
- * **The day is mandatory; both numbers are not.** A row nobody can date is
+ * **The day is mandatory; the distance is not.** A row nobody can date is
  * a bar with no name, and it does not become a row at all. A dated row with
- * one of the two numbers missing is still an honest row: the day is named,
- * and what is not known is written as such.
+ * no distance is still an honest row: the day is named, and what is not
+ * known is written as such.
  *
  * A zero is NOT an absence here, unlike in `WeeklyConsumption`: a day at
  * 0 km is a day the car did not move, which is a fact worth showing, where a
  * week at 0.0 kWh/100 km would have been an efficiency the car never had.
+ *
+ * **There is no energy on this row**, although `daily_detail` carries an
+ * `energy_kwh` for every day. Over a measured week that number came to about
+ * half of what a charger's meter delivered, by a fraction that varies from
+ * day to day, and the card does not know what it counts; `parseDailyDetail`
+ * in `vehicle-state.ts` drops it at the boundary and carries the measurement
+ * that says why. Nothing downstream can show it because nothing downstream
+ * is given it.
  */
 export interface TripDay {
   date: string
   distanceKm?: number
-  energyKwh?: number
 }
 
 /**
@@ -112,18 +119,12 @@ export interface TripDay {
  * name is the one it is holding. They are stored, rather than left for the
  * section to pick off the ends of the array, so that the guarantee that
  * `days` is sorted lives on this side of the boundary.
- *
- * `energyComplete` mirrors the attribute of the same name: it is the API
- * telling the card that some of the period's energy readings did not arrive.
- * It is false whenever the attribute is missing or is not exactly `true` —
- * silence is not a promise of completeness.
  */
 export interface DailyBreakdown {
   /** Ascending, oldest day first. Never empty. */
   days: TripDay[]
   start: string
   end: string
-  energyComplete: boolean
 }
 
 /** A slice of the week's energy: the kWh and the percentage it is worth. */

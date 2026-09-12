@@ -281,9 +281,8 @@ export function parseWeeklyConsumption(value: unknown): WeeklyConsumption[] {
 }
 
 /**
- * A non-negative reading, or nothing. Shared by both numbers of a daily row:
- * a negative distance or a negative energy is not a smaller value, it is a
- * value that did not survive the trip through the API.
+ * A non-negative reading, or nothing. A negative distance is not a smaller
+ * value, it is a value that did not survive the trip through the API.
  */
 function nonNegative(value: unknown): number | undefined {
   const n = coerceNumber(value)
@@ -301,7 +300,7 @@ function nonNegative(value: unknown): number | undefined {
  *
  *  - **With no readable day, the row is DROPPED.** It cannot be labeled, and
  *    an unlabeled bar in a series of days is worse than one bar fewer.
- *  - **With a day and no numbers, the row STAYS**, with each missing number
+ *  - **With a day and no distance, the row STAYS**, with the missing number
  *    as `undefined`. It is the section that writes the absence, and nothing
  *    downstream may read an absent number as a zero.
  *  - **A day already seen is DROPPED**, the first row for it winning. Two
@@ -322,6 +321,24 @@ function nonNegative(value: unknown): number | undefined {
  * The block shows the days it has and claims nothing about the ones it does
  * not; because it displays no total, a missing row corrupts no figure on
  * screen. Surfacing the count would add a warning with no remedy.
+ *
+ * **The rows also carry an `energy_kwh`, and it is dropped here on purpose.
+ * Do not read it back in.** Measured on the car this card is built against,
+ * over 2026-09-04 to 2026-09-12: 217 km driven, for which `daily_detail`
+ * reports 21.0 kWh, while the garage charger's own meter delivered
+ * 53.56 kWh — with the battery at 28.0 % at the start of the window and
+ * 27.3 % at the end, so nothing of consequence was left stored. Net of
+ * charging losses the car used some 45–48 kWh, about 21–22 kWh/100 km,
+ * against the 9.7 the attribute implies. The car's own lifetime figure
+ * (17.9) and its six-week average sensor (19.3) both sit next to the
+ * measurement; only this field is out. The per-day shortfall runs from 36 %
+ * to 58 % of the measured value, so it is not a scale factor and not a unit:
+ * traction-only energy, energy net of regeneration, integer truncation and
+ * battery percentage were each ruled out by arithmetic. What the field
+ * actually counts is unknown, and it is asked upstream at
+ * https://github.com/kerniger/leapmotor-ha/issues/67. Until there is an
+ * answer the card will not print it, and it does not keep it either: a
+ * parsed field is an invitation to render it.
  */
 export function parseDailyDetail(value: unknown): TripDay[] {
   if (!Array.isArray(value)) return []
@@ -330,14 +347,13 @@ export function parseDailyDetail(value: unknown): TripDay[] {
   const seen = new Set<string>()
   for (const entry of value as unknown[]) {
     if (entry === null || typeof entry !== 'object') continue
-    const { date: day, mileage_km: distance, energy_kwh: energy } = entry as Record<string, unknown>
+    const { date: day, mileage_km: distance } = entry as Record<string, unknown>
     if (!isCalendarDay(day) || seen.has(day)) continue
     seen.add(day)
 
     days.push({
       date: day,
       distanceKm: nonNegative(distance),
-      energyKwh: nonNegative(energy),
     })
   }
   return days.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
@@ -352,8 +368,7 @@ export function parseDailyDetail(value: unknown): TripDay[] {
  * an unavailable entity with its extra attributes stripped — not kept, not
  * sometimes kept: the rows are gone from that sensor entirely. Asking it
  * first would mean the whole block disappearing exactly when the card has a
- * complete set of distances to show and one honest sentence to say about the
- * energy.
+ * complete set of distances to draw — and distances are all it draws.
  *
  * The fallback to the energy sensor is therefore NOT for that case, which it
  * could not rescue. It is for the reader who mapped `entities:` by hand and
@@ -364,8 +379,11 @@ const DAILY_DETAIL_KEYS: readonly LogicalKey[] = ['last7DaysKm', 'last7DaysEnerg
 
 /**
  * The per-day breakdown, from the first of the two sensors holding rows that
- * read. `energy_complete` is taken from that SAME sensor and not from
- * whichever answers first: the flag qualifies the rows it travels with.
+ * read.
+ *
+ * The `energy_complete` attribute that travels with those rows is not read:
+ * it qualifies an energy the card no longer shows, and a flag about a number
+ * nobody prints has nothing to say. See `parseDailyDetail` above.
  */
 function buildDailyBreakdown(hass: HomeAssistant, map: EntityMap): DailyBreakdown | undefined {
   for (const key of DAILY_DETAIL_KEYS) {
@@ -375,7 +393,6 @@ function buildDailyBreakdown(hass: HomeAssistant, map: EntityMap): DailyBreakdow
       days,
       start: days[0].date,
       end: days[days.length - 1].date,
-      energyComplete: attr<unknown>(hass, map, key, 'energy_complete') === true,
     }
   }
   return undefined

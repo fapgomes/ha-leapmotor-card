@@ -31,7 +31,11 @@ const M = 'leapmotor_b10_000000_main'
  *    drops to zero is impossible, and it is what the API sends for the day
  *    still in progress. The card does not read `odometer_km`, and the row
  *    still counts as a genuine day at 0 km.
- *  - **Energy in whole kilowatt-hours.** Never a tenth, on any day.
+ *  - **Energy in whole kilowatt-hours.** Never a tenth, on any day. The
+ *    card no longer reads `energy_kwh` at all — see `parseDailyDetail` — and
+ *    it stays in the payload precisely because this fixture is what the
+ *    integration sends, not what the card keeps: the parser dropping it is
+ *    asserted against these rows.
  *
  * What these numbers are answerable to, since a fixture nobody can check is
  * a fixture that drifts:
@@ -71,26 +75,29 @@ const DAILY_DETAIL = [
 
 /**
  * The same eight days as the card ends up holding them, once the parser has
- * had them: the day, the distance and the energy, and nothing else —
- * `odometer_km`, `mileage_mi` and `timestamp` are dropped on the way in
+ * had them: the day and the distance, and nothing else — `odometer_km`,
+ * `mileage_mi`, `timestamp` and `energy_kwh` are all dropped on the way in
  * because the card has no use for them, and a structure carrying them would
- * invite one.
+ * invite one. The energy is dropped for a reason of its own, which
+ * `parseDailyDetail` in `src/vehicle-state.ts` sets out: over a measured week
+ * it came to about half of what a charger's meter delivered, and nobody
+ * knows what it counts.
  *
  * It lives beside the payload it is the projection of, so that a change to
  * one is made in sight of the other, and it is shared by the parser's tests
  * and the section's.
  */
 export const EXPECTED_DAYS = [
-  { date: '2026-08-20', distanceKm: 60, energyKwh: 12 },
-  { date: '2026-08-21', distanceKm: 95, energyKwh: 20 },
-  { date: '2026-08-22', distanceKm: 88, energyKwh: 18 },
-  { date: '2026-08-23', distanceKm: 120, energyKwh: 25 },
-  { date: '2026-08-24', distanceKm: 47, energyKwh: 7 },
-  { date: '2026-08-25', distanceKm: 133, energyKwh: 19 },
-  { date: '2026-08-26', distanceKm: 99, energyKwh: 14 },
+  { date: '2026-08-20', distanceKm: 60 },
+  { date: '2026-08-21', distanceKm: 95 },
+  { date: '2026-08-22', distanceKm: 88 },
+  { date: '2026-08-23', distanceKm: 120 },
+  { date: '2026-08-24', distanceKm: 47 },
+  { date: '2026-08-25', distanceKm: 133 },
+  { date: '2026-08-26', distanceKm: 99 },
   // The day still in progress, which the API sends zeroed. A day at 0 km is
   // a day, and it keeps its place in the period.
-  { date: '2026-08-27', distanceKm: 0, energyKwh: 0 },
+  { date: '2026-08-27', distanceKm: 0 },
 ]
 
 /** The attribute block both seven-day sensors publish, byte for byte. */

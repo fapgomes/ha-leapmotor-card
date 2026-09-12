@@ -132,34 +132,35 @@ export class LeapmotorTrip extends LitElement {
   }
 
   /**
-   * One day's numbers, written on the right of its bar.
+   * One day's distance, written on the right of its bar. A day with no
+   * distance reported gets the card's dash, which is what "not known" looks
+   * like everywhere else in this sub-view.
    *
-   * The energy carries NO decimal, and that is the whole point of the
-   * choice: the API's granularity here is the whole kilowatt-hour — the
-   * observed values are 1.0, 2.0, 3.0 — and `4.0 kWh` would offer a tenth
-   * the source does not have. `4 kWh` says exactly what is known.
+   * **A day's ENERGY is deliberately not here, and must not come back.** The
+   * `daily_detail` rows carry an `energy_kwh` and the card used to print it
+   * beside the distance, until a week of it was checked against a meter: 217
+   * km over 2026-09-04 to 2026-09-12 for which the attribute reported
+   * 21.0 kWh, where the charger delivered 53.56 kWh into a battery that
+   * started the window at 28.0 % and ended it at 27.3 %. That is roughly
+   * half of what the car actually used, the shortfall is not a constant
+   * fraction, and nobody knows what the field counts — the question is open
+   * upstream at
+   * https://github.com/kerniger/leapmotor-ha/issues/67. `parseDailyDetail`
+   * in `vehicle-state.ts` therefore drops it, and a `TripDay` has no energy
+   * to render even if this method wanted one.
    *
-   * There is no kWh/100 km per day either, and there will not be. One
-   * kilowatt-hour of rounding on an eleven-kilometer day moves the result by
-   * nine units; the number would look like a measurement and be noise.
-   * Consumption is a question this sub-view already answers over six weeks,
-   * where the rounding washes out.
-   *
-   * `showEnergy` is false for a period whose energy the API says is
-   * incomplete. The energy then disappears from every row instead of being
-   * dashed in each one: it is one fact about the period, not eight absences,
-   * and the note under the block is where it gets said. The distances are
-   * untouched by it and stay.
+   * There is no kWh/100 km per day either, and there will not be, even if
+   * the energy is one day vindicated: one kilowatt-hour of rounding on an
+   * eleven-kilometer day moves the result by nine units; the number would
+   * look like a measurement and be noise. Consumption is a question this
+   * sub-view already answers over six weeks, where the rounding washes out.
    */
-  private dayValue(day: TripDay, showEnergy: boolean): string {
-    const parts: string[] = []
-    if (day.distanceKm !== undefined) parts.push(`${formatNumber(day.distanceKm)} km`)
-    if (showEnergy && day.energyKwh !== undefined) parts.push(`${formatNumber(day.energyKwh)} kWh`)
-    return this.joined(parts)
+  private dayValue(day: TripDay): string {
+    return day.distanceKm !== undefined ? `${formatNumber(day.distanceKm)} km` : DASH
   }
 
   /**
-   * A day's row: the date, a bar, and the numbers.
+   * A day's row: the date, a bar, and the distance.
    *
    * The bar is scaled to the LARGEST distance in the period and not to a
    * fixed ceiling, because there is no meaningful ceiling for a day's
@@ -169,7 +170,7 @@ export class LeapmotorTrip extends LitElement {
    * text next to it is what says so — the bar never speaks on its own, which
    * is also why it is hidden from assistive technology.
    */
-  private dayRow(day: TripDay, showEnergy: boolean, maxKm: number) {
+  private dayRow(day: TripDay, maxKm: number) {
     const km = day.distanceKm
     // One decimal is plenty for a width in percent, and it keeps a
     // 93.33333333333333% out of the DOM of every row.
@@ -177,7 +178,7 @@ export class LeapmotorTrip extends LitElement {
     return html`<div class="day">
       <span class="muted">${formatCalendarDay(day.date, this.language) ?? DASH}</span>
       <span class="bar" aria-hidden="true"><span class="fill" style="width:${width}%"></span></span>
-      <span class="value">${this.dayValue(day, showEnergy)}</span>
+      <span class="value">${this.dayValue(day)}</span>
     </div>`
   }
 
@@ -196,9 +197,9 @@ export class LeapmotorTrip extends LitElement {
    * one that does not go through `text-transform: uppercase`, which would
    * otherwise mangle the month's abbreviation.
    *
-   * Rendered by hand instead of through `sections()` for two reasons its
-   * `Row` cannot express: the bar, and the note at the foot. Same headings
-   * and the same spacing, so it reads as another block of the same sub-view.
+   * Rendered by hand instead of through `sections()` for the one reason its
+   * `Row` cannot express: the bar. Same headings and the same spacing, so it
+   * reads as another block of the same sub-view.
    *
    * Absent data, absent block — the rule the weekly series already follows,
    * and for the same reason: these rows ARE the data, so with no data there
@@ -220,10 +221,7 @@ export class LeapmotorTrip extends LitElement {
         <span>${this.t('trip.heading_daily')}</span>
         ${period !== undefined ? html`<span class="unit">${period}</span>` : nothing}
       </div>
-      ${newestFirst.map(day => this.dayRow(day, daily.energyComplete, maxKm))}
-      ${daily.energyComplete
-        ? nothing
-        : html`<div class="note muted">${this.t('trip.energy_incomplete')}</div>`}
+      ${newestFirst.map(day => this.dayRow(day, maxKm))}
     `
   }
 
@@ -402,7 +400,6 @@ export class LeapmotorTrip extends LitElement {
      * beside it.
      */
     .bar .fill { display: block; height: 100%; border-radius: 999px; background: var(--lm-muted); }
-    .note { font-size: 0.75rem; margin-top: 6px; }
   `]
 }
 

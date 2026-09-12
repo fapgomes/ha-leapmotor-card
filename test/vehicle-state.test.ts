@@ -332,7 +332,6 @@ describe('buildVehicleState — tires, trip, comfort, schedule', () => {
         days: EXPECTED_DAYS,
         start: '2026-08-20',
         end: '2026-08-27',
-        energyComplete: true,
       },
     })
   })
@@ -684,11 +683,26 @@ describe('parseDailyDetail', () => {
     expect(days).toEqual(EXPECTED_DAYS)
   })
 
-  it('keeps only the three fields the card uses', () => {
+  it('keeps only the two fields the card uses', () => {
     // Not decoration: `odometer_km` comes as 0.0 on the day in progress, and
     // anything downstream that could reach it could draw a car whose
-    // odometer went back to zero.
-    expect(Object.keys(parseDailyDetail([ROW])[0])).toEqual(['date', 'distanceKm', 'energyKwh'])
+    // odometer went back to zero. `energy_kwh` is dropped for a reason of
+    // its own — see `parseDailyDetail` — and a row that still carried it
+    // would be a row a section could print.
+    expect(Object.keys(parseDailyDetail([ROW])[0])).toEqual(['date', 'distanceKm'])
+  })
+
+  it('drops the energy of every row, whatever it says', () => {
+    // The measurement behind this is in the parser's own comment: the field
+    // reports about half of what a meter measured, over a window in which
+    // the battery ended where it started. It is not shown, so it is not kept.
+    const days = parseDailyDetail(SEVEN_DAY_ATTRIBUTES.daily_detail)
+    expect(days).toHaveLength(8)
+    for (const day of days) {
+      // Every row of the real payload carries an `energy_kwh`, and none of
+      // the parsed rows carries anything but these two names.
+      expect(Object.keys(day), day.date).toEqual(['date', 'distanceKm'])
+    }
   })
 
   it('sorts oldest first, whatever order the rows arrive in', () => {
@@ -707,12 +721,12 @@ describe('parseDailyDetail', () => {
     for (const broken of [{}, { date: '' }, { date: 'segunda' }, { date: 42 }, null, 'row', undefined]) {
       const days = parseDailyDetail([broken, ROW])
       expect(days, JSON.stringify(broken) ?? 'undefined').toEqual([
-        { date: '2026-08-26', distanceKm: 99, energyKwh: 14 },
+        { date: '2026-08-26', distanceKm: 99 },
       ])
     }
   })
 
-  it('keeps a dated row whose numbers are missing, as absences and NOT as zeros', () => {
+  it('keeps a dated row whose distance is missing, as an absence and NOT as a zero', () => {
     // This is the row that must never be summed as a zero: the car did not
     // report, which is not the same as the car not having driven.
     expect(parseDailyDetail([
@@ -720,9 +734,9 @@ describe('parseDailyDetail', () => {
       { date: '2026-08-27', mileage_km: 12.0 },
       { date: '2026-08-28' },
     ])).toEqual([
-      { date: '2026-08-26', distanceKm: undefined, energyKwh: 20 },
-      { date: '2026-08-27', distanceKm: 12, energyKwh: undefined },
-      { date: '2026-08-28', distanceKm: undefined, energyKwh: undefined },
+      { date: '2026-08-26', distanceKm: undefined },
+      { date: '2026-08-27', distanceKm: 12 },
+      { date: '2026-08-28', distanceKm: undefined },
     ])
   })
 
@@ -730,13 +744,13 @@ describe('parseDailyDetail', () => {
     // In the weekly series the SAME object sends `hundredKmEC` as a number
     // and `hundredMiKwhEC` as text. Nothing promises this block is different.
     expect(parseDailyDetail([{ ...ROW, mileage_km: '99.0', energy_kwh: '14' }])).toEqual([
-      { date: '2026-08-26', distanceKm: 99, energyKwh: 14 },
+      { date: '2026-08-26', distanceKm: 99 },
     ])
   })
 
   it('treats an unreadable or negative number as an absence', () => {
     expect(parseDailyDetail([{ ...ROW, mileage_km: -99, energy_kwh: 'vinte' }])).toEqual([
-      { date: '2026-08-26', distanceKm: undefined, energyKwh: undefined },
+      { date: '2026-08-26', distanceKm: undefined },
     ])
   })
 
@@ -745,16 +759,16 @@ describe('parseDailyDetail', () => {
     // day the car did not move, a fact worth a row, where 0.0 kWh/100 km
     // would have been an efficiency the car never had.
     expect(parseDailyDetail([{ ...ROW, mileage_km: 0, energy_kwh: 0 }])).toEqual([
-      { date: '2026-08-26', distanceKm: 0, energyKwh: 0 },
+      { date: '2026-08-26', distanceKm: 0 },
     ])
   })
 
   it('a blank reading is an absence, NOT a day the car did not move', () => {
     // `Number('')` and `Number('   ')` are both 0, which would have put
-    // `0 km · 0 kWh` on screen for a day the car never reported. The zero
-    // this block does keep is a zero the API actually sent.
+    // `0 km` on screen for a day the car never reported. The zero this block
+    // does keep is a zero the API actually sent.
     expect(parseDailyDetail([{ date: '2026-08-26', mileage_km: '', energy_kwh: '   ' }])).toEqual([
-      { date: '2026-08-26', distanceKm: undefined, energyKwh: undefined },
+      { date: '2026-08-26', distanceKm: undefined },
     ])
   })
 
@@ -776,8 +790,8 @@ describe('parseDailyDetail', () => {
       { date: '2026-08-26', mileage_km: 5.0, energy_kwh: 1.0 },
       { date: '2026-08-27', mileage_km: 0.0, energy_kwh: 0.0 },
     ])).toEqual([
-      { date: '2026-08-26', distanceKm: 99, energyKwh: 14 },
-      { date: '2026-08-27', distanceKm: 0, energyKwh: 0 },
+      { date: '2026-08-26', distanceKm: 99 },
+      { date: '2026-08-27', distanceKm: 0 },
     ])
   })
 
@@ -814,15 +828,13 @@ describe('buildVehicleState — daily breakdown', () => {
     expect(daily?.days).toHaveLength(8)
     expect(daily?.start).toBe('2026-08-20')
     expect(daily?.end).toBe('2026-08-27')
-    expect(daily?.energyComplete).toBe(true)
   })
 
-  it('the days add up to the totals the two sensors report', () => {
-    // The breakdown is the sensor states taken apart, and if it stops adding
-    // up to them the card is showing two versions of the same week.
+  it('the days add up to the total the distance sensor reports', () => {
+    // The breakdown is the sensor state taken apart, and if it stops adding
+    // up to it the card is showing two versions of the same week.
     const days = build().trip.dailyBreakdown?.days ?? []
     expect(days.reduce((sum, day) => sum + (day.distanceKm ?? 0), 0)).toBe(642)
-    expect(days.reduce((sum, day) => sum + (day.energyKwh ?? 0), 0)).toBe(115)
   })
 
   it('is undefined when the integration publishes no such attribute', () => {
@@ -837,42 +849,25 @@ describe('buildVehicleState — daily breakdown', () => {
     expect(trip({ daily_detail: [{ mileage_km: 99 }] }).dailyBreakdown).toBeUndefined()
   })
 
-  it('with energy_complete false, keeps every day and says the energy is doubtful', () => {
-    // The integration makes the energy SENSOR unavailable in this case, and
-    // the rows keep coming. The distances are unaffected by it, so they stay;
-    // it is the flag that tells the section not to present the kWh as facts.
-    const daily = trip({ ...SEVEN_DAY_ATTRIBUTES, energy_complete: false }).dailyBreakdown
-    expect(daily?.energyComplete).toBe(false)
-    expect(daily?.days).toHaveLength(8)
-    expect(daily?.days[0].distanceKm).toBe(60)
-  })
-
-  it('treats a missing or non-boolean energy_complete as not complete', () => {
-    // Silence is not a promise. Anything short of a literal `true` leaves the
-    // card saying it is not sure, which costs a line of text and no data.
-    const { energy_complete: _dropped, ...withoutFlag } = SEVEN_DAY_ATTRIBUTES
-    expect(trip(withoutFlag).dailyBreakdown?.energyComplete).toBe(false)
-    expect(trip({ ...SEVEN_DAY_ATTRIBUTES, energy_complete: 'true' }).dailyBreakdown?.energyComplete).toBe(false)
+  it('ignores energy_complete, whatever it says', () => {
+    // The flag exists to qualify an energy the card does not print, so it
+    // changes nothing: the distances stand or fall on their own, and there is
+    // no longer a sentence about the energy for it to switch on.
+    for (const flag of [false, 'true', undefined]) {
+      const daily = trip({ ...SEVEN_DAY_ATTRIBUTES, energy_complete: flag }).dailyBreakdown
+      expect(daily?.days, String(flag)).toHaveLength(8)
+      expect(daily?.days[0].distanceKm, String(flag)).toBe(60)
+      expect(Object.keys(daily ?? {}), String(flag)).toEqual(['days', 'start', 'end'])
+    }
   })
 
   it('falls back to the energy sensor when the distance one carries no rows', () => {
     // Both publish the same block, and whoever mapped `entities:` by hand may
     // have only one of the two pointing anywhere useful.
-    const daily = trip(undefined, SEVEN_DAY_ATTRIBUTES).dailyBreakdown
-    expect(daily?.days).toHaveLength(8)
-    expect(daily?.energyComplete).toBe(true)
-  })
-
-  it('takes energy_complete from the SAME sensor the rows came from', () => {
-    // The flag qualifies the rows it travels with. Reading it from the first
-    // sensor that happens to have one would let an empty sensor vouch for
-    // another sensor's data.
-    const daily = trip(
-      { energy_complete: true },
-      { ...SEVEN_DAY_ATTRIBUTES, energy_complete: false },
-    ).dailyBreakdown
-    expect(daily?.days).toHaveLength(8)
-    expect(daily?.energyComplete).toBe(false)
+    expect(trip(undefined, SEVEN_DAY_ATTRIBUTES).dailyBreakdown?.days).toHaveLength(8)
+    // Same fallback when the distance sensor answers with attributes that
+    // hold no rows at all, which is the case that made the loop a loop.
+    expect(trip({ detail_days: 8 }, SEVEN_DAY_ATTRIBUTES).dailyBreakdown?.days).toHaveLength(8)
   })
 
   it('a malformed row costs its own row and nothing else', () => {
