@@ -16,6 +16,51 @@ export const REAL_NOW = new Date('2026-08-27T13:36:00+00:00')
 const P = 'leapmotor_b10_000000_demo'
 const M = 'leapmotor_b10_000000_main'
 
+/**
+ * The per-day breakdown behind the two seven-day sensors, which BOTH carry
+ * this same block of attributes — the repetition is the integration's, and
+ * it is what lets the card read the rows from whichever of the two it has.
+ *
+ * Three properties of the real payload are reproduced deliberately, because
+ * they are what the card has to survive:
+ *
+ *  - **EIGHT days on a sensor named for seven.** The API decides the length
+ *    of the period, and on the real car it answered with eight. Anything in
+ *    the card that assumes seven has to fail against this fixture.
+ *  - **The last day comes in zeroed**, odometer included — an odometer that
+ *    drops to zero is impossible, and it is what the API sends for the day
+ *    still in progress. The card does not read `odometer_km`, and the row
+ *    still counts as a genuine day at 0 km.
+ *  - **Energy in whole kilowatt-hours.** Never a tenth, on any day.
+ *
+ * The numbers hold together with the rest of the fixture, so a test that
+ * sums them is testing something: the distances add up to the 642 km of
+ * `last_7_days_mileage_km`, the energies to the 127.0 kWh of
+ * `last_7_days_energy_kwh`, and the running odometer arrives at the 659 km
+ * of `odometer_km`. 127 kWh over 642 km is 19.8 kWh/100 km, next to the
+ * 19.9 the lifetime totals give.
+ */
+const DAILY_DETAIL = [
+  { date: '2026-08-20', timestamp: 1787184000000, odometer_km: 77.0, mileage_km: 60.0, mileage_mi: 37.3, energy_kwh: 12.0 },
+  { date: '2026-08-21', timestamp: 1787270400000, odometer_km: 172.0, mileage_km: 95.0, mileage_mi: 59.0, energy_kwh: 19.0 },
+  { date: '2026-08-22', timestamp: 1787356800000, odometer_km: 260.0, mileage_km: 88.0, mileage_mi: 54.7, energy_kwh: 17.0 },
+  { date: '2026-08-23', timestamp: 1787443200000, odometer_km: 380.0, mileage_km: 120.0, mileage_mi: 74.6, energy_kwh: 24.0 },
+  { date: '2026-08-24', timestamp: 1787529600000, odometer_km: 427.0, mileage_km: 47.0, mileage_mi: 29.2, energy_kwh: 9.0 },
+  { date: '2026-08-25', timestamp: 1787616000000, odometer_km: 560.0, mileage_km: 133.0, mileage_mi: 82.6, energy_kwh: 26.0 },
+  { date: '2026-08-26', timestamp: 1787702400000, odometer_km: 659.0, mileage_km: 99.0, mileage_mi: 61.5, energy_kwh: 20.0 },
+  { date: '2026-08-27', timestamp: 1787788800000, odometer_km: 0.0, mileage_km: 0.0, mileage_mi: 0.0, energy_kwh: 0.0 },
+]
+
+/** The attribute block both seven-day sensors publish, byte for byte. */
+export const SEVEN_DAY_ATTRIBUTES = {
+  daily_detail: DAILY_DETAIL,
+  energy_complete: true,
+  detail_days: 8,
+  detail_mileage_km: 642.0,
+  covered_mileage_km: 642.0,
+  period_mileage_km: 642.0,
+}
+
 export const REAL_SPECS: FakeEntitySpec[] = [
   { key: 'sensor/battery_percent', entity_id: `sensor.${P}_battery`, state: '60', unit: '%' },
   { key: 'sensor/battery_percent_precise', entity_id: `sensor.${P}_precise_battery`, state: '60.3', unit: '%' },
@@ -96,7 +141,8 @@ export const REAL_SPECS: FakeEntitySpec[] = [
 
   { key: 'sensor/odometer_km', entity_id: `sensor.${P}_odometer`, state: '659', unit: 'km' },
   { key: 'sensor/total_mileage_km', entity_id: `sensor.${P}_total_mileage`, state: '661', unit: 'km' },
-  { key: 'sensor/last_7_days_mileage_km', entity_id: `sensor.${P}_last_7_days_mileage`, state: '642', unit: 'km' },
+  { key: 'sensor/last_7_days_mileage_km', entity_id: `sensor.${P}_last_7_days_mileage`, state: '642', unit: 'km', attributes: SEVEN_DAY_ATTRIBUTES },
+  { key: 'sensor/last_7_days_energy_kwh', entity_id: `sensor.${P}_last_7_days_energy`, state: '127.0', unit: 'kWh', attributes: SEVEN_DAY_ATTRIBUTES },
   {
     key: 'sensor/average_consumption_6w_kwh_100km',
     entity_id: `sensor.${P}_6_week_average_consumption_kwh_100_km`,

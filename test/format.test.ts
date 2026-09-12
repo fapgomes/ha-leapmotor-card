@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  areDoorsUnknown, areOpeningsUnknown, areWindowsUnknown, formatAgo, formatNumber, formatUpdated,
-  formatWeekRange,
+  areDoorsUnknown, areOpeningsUnknown, areWindowsUnknown, formatAgo, formatCalendarDay,
+  formatDayRange, formatNumber, formatUpdated,
 } from '../src/format'
 import { createTranslator } from '../src/localize'
 
@@ -83,7 +83,7 @@ describe('areOpeningsUnknown', () => {
   })
 })
 
-describe('formatWeekRange', () => {
+describe('formatDayRange', () => {
   /*
    * The separator that `Intl` puts between the two ends of a range is NOT a
    * hyphen between spaces: it's a short dash (U+2013) between two thin spaces
@@ -96,15 +96,15 @@ describe('formatWeekRange', () => {
     // `formatRange` is what knows how to do this: two dates formatted
     // separately and glued together gave "24 de ago. – 30 de ago.", with an
     // extra month.
-    expect(formatWeekRange('2026-08-24', '2026-08-30', 'pt')).toBe(`24${TO}30 de ago.`)
+    expect(formatDayRange('2026-08-24', '2026-08-30', 'pt')).toBe(`24${TO}30 de ago.`)
   })
 
   it('collapses the repeated month in English, in the language\'s own order', () => {
-    expect(formatWeekRange('2026-08-24', '2026-08-30', 'en')).toBe(`Aug 24${TO}30`)
+    expect(formatDayRange('2026-08-24', '2026-08-30', 'en')).toBe(`Aug 24${TO}30`)
   })
 
   it('writes both months when the week spans them', () => {
-    expect(formatWeekRange('2026-07-27', '2026-08-02', 'pt')).toBe(`27 de jul.${TO}2 de ago.`)
+    expect(formatDayRange('2026-07-27', '2026-08-02', 'pt')).toBe(`27 de jul.${TO}2 de ago.`)
   })
 
   it('names the days the API sent, without rolling them back', () => {
@@ -112,16 +112,41 @@ describe('formatWeekRange', () => {
      * There is no test that forces a timezone mid-process — `npm test` pins
      * `TZ=UTC` and `Intl` keeps the resolved timezone — so what is verified
      * here is the consequence: day 1 shows up as 1. In a timezone west of
-     * Greenwich, and without the `timeZone: 'UTC'` in `formatWeekRange`, the
+     * Greenwich, and without the `timeZone: 'UTC'` in `formatDayRange`, the
      * UTC midnight that `Date` derives from `2026-08-01` would roll back to
      * July 31, and the whole week would show up shifted by one day.
      */
-    expect(formatWeekRange('2026-08-01', '2026-08-07', 'pt')).toBe(`1${TO}7 de ago.`)
+    expect(formatDayRange('2026-08-01', '2026-08-07', 'pt')).toBe(`1${TO}7 de ago.`)
   })
 
   it('returns undefined when one of the dates cannot be parsed', () => {
     // The caller labels it with no period instead of writing "Invalid Date".
-    expect(formatWeekRange('semana', '2026-08-30', 'pt')).toBeUndefined()
-    expect(formatWeekRange('2026-08-24', '', 'pt')).toBeUndefined()
+    expect(formatDayRange('semana', '2026-08-30', 'pt')).toBeUndefined()
+    expect(formatDayRange('2026-08-24', '', 'pt')).toBeUndefined()
+  })
+
+  it('writes a period of eight days without counting them', () => {
+    // Nothing here says "week". The per-day breakdown labels its block with
+    // this, and the API sent it eight days on a sensor named for seven.
+    expect(formatDayRange('2026-08-20', '2026-08-27', 'pt')).toBe(`20${TO}27 de ago.`)
+    expect(formatDayRange('2026-08-20', '2026-08-27', 'en')).toBe(`Aug 20${TO}27`)
+  })
+})
+
+describe('formatCalendarDay', () => {
+  it('writes one day on the same scale as the range, in each language', () => {
+    expect(formatCalendarDay('2026-08-26', 'pt')).toBe('26 de ago.')
+    expect(formatCalendarDay('2026-08-26', 'en')).toBe('Aug 26')
+  })
+
+  it('names the day the API sent, without rolling it back', () => {
+    // Same reason as the range above: `2026-08-01` is midnight UTC, and west
+    // of Greenwich a reader would otherwise be shown July 31.
+    expect(formatCalendarDay('2026-08-01', 'pt')).toBe('01 de ago.')
+  })
+
+  it('returns undefined for a day that cannot be read', () => {
+    expect(formatCalendarDay('ontem', 'pt')).toBeUndefined()
+    expect(formatCalendarDay('', 'pt')).toBeUndefined()
   })
 })

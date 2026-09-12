@@ -1,9 +1,9 @@
 import { LitElement, css, html, nothing } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
-import { formatNumber, formatWeekRange } from '../format'
+import { formatCalendarDay, formatDayRange, formatNumber } from '../format'
 import { DASH, type TranslateFn } from '../localize'
 import { sharedStyles } from '../theme'
-import type { EnergySlice, VehicleState } from '../types'
+import type { EnergySlice, TripDay, VehicleState } from '../types'
 
 interface Row {
   label: string
@@ -123,12 +123,108 @@ export class LeapmotorTrip extends LitElement {
         // can't be read, precisely so that every row has a label. It stays
         // as a safety net, because it's the card's answer to "there's
         // nothing here".
-        label: formatWeekRange(week.start, week.end, this.language) ?? DASH,
+        label: formatDayRange(week.start, week.end, this.language) ?? DASH,
         // A week at zero is a week the car didn't drive, and that's what the
         // dash says. "0.0" would say it drove without spending anything.
         value: week.kwhPer100Km !== undefined ? formatNumber(week.kwhPer100Km, 1) : DASH,
       })),
     }
+  }
+
+  /**
+   * One day's numbers, written on the right of its bar.
+   *
+   * The energy carries NO decimal, and that is the whole point of the
+   * choice: the API's granularity here is the whole kilowatt-hour — the
+   * observed values are 1.0, 2.0, 3.0 — and `4.0 kWh` would offer a tenth
+   * the source does not have. `4 kWh` says exactly what is known.
+   *
+   * There is no kWh/100 km per day either, and there will not be. One
+   * kilowatt-hour of rounding on an eleven-kilometer day moves the result by
+   * nine units; the number would look like a measurement and be noise.
+   * Consumption is a question this sub-view already answers over six weeks,
+   * where the rounding washes out.
+   *
+   * `showEnergy` is false for a period whose energy the API says is
+   * incomplete. The energy then disappears from every row instead of being
+   * dashed in each one: it is one fact about the period, not eight absences,
+   * and the note under the block is where it gets said. The distances are
+   * untouched by it and stay.
+   */
+  private dayValue(day: TripDay, showEnergy: boolean): string {
+    const parts: string[] = []
+    if (day.distanceKm !== undefined) parts.push(`${formatNumber(day.distanceKm)} km`)
+    if (showEnergy && day.energyKwh !== undefined) parts.push(`${formatNumber(day.energyKwh)} kWh`)
+    return this.joined(parts)
+  }
+
+  /**
+   * A day's row: the date, a bar, and the numbers.
+   *
+   * The bar is scaled to the LARGEST distance in the period and not to a
+   * fixed ceiling, because there is no meaningful ceiling for a day's
+   * driving — the point of the bar is which days were the long ones, which
+   * is a comparison inside the block. A day with no distance reported gets a
+   * bar of zero and a dash: zero width here means "nothing to draw", and the
+   * text next to it is what says so — the bar never speaks on its own, which
+   * is also why it is hidden from assistive technology.
+   */
+  private dayRow(day: TripDay, showEnergy: boolean, maxKm: number) {
+    const km = day.distanceKm
+    // One decimal is plenty for a width in percent, and it keeps a
+    // 93.33333333333333% out of the DOM of every row.
+    const width = (maxKm > 0 && km !== undefined ? (km / maxKm) * 100 : 0).toFixed(1)
+    return html`<div class="day">
+      <span class="muted">${formatCalendarDay(day.date, this.language) ?? DASH}</span>
+      <span class="bar" aria-hidden="true"><span class="fill" style="width:${width}%"></span></span>
+      <span class="value">${this.dayValue(day, showEnergy)}</span>
+    </div>`
+  }
+
+  /**
+   * The per-day breakdown, or nothing at all.
+   *
+   * **The heading never names a number of days.** The sensors behind this
+   * are called "last 7 days" and the API answered with eight, so the block
+   * is titled by what it is — one line per day — and the period it covers is
+   * written out beside it, from the first and last day actually in hand. A
+   * heading that said seven above eight rows would be the card lying about
+   * data it is displaying.
+   *
+   * The period sits in the `unit` slot of the heading, not the `total` one:
+   * it is what the column below is, not a sum of it — and that slot is the
+   * one that does not go through `text-transform: uppercase`, which would
+   * otherwise mangle the month's abbreviation.
+   *
+   * Rendered by hand instead of through `sections()` for two reasons its
+   * `Row` cannot express: the bar, and the note at the foot. Same headings
+   * and the same spacing, so it reads as another block of the same sub-view.
+   *
+   * Absent data, absent block — the rule the weekly series already follows,
+   * and for the same reason: these rows ARE the data, so with no data there
+   * is no row to write a dash on, and all that would be left is an orphan
+   * heading. Most cars out there run an integration that never sends this.
+   */
+  private dailyBlock() {
+    const daily = this.state.trip.dailyBreakdown
+    if (!daily) return nothing
+
+    const maxKm = Math.max(0, ...daily.days.map(day => day.distanceKm ?? 0))
+    const period = formatDayRange(daily.start, daily.end, this.language)
+    // Most recent first, like the weekly series right above it: the day the
+    // reader came to look at is the last one, and it should not be at the
+    // bottom of eight rows.
+    const newestFirst = [...daily.days].reverse()
+    return html`
+      <div class="heading muted">
+        <span>${this.t('trip.heading_daily')}</span>
+        ${period !== undefined ? html`<span class="unit">${period}</span>` : nothing}
+      </div>
+      ${newestFirst.map(day => this.dayRow(day, daily.energyComplete, maxKm))}
+      ${daily.energyComplete
+        ? nothing
+        : html`<div class="note muted">${this.t('trip.energy_incomplete')}</div>`}
+    `
   }
 
   private sections(): Section[] {
@@ -208,6 +304,7 @@ export class LeapmotorTrip extends LitElement {
           <div class="line"><span class="muted">${row.label}</span><span>${row.value}</span></div>
         `)}
       `)}
+      ${this.dailyBlock()}
     </div>`
   }
 
@@ -250,6 +347,41 @@ export class LeapmotorTrip extends LitElement {
      */
     .heading .unit { text-transform: none; letter-spacing: normal; font-weight: 400; }
     .line { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 0.9rem; }
+    /*
+     * A day's row is a grid and not a flex like .line because of the middle
+     * column: the date and the numbers have to take exactly the width of
+     * their text — otherwise the bars start and end at a different place on
+     * every row and stop being comparable, which is the only thing they are
+     * for — and it is the bar that absorbs whatever is left over. The
+     * minmax() is what lets it shrink on a phone instead of pushing the
+     * numbers out of the panel; below its floor it would be honester to have
+     * no bar than a stub, but it never gets there inside a card.
+     */
+    .day {
+      display: grid; grid-template-columns: auto minmax(32px, 1fr) auto;
+      align-items: center; gap: 10px; padding: 4px 0; font-size: 0.9rem;
+    }
+    /*
+     * Tabular figures: without them a column of proportional digits wanders,
+     * and this block is eight rows of numbers meant to be read down.
+     */
+    .day .value { text-align: end; font-variant-numeric: tabular-nums; }
+    /*
+     * The same track and the same fully round ends as the battery bar in
+     * hero.ts — one bar idiom in the card, not two. The track is --lm-chip
+     * over a panel that is already --lm-chip: the tint is translucent, so
+     * laying it over itself is exactly what makes the empty part of the bar
+     * visible without inventing a color.
+     */
+    .bar { height: 6px; border-radius: 999px; background: var(--lm-chip); overflow: hidden; }
+    /*
+     * The fill is the muted text color, which is a token the theme already
+     * defines and the reader already reads as secondary. A bar of days is
+     * not a warning and not a battery, and it must not out-shout the numbers
+     * beside it.
+     */
+    .bar .fill { display: block; height: 100%; border-radius: 999px; background: var(--lm-muted); }
+    .note { font-size: 0.75rem; margin-top: 6px; }
   `]
 }
 

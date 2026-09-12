@@ -2,7 +2,8 @@ import { isWindowOpen } from './format'
 import type { HassEntity, HomeAssistant } from './ha-types'
 import type { LogicalKey } from './keys'
 import type {
-  Activity, ChargingPhase, EntityMap, VehicleState, WeekEnergy, WeeklyConsumption,
+  Activity, ChargingPhase, DailyBreakdown, EntityMap, TripDay, VehicleState, WeekEnergy,
+  WeeklyConsumption,
 } from './types'
 
 const INVALID = new Set(['unknown', 'unavailable', 'none', ''])
@@ -257,6 +258,82 @@ export function parseWeeklyConsumption(value: unknown): WeeklyConsumption[] {
 }
 
 /**
+ * A non-negative reading, or nothing. Shared by both numbers of a daily row:
+ * a negative distance or a negative energy is not a smaller value, it is a
+ * value that did not survive the trip through the API.
+ */
+function nonNegative(value: unknown): number | undefined {
+  const n = coerceNumber(value)
+  return n !== undefined && n >= 0 ? n : undefined
+}
+
+/**
+ * The `daily_detail` attribute of either seven-day sensor: one row per day,
+ * sorted oldest first. Returns `[]` for anything unusable, and never throws.
+ *
+ * Same posture as `parseWeeklyConsumption` right above, and for the same
+ * reason — the shape comes from a cloud API that has already been caught
+ * sending a number and a string for sibling fields of one object. The rules,
+ * and again the boundary between them is the point:
+ *
+ *  - **With no readable day, the row is DROPPED.** It cannot be labeled, and
+ *    an unlabeled bar in a series of days is worse than one bar fewer.
+ *  - **With a day and no numbers, the row STAYS**, with each missing number
+ *    as `undefined`. It is the section that writes the absence, and nothing
+ *    downstream may read an absent number as a zero.
+ *
+ * The sort is here, and not in the section, so that the first and last
+ * elements are the period's real ends whoever holds the array. The API sends
+ * the rows in order today; this does not depend on it continuing to.
+ */
+export function parseDailyDetail(value: unknown): TripDay[] {
+  if (!Array.isArray(value)) return []
+
+  const days: TripDay[] = []
+  for (const entry of value as unknown[]) {
+    if (entry === null || typeof entry !== 'object') continue
+    const { date: day, mileage_km: distance, energy_kwh: energy } = entry as Record<string, unknown>
+    if (!isReadableDate(day)) continue
+
+    days.push({
+      date: day,
+      distanceKm: nonNegative(distance),
+      energyKwh: nonNegative(energy),
+    })
+  }
+  return days.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+}
+
+/**
+ * The two sensors that carry the breakdown, in the order they are asked. The
+ * distance one comes first on purpose: when the energy readings are
+ * incomplete the integration makes the ENERGY sensor unavailable, and an
+ * unavailable entity is one whose attributes may or may not still be there.
+ * The distance sensor is the one that survives that case, and it carries the
+ * same rows.
+ */
+const DAILY_DETAIL_KEYS: readonly LogicalKey[] = ['last7DaysKm', 'last7DaysEnergy']
+
+/**
+ * The per-day breakdown, from the first of the two sensors holding rows that
+ * read. `energy_complete` is taken from that SAME sensor and not from
+ * whichever answers first: the flag qualifies the rows it travels with.
+ */
+function buildDailyBreakdown(hass: HomeAssistant, map: EntityMap): DailyBreakdown | undefined {
+  for (const key of DAILY_DETAIL_KEYS) {
+    const days = parseDailyDetail(attr<unknown>(hass, map, key, 'daily_detail'))
+    if (days.length === 0) continue
+    return {
+      days,
+      start: days[0].date,
+      end: days[days.length - 1].date,
+      energyComplete: attr<unknown>(hass, map, key, 'energy_complete') === true,
+    }
+  }
+  return undefined
+}
+
+/**
  * The three entities of the breakdown, in the order in which the kWh are
  * looked up. Any one of them works — they all carry the same three
  * attributes — and the order only decides who answers first. All three are
@@ -345,6 +422,10 @@ export function buildVehicleState(hass: HomeAssistant, map: EntityMap, now: Date
       // series, which is what backs the average, comes in the attribute.
       weeklyConsumption: parseWeeklyConsumption(attr<unknown>(hass, map, 'avgConsumption6w', 'weekly_consumption')),
       weekEnergy: buildWeekEnergy(hass, map),
+      // Both seven-day sensors carry the day-by-day rows behind their total.
+      // Absent on any integration older than the one that started publishing
+      // them, which is why the whole structure is optional.
+      dailyBreakdown: buildDailyBreakdown(hass, map),
       // Does not exist as a sensor: derived from the accumulated energy
       // divided by the accumulated mileage. Only when both exist and the
       // distance is not zero — a freshly delivered car would divide by

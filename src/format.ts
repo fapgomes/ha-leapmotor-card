@@ -17,10 +17,25 @@ export function formatDayLabel(d: Date, now: Date, t: TranslateFn, language: str
 }
 
 /**
- * A week's period, written in the card's language: `24 – 30 de ago.` in
+ * The card's scale for a calendar day with no time of day: day and short
+ * month, in the reader's language. Shared by the two functions below so that
+ * a range and a single day are written on the same scale, and so that
+ * `timeZone: 'UTC'` — see `formatDayRange` — is stated once.
+ */
+function calendarDayFormat(language: string): Intl.DateTimeFormat {
+  return new Intl.DateTimeFormat(language, { day: '2-digit', month: 'short', timeZone: 'UTC' })
+}
+
+/**
+ * A period of days, written in the card's language: `24 – 30 de ago.` in
  * Portuguese, `Aug 24 – 30` in English. Returns `undefined` when either of
  * the dates does not read, so the caller can label it as having no period
  * instead of writing an `Invalid Date`.
+ *
+ * It is a range of DAYS and not of weeks, despite having been written for
+ * the weekly series: the per-day breakdown uses it for a period the API
+ * decides the length of, which was eight days on the car this was built
+ * against. Nothing here counts the days, and nothing here should.
  *
  * Two choices that are not obvious:
  *
@@ -35,12 +50,28 @@ export function formatDayLabel(d: Date, now: Date, t: TranslateFn, language: str
  *    timezone west of Greenwich they would all move to the previous day —
  *    the week of 24–30 would show up to someone as 23–29.
  */
-export function formatWeekRange(start: string, end: string, language: string): string | undefined {
+export function formatDayRange(start: string, end: string, language: string): string | undefined {
   const from = new Date(start)
   const to = new Date(end)
   if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return undefined
-  return new Intl.DateTimeFormat(language, { day: '2-digit', month: 'short', timeZone: 'UTC' })
-    .formatRange(from, to)
+  return calendarDayFormat(language).formatRange(from, to)
+}
+
+/**
+ * One end of that same scale: a single calendar day, `04 de set.` or
+ * `Sep 04`. Returns `undefined` for a date that does not read, for the same
+ * reason as above — the caller has a dash to write, `Intl` would write
+ * `Invalid Date`.
+ *
+ * Deliberately not `formatDayLabel`, which says `today` and `yesterday`: a
+ * column of days in which two of them are named differently from the rest
+ * loses the alignment that makes it a column, and it would need a clock the
+ * sub-view does not have.
+ */
+export function formatCalendarDay(day: string, language: string): string | undefined {
+  const d = new Date(day)
+  if (Number.isNaN(d.getTime())) return undefined
+  return calendarDayFormat(language).format(d)
 }
 
 export function formatUpdated(d: Date | undefined, now: Date, t: TranslateFn, language: string): string {

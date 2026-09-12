@@ -85,6 +85,18 @@ export const ENTITY_KEYS = {
   odometer: { domain: 'sensor', tk: 'odometer_km' },
   totalMileage: { domain: 'sensor', tk: 'total_mileage_km' },
   last7DaysKm: { domain: 'sensor', tk: 'last_7_days_mileage_km' },
+  /*
+   * The energy twin of the sensor above. Both carry the SAME per-day
+   * breakdown in `daily_detail`, which is why `vehicle-state.ts` reads it
+   * from whichever of the two answers first.
+   *
+   * Deliberately absent from the `trip` group's key list in `groups.ts`,
+   * which is the list the missing-entities warning draws from. An
+   * integration that does not publish this sensor is not a misconfiguration
+   * the user can fix by mapping an entity, and the only thing its absence
+   * costs the card is the breakdown — which simply does not render.
+   */
+  last7DaysEnergy: { domain: 'sensor', tk: 'last_7_days_energy_kwh' },
   avgConsumption6w: { domain: 'sensor', tk: 'average_consumption_6w_kwh_100km' },
   totalEnergy: { domain: 'sensor', tk: 'total_energy_kwh' },
   /*

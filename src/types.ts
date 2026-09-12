@@ -79,6 +79,53 @@ export interface WeeklyConsumption {
   end: string
 }
 
+/**
+ * One day of the per-day breakdown the cloud API sends alongside the
+ * seven-day totals. `date` is the calendar day exactly as the API writes it
+ * (`2026-09-04`), for the same reason `WeeklyConsumption` keeps its dates as
+ * strings: they carry no time of day, and turning them into a `Date` here
+ * would force this layer to pick a timezone.
+ *
+ * **The day is mandatory; both numbers are not.** A row nobody can date is
+ * a bar with no name, and it does not become a row at all. A dated row with
+ * one of the two numbers missing is still an honest row: the day is named,
+ * and what is not known is written as such.
+ *
+ * A zero is NOT an absence here, unlike in `WeeklyConsumption`: a day at
+ * 0 km is a day the car did not move, which is a fact worth showing, where a
+ * week at 0.0 kWh/100 km would have been an efficiency the car never had.
+ */
+export interface TripDay {
+  date: string
+  distanceKm?: number
+  energyKwh?: number
+}
+
+/**
+ * The per-day breakdown as a whole, present only when the integration
+ * publishes it (it arrived in the integration's v0.7.0; before that the
+ * seven-day sensors threw the daily rows away).
+ *
+ * `start` and `end` are the FIRST and LAST day actually in `days`, and not a
+ * period asserted by anyone: the API named these sensors for seven days and
+ * has been observed returning eight, so the only period the card can honestly
+ * name is the one it is holding. They are stored, rather than left for the
+ * section to pick off the ends of the array, so that the guarantee that
+ * `days` is sorted lives on this side of the boundary.
+ *
+ * `energyComplete` mirrors the attribute of the same name: it is the API
+ * telling the card that some of the period's energy readings did not arrive.
+ * It is false whenever the attribute is missing or is not exactly `true` —
+ * silence is not a promise of completeness.
+ */
+export interface DailyBreakdown {
+  /** Ascending, oldest day first. Never empty. */
+  days: TripDay[]
+  start: string
+  end: string
+  energyComplete: boolean
+}
+
 /** A slice of the week's energy: the kWh and the percentage it is worth. */
 export interface EnergySlice {
   kwh?: number
@@ -150,6 +197,13 @@ export interface VehicleState {
      */
     weeklyConsumption: WeeklyConsumption[]
     weekEnergy: WeekEnergy
+    /**
+     * The per-day breakdown, or `undefined` on any integration that does not
+     * publish one. Undefined and not an empty structure: the section's rule
+     * for this block is all or nothing, and an empty frame would announce a
+     * feature the car cannot feed.
+     */
+    dailyBreakdown?: DailyBreakdown
   }
   comfort: {
     driverSeatHeat?: number; driverSeatVent?: number

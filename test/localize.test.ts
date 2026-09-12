@@ -102,6 +102,20 @@ describe('translation catalogs', () => {
   })
 
   /*
+   * The heading of the per-day breakdown must not count the days. The two
+   * sensors behind that block are named for seven days and the API has been
+   * observed answering with eight, so the block is titled by what it is and
+   * the period it covers is written from the data beside it. A digit in this
+   * heading means someone has put a promise back into it.
+   */
+  it('the per-day heading names no number of days', () => {
+    for (const [language, catalogue] of Object.entries({ en, pt })) {
+      expect(catalogue['trip.heading_daily'], language).toBeDefined()
+      expect(catalogue['trip.heading_daily'], language).not.toMatch(/\d/)
+    }
+  })
+
+  /*
    * Two empty catalogs have the same keys — none — and would pass the test
    * above without saying anything. This one closes that gap.
    */
