@@ -106,6 +106,8 @@
   "trip.heading_week_energy": "Week energy",
   "trip.heading_weekly": "Weekly consumption",
   "trip.heading_daily": "Per day",
+  "trip.daily_energy_driving": "Driving energy only, excluding climate and accessories",
+  "trip.daily_energy_driving_presumed": "Presumed driving energy only, excluding climate and accessories",
   "trip.odometer": "Odometer",
   "trip.recent_days": "Recent days",
   "trip.consumption": "6 week average",

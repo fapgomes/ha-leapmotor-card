@@ -2,8 +2,8 @@ import { isWindowOpen } from './format'
 import type { HassEntity, HomeAssistant } from './ha-types'
 import type { LogicalKey } from './keys'
 import type {
-  Activity, ChargingPhase, DailyBreakdown, EntityMap, TripDay, VehicleState, WeekEnergy,
-  WeeklyConsumption,
+  Activity, ChargingPhase, DailyBreakdown, DailyEnergy, EnergyScope, EntityMap, TripDay,
+  VehicleState, WeekEnergy, WeeklyConsumption,
 } from './types'
 
 const INVALID = new Set(['unknown', 'unavailable', 'none', ''])
@@ -322,41 +322,100 @@ function nonNegative(value: unknown): number | undefined {
  * not; because it displays no total, a missing row corrupts no figure on
  * screen. Surfacing the count would add a warning with no remedy.
  *
- * **The rows also carry an `energy_kwh`, and it is dropped here on purpose.
- * Do not read it back in.** Measured on the car this card is built against,
- * over 2026-09-04 to 2026-09-12: 217 km driven, for which `daily_detail`
- * reports 21.0 kWh, while the garage charger's own meter delivered
- * 53.56 kWh — with the battery at 28.0 % at the start of the window and
- * 27.3 % at the end, so nothing of consequence was left stored. Net of
- * charging losses the car used some 45–48 kWh, about 21–22 kWh/100 km,
- * against the 9.7 the attribute implies. The car's own lifetime figure
- * (17.9) and its six-week average sensor (19.3) both sit next to the
- * measurement; only this field is out. The per-day shortfall runs from 36 %
- * to 58 % of the measured value, so it is not a scale factor and not a unit:
- * traction-only energy, energy net of regeneration, integer truncation and
- * battery percentage were each ruled out by arithmetic. What the field
- * actually counts is unknown, and it is asked upstream at
- * https://github.com/kerniger/leapmotor-ha/issues/67. Until there is an
- * answer the card will not print it, and it does not keep it either: a
- * parsed field is an invitation to render it.
+ * **The rows also carry an energy, and `scope` is the only thing that lets
+ * it through.** Called without one — which is the default, and which is
+ * every integration up to and including v0.7.1 — the rows come out with no
+ * energy at all, so nothing downstream has one to print. That default is the
+ * conservative direction on purpose.
+ *
+ * 0.4.10 removed this field: measured on the car this card is built against,
+ * 2026-09-04 to 2026-09-12, `daily_detail` reported 21.0 kWh for 217 km while
+ * the garage charger's meter delivered 53.56 kWh into a battery that ended
+ * the window where it started, and nothing named the quantity. It has since
+ * been identified as traction energy alone, excluding climate and
+ * accessories: over an aligned Monday-to-Sunday week the days summed to
+ * 38 kWh against a `driving_energy_kwh` of 40.5 kWh (94 %) where the total
+ * for that week was 53.1 kWh — which is also why the per-day figure looked
+ * plausible on long motorway days and hopeless on short city ones. What
+ * changed with integration v0.7.2 is therefore not the values but the claim
+ * attached to them, and the card prints them only for exactly as long as
+ * `parseEnergyScope` recognizes that claim. See
+ * https://github.com/kerniger/leapmotor-ha/issues/67.
+ *
+ * The figure is read from `driving_energy_kwh` and falls back to the older
+ * `energy_kwh`, which v0.7.2 keeps beside it carrying the same numbers for
+ * compatibility. Only a missing key falls back, not an unreadable one: a
+ * `driving_energy_kwh` of `''` is that row failing to report, and the stale
+ * twin of a field that failed is not a better answer than the absence.
+ * Otherwise the energy follows the same rules as the distance — negative or
+ * unreadable is an absence, a zero is a zero.
  */
-export function parseDailyDetail(value: unknown): TripDay[] {
+export function parseDailyDetail(value: unknown, scope?: EnergyScope): TripDay[] {
   if (!Array.isArray(value)) return []
 
   const days: TripDay[] = []
   const seen = new Set<string>()
   for (const entry of value as unknown[]) {
     if (entry === null || typeof entry !== 'object') continue
-    const { date: day, mileage_km: distance } = entry as Record<string, unknown>
+    const row = entry as Record<string, unknown>
+    const { date: day, mileage_km: distance } = row
     if (!isCalendarDay(day) || seen.has(day)) continue
     seen.add(day)
 
+    const kwh = scope === undefined
+      ? undefined
+      : nonNegative(row.driving_energy_kwh ?? row.energy_kwh)
     days.push({
       date: day,
       distanceKm: nonNegative(distance),
+      // Spread and not a plain `energyKwh: kwh`, so that a row with no energy
+      // is a row with no such key — the shape says which integration is
+      // speaking, and `Object.keys` in the tests can hold it to that.
+      ...(kwh !== undefined ? { energyKwh: kwh } : {}),
     })
   }
   return days.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+}
+
+/**
+ * The integration's names for what the per-day energy counts, mapped onto the
+ * card's own. v0.7.2 publishes `presumed_driving_only`; `driving_only` is
+ * accepted beside it because the presumption may one day be dropped from the
+ * name rather than from `energy_scope_confirmed`, and both spellings mean the
+ * same quantity. Whether it is presumed is `confirmed`'s business, not the
+ * name's.
+ *
+ * A `Map` and not an object literal so that a lookup miss is typed as a miss:
+ * an index into a `Record<string, EnergyScope>` would come back as a scope
+ * whatever the API sent, which is the exact opposite of what this table is
+ * for.
+ */
+const KNOWN_ENERGY_SCOPES = new Map<string, EnergyScope>([
+  ['presumed_driving_only', 'driving'],
+  ['driving_only', 'driving'],
+])
+
+/**
+ * The scope declaration that travels with the daily rows, or nothing at all.
+ *
+ * **Nothing is the answer to both silence and novelty**, and they deliberately
+ * land in the same place. An integration that declares no `energy_scope` is
+ * every version up to v0.7.1, which is what most cars run; one that declares
+ * a scope this card has never seen is a newer integration counting something
+ * this code has no wording for. Printing a number under a label invented on
+ * the spot is what 0.4.10 exists to prevent, and guessing at an unknown name
+ * would be that with extra steps.
+ *
+ * `confirmed` is true only for a literal boolean `true`. The string `'true'`
+ * is not a promise — the same rule the charge flags follow — and everything
+ * that is not the promise leaves the hedge in the label, which is the safe
+ * direction to be wrong in.
+ */
+export function parseEnergyScope(scope: unknown, confirmed: unknown): DailyEnergy | undefined {
+  if (typeof scope !== 'string') return undefined
+  const known = KNOWN_ENERGY_SCOPES.get(scope.trim())
+  if (known === undefined) return undefined
+  return { scope: known, confirmed: confirmed === true }
 }
 
 /**
@@ -379,20 +438,41 @@ const DAILY_DETAIL_KEYS: readonly LogicalKey[] = ['last7DaysKm', 'last7DaysEnerg
 
 /**
  * The per-day breakdown, from the first of the two sensors holding rows that
- * read.
+ * read — rows, and the declaration of what their energy counts, taken
+ * together from that one sensor.
  *
- * The `energy_complete` attribute that travels with those rows is not read:
- * it qualifies an energy the card no longer shows, and a flag about a number
- * nobody prints has nothing to say. See `parseDailyDetail` above.
+ * The `energy_complete` attribute that travels with them is still not read.
+ * It answers whether the period's readings are all in, which is a different
+ * question from what they count, and it is the second that gates this block:
+ * a complete set of unexplained numbers is exactly what 0.4.10 removed. A day
+ * whose energy did not arrive is already an absence on its own row, written
+ * as one.
  */
 function buildDailyBreakdown(hass: HomeAssistant, map: EntityMap): DailyBreakdown | undefined {
   for (const key of DAILY_DETAIL_KEYS) {
-    const days = parseDailyDetail(attr<unknown>(hass, map, key, 'daily_detail'))
+    /*
+     * The scope is read from the SAME entity as the rows, and before them,
+     * because it decides whether they are parsed with an energy at all.
+     * Reading it from the other sensor would let one entity's declaration
+     * vouch for another entity's numbers — which on a hand-mapped
+     * `entities:` need not even be the same integration.
+     */
+    const declared = parseEnergyScope(
+      attr<unknown>(hass, map, key, 'energy_scope'),
+      attr<unknown>(hass, map, key, 'energy_scope_confirmed'),
+    )
+    const days = parseDailyDetail(attr<unknown>(hass, map, key, 'daily_detail'), declared?.scope)
     if (days.length === 0) continue
+    // A declared scope over rows that all failed to report their energy is a
+    // sentence qualifying an empty column, so it goes where they went.
+    const energy = declared !== undefined && days.some(day => day.energyKwh !== undefined)
+      ? declared
+      : undefined
     return {
       days,
       start: days[0].date,
       end: days[days.length - 1].date,
+      ...(energy !== undefined ? { energy } : {}),
     }
   }
   return undefined

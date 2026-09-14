@@ -95,17 +95,55 @@ export interface WeeklyConsumption {
  * 0 km is a day the car did not move, which is a fact worth showing, where a
  * week at 0.0 kWh/100 km would have been an efficiency the car never had.
  *
- * **There is no energy on this row**, although `daily_detail` carries an
- * `energy_kwh` for every day. Over a measured week that number came to about
- * half of what a charger's meter delivered, by a fraction that varies from
- * day to day, and the card does not know what it counts; `parseDailyDetail`
- * in `vehicle-state.ts` drops it at the boundary and carries the measurement
- * that says why. Nothing downstream can show it because nothing downstream
- * is given it.
+ * **The energy is here only when the integration said what it counts.**
+ * `daily_detail` has always carried a per-day figure and 0.4.10 dropped it:
+ * measured against a charger's meter it came to about half of the car's real
+ * consumption, and nothing named the quantity. Integration v0.7.2 names it —
+ * the rows gained a `driving_energy_kwh` beside the old `energy_kwh`, and the
+ * sensors an `energy_scope` — so `parseDailyDetail` in `vehicle-state.ts`
+ * reads it back in, but only behind that declaration: with no scope, or one
+ * this card does not know, the field never reaches this structure and nothing
+ * downstream can print it.
+ *
+ * What the figure is stays on `DailyBreakdown` and not here, because it
+ * qualifies every row equally and is written once, above them.
  */
 export interface TripDay {
   date: string
   distanceKm?: number
+  energyKwh?: number
+}
+
+/**
+ * What a per-day energy counts, in the card's OWN vocabulary and not the
+ * API's. The mapping from the integration's strings lives in
+ * `vehicle-state.ts`, and that indirection is the point: a value nobody
+ * mapped cannot be spelled as a member of this type, so it cannot reach a
+ * section, so it cannot be labeled with a claim nobody has checked.
+ *
+ * One member today. `driving` is traction energy alone, climate and
+ * accessories excluded. Upstream measured it: over an aligned Monday-to-
+ * Sunday week the daily rows summed to 38 kWh against a `driving_energy_kwh`
+ * of 40.5 kWh for the same week — 94 % — while that week's TOTAL energy was
+ * 53.1 kWh. It also explains what the card saw in 0.4.9, where the number
+ * looked right on a long motorway day and far too small on a short city one:
+ * climate and accessories draw per unit of time, not per kilometer.
+ */
+export type EnergyScope = 'driving'
+
+/**
+ * The qualification the per-day energy is shown under: what it counts, and
+ * whether that has been established or merely inferred.
+ *
+ * `confirmed` is the integration's `energy_scope_confirmed`, carried as the
+ * flag it is instead of being resolved into wording here, so that the day it
+ * turns true the label drops its hedge with no string edited anywhere. As of
+ * integration v0.7.2 it is false: its maintainer states he cannot yet confirm
+ * the driving-only reading from his own captures.
+ */
+export interface DailyEnergy {
+  scope: EnergyScope
+  confirmed: boolean
 }
 
 /**
@@ -125,6 +163,18 @@ export interface DailyBreakdown {
   days: TripDay[]
   start: string
   end: string
+  /**
+   * Present only when the sensor holding the rows declared a scope this card
+   * knows AND at least one of those rows came with a figure — a qualifier
+   * over a column with no kilowatt-hours in it would be an orphan sentence.
+   * When it is present, and only then, the days carry an `energyKwh`.
+   *
+   * Undefined is every integration up to and including v0.7.1, and equally a
+   * later one that ships a scope this card has never heard of. An unlabeled
+   * energy is precisely what 0.4.10 took off the screen, and it does not come
+   * back by default.
+   */
+  energy?: DailyEnergy
 }
 
 /** A slice of the week's energy: the kWh and the percentage it is worth. */

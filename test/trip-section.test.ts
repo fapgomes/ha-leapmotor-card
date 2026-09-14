@@ -4,16 +4,19 @@ import { resolveEntities } from '../src/resolver'
 import { buildVehicleState } from '../src/vehicle-state'
 import type { VehicleState } from '../src/types'
 import { fakeHass } from './helpers/fake-hass'
-import { EXPECTED_DAYS, REAL_NOW, REAL_SPECS, SEVEN_DAY_ATTRIBUTES } from './fixtures/real-states'
+import {
+  EXPECTED_DAYS, REAL_NOW, REAL_SPECS, SEVEN_DAY_ATTRIBUTES, SEVEN_DAY_ATTRIBUTES_SCOPED,
+} from './fixtures/real-states'
 
 /**
  * The first test in this project that runs a section's real `render()`.
  *
  * Until it existed, `src/sections/trip.ts` was loaded by nothing: replacing a
  * method header in it with syntax garbage still left the suite reporting all
- * green, and three of the rules this sub-view exists to keep — no energy on a
- * day's row, no per-day consumption figure ever, and no block at all when the
- * car does not send the data — were guarded by `tsc` and by nothing else.
+ * green, and three of the rules this sub-view exists to keep — no unexplained
+ * energy on a day's row, no per-day consumption figure ever, and no block at
+ * all when the car does not send the data — were guarded by `tsc` and by
+ * nothing else.
  * Five separate mutations of the render path survived a full run.
  *
  * The suite runs on `environment: 'node'`, and it stays there: what this file
@@ -147,21 +150,22 @@ describe('leapmotor-trip — the per-day block', () => {
     expect(markup).toContain('trip.heading_weekly')
   })
 
-  it('writes a day as its distance and NOTHING else', () => {
+  it('writes a day as its distance and NOTHING else, with no scope declared', () => {
     /*
-     * The rows used to read `40 km · 5 kWh`, from `daily_detail`'s
-     * `energy_kwh`. Measured against the garage charger's meter over
+     * This is the version the card's author is running — the seven-day
+     * sensors publish `daily_detail` with an `energy_kwh` on every row and no
+     * `energy_scope` anywhere. 0.4.9 printed that energy as `40 km · 5 kWh`
+     * and 0.4.10 removed it: measured against the garage charger's meter over
      * 2026-09-04 to 2026-09-12 — 217 km, 21.0 kWh claimed, 53.56 kWh
      * delivered, the battery ending the window where it started — the field
-     * is about half of what the car used, by a fraction that varies from day
-     * to day, and nobody knows what it counts. It is asked upstream at
-     * kerniger/leapmotor-ha#67 and it is not on screen until it is answered.
+     * was about half of what the car used, and nothing named the quantity.
      *
-     * The fixture still SENDS the energy, byte for byte as the integration
-     * does, so this asserts the card dropping it and not the fixture lacking
-     * it. The whole block is checked and not just the rows: an energy
-     * anywhere under the heading is an energy the reader would read as the
-     * day's.
+     * The quantity has a name now, but it is the INTEGRATION that has to give
+     * it: on this payload the card is still silent, and that is what this
+     * test pins. The fixture still SENDS the energy, byte for byte, so what
+     * is asserted is the card dropping it and not the fixture lacking it. The
+     * whole block is checked and not just the rows: a kWh anywhere under the
+     * heading is one the reader would read as the day's.
      */
     const markup = render()
     const rows = dayRows(markup)
@@ -174,11 +178,27 @@ describe('leapmotor-trip — the per-day block', () => {
     // keeps its own kWh — so the search is for the day rows' own markup.
     const block = markup.slice(markup.indexOf('trip.heading_daily'))
     expect(block).not.toContain('kWh')
+    // And with no energy there is nothing to qualify, so neither label for
+    // the scope is written either.
+    expect(block).not.toContain('trip.daily_energy_driving')
   })
 
-  it('shows no energy even when the API vouches for it', () => {
-    // `energy_complete` used to decide whether the kWh appeared. Nothing
-    // reads it now, and a `true` must not bring the number back.
+  it('shows no energy for a scope it cannot name', () => {
+    // A later integration counting something this card has no wording for.
+    // The rows carry their `driving_energy_kwh` and it stops at the parser:
+    // an unknown scope is the situation 0.4.10 was released to avoid, so it
+    // lands exactly where a missing one does.
+    const markup = render({ ...SEVEN_DAY_ATTRIBUTES_SCOPED, energy_scope: 'battery_delta' })
+    const block = markup.slice(markup.indexOf('trip.heading_daily'))
+    expect(block).not.toContain('kWh')
+    expect(block).not.toContain('trip.daily_energy_driving')
+    expect(dayRows(markup)[1]).toBe('Aug 26 99 km')
+  })
+
+  it('shows no energy even when the API vouches for its completeness', () => {
+    // `energy_complete` used to decide whether the kWh appeared. It is not
+    // the gate any more — scope is — and a `true` must not bring the number
+    // back on a payload that declares no scope.
     for (const flag of [true, false, undefined]) {
       const markup = render({ ...SEVEN_DAY_ATTRIBUTES, energy_complete: flag })
       const block = markup.slice(markup.indexOf('trip.heading_daily'))
@@ -187,14 +207,77 @@ describe('leapmotor-trip — the per-day block', () => {
     }
   })
 
+  it('writes the energy beside the distance once the scope is declared', () => {
+    const markup = render(SEVEN_DAY_ATTRIBUTES_SCOPED)
+    expect(dayRows(markup)).toEqual([
+      'Aug 27 0 km · 0 kWh',
+      'Aug 26 99 km · 14 kWh',
+      'Aug 25 133 km · 19 kWh',
+      'Aug 24 47 km · 7 kWh',
+      'Aug 23 120 km · 25 kWh',
+      'Aug 22 88 km · 18 kWh',
+      'Aug 21 95 km · 20 kWh',
+      'Aug 20 60 km · 12 kWh',
+    ])
+    // The bars are the distances' and are unmoved by the second number.
+    expect(barWidths(markup)).toEqual(['0.0', '74.4', '100.0', '35.3', '90.2', '66.2', '71.4', '45.1'])
+  })
+
+  it('qualifies the energy ONCE, under the heading and above the rows', () => {
+    // Eight repetitions of the qualification would be noise the reader skips,
+    // and a qualification that is skipped is one that was not made. It goes
+    // between the heading and the first row, where the eye passes on the way
+    // down.
+    const markup = render(SEVEN_DAY_ATTRIBUTES_SCOPED)
+    const note = 'trip.daily_energy_driving_presumed'
+    expect(markup.split(note)).toHaveLength(2)
+    expect(markup.indexOf(note)).toBeGreaterThan(markup.indexOf('trip.heading_daily'))
+    expect(markup.indexOf(note)).toBeLessThan(markup.indexOf('class="day"'))
+    // The hedged wording while the integration says the scope is unconfirmed,
+    // and never both wordings at once.
+    expect(markup).not.toContain('>trip.daily_energy_driving<')
+    // Not on the rows: the qualification is the block's, not a day's.
+    for (const row of dayRows(markup)) expect(row, row).not.toContain('trip.daily_energy')
+  })
+
+  it('drops the hedge when the integration confirms the scope', () => {
+    // The one field changes and the wording follows, with no string edited
+    // here, in the section or in either catalog.
+    const markup = render({ ...SEVEN_DAY_ATTRIBUTES_SCOPED, energy_scope_confirmed: true })
+    expect(markup).toContain('trip.daily_energy_driving<')
+    expect(markup).not.toContain('trip.daily_energy_driving_presumed')
+    expect(dayRows(markup)[1]).toBe('Aug 26 99 km · 14 kWh')
+  })
+
   it('never writes a consumption figure for a single day', () => {
-    // One kilowatt-hour of rounding on a short day moves kWh/100 km by tens
-    // of units. The sub-view answers that question over six weeks, where the
-    // rounding washes out, and never per day.
-    for (const row of dayRows(render())) {
-      expect(row, row).not.toContain('/100')
-      expect(row, row).not.toContain('%')
+    /*
+     * Two independent reasons, and the test covers the scoped rendering as
+     * well as the bare one because the scoped one is where the temptation
+     * lives: the energy excludes climate and accessories, so a per-day
+     * kWh/100 km would understate the car by a margin known to exist and not
+     * known in size; and one kilowatt-hour of rounding on a short day moves
+     * the result by tens of units. The sub-view answers consumption over six
+     * weeks, where both wash out.
+     */
+    for (const attributes of [SEVEN_DAY_ATTRIBUTES, SEVEN_DAY_ATTRIBUTES_SCOPED]) {
+      for (const row of dayRows(render(attributes))) {
+        expect(row, row).not.toContain('/100')
+        expect(row, row).not.toContain('%')
+      }
     }
+  })
+
+  it('writes no total of the day energies anywhere in the block', () => {
+    // Summing them would produce a week's "consumption" that leaves out
+    // climate and accessories — 53.1 kWh of real energy reported as 40.5 on
+    // the week upstream measured. The block states days and states nothing
+    // about them together; the heading's right side carries the period, which
+    // is a label and not a number.
+    const markup = render(SEVEN_DAY_ATTRIBUTES_SCOPED)
+    const block = markup.slice(markup.indexOf('trip.heading_daily'))
+    expect(block).not.toContain('class="total"')
+    // 12 + 20 + 18 + 25 + 7 + 19 + 14 + 0 — the sum that must not appear.
+    expect(block).not.toContain('115 kWh')
   })
 
   it('writes an absent reading as a dash and an empty bar, never as a zero', () => {
@@ -209,6 +292,26 @@ describe('leapmotor-trip — the per-day block', () => {
       'Aug 25 133 km',
     ])
     expect(barWidths(markup)).toEqual(['0.0', '0.0', '100.0'])
+  })
+
+  it('writes a scoped day that reported no distance as its energy alone', () => {
+    // The parts that exist, joined; the parts that do not, left out. A dash
+    // for the whole row would hide a reading the car did send, and a `0 km`
+    // would invent one it did not.
+    const markup = render({ ...SEVEN_DAY_ATTRIBUTES_SCOPED, daily_detail: [
+      { date: '2026-08-25', mileage_km: 133.0, driving_energy_kwh: 19.0 },
+      { date: '2026-08-26', driving_energy_kwh: 3.0 },
+      { date: '2026-08-27', mileage_km: 12.0 },
+      { date: '2026-08-28' },
+    ] })
+    expect(dayRows(markup)).toEqual([
+      'Aug 28 —',
+      'Aug 27 12 km',
+      'Aug 26 3 kWh',
+      'Aug 25 133 km · 19 kWh',
+    ])
+    // One reading of any kind is enough to keep the qualification honest.
+    expect(markup).toContain('trip.daily_energy_driving_presumed')
   })
 
   it('survives a period in which nothing at all was driven', () => {

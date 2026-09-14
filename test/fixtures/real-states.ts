@@ -74,14 +74,14 @@ const DAILY_DETAIL = [
 ]
 
 /**
- * The same eight days as the card ends up holding them, once the parser has
- * had them: the day and the distance, and nothing else — `odometer_km`,
- * `mileage_mi`, `timestamp` and `energy_kwh` are all dropped on the way in
- * because the card has no use for them, and a structure carrying them would
- * invite one. The energy is dropped for a reason of its own, which
- * `parseDailyDetail` in `src/vehicle-state.ts` sets out: over a measured week
- * it came to about half of what a charger's meter delivered, and nobody
- * knows what it counts.
+ * The same eight days as the card ends up holding them once the parser has
+ * had them, ON THE INTEGRATION ABOVE: the day and the distance, and nothing
+ * else. `odometer_km`, `mileage_mi` and `timestamp` are dropped because the
+ * card has no use for them and a structure carrying them would invite one;
+ * `energy_kwh` is dropped because this payload declares no `energy_scope`,
+ * which is the gate `parseDailyDetail` in `src/vehicle-state.ts` puts in
+ * front of the energy. `EXPECTED_DAYS_WITH_ENERGY` below is the same eight
+ * days as they come out of the integration that does declare one.
  *
  * It lives beside the payload it is the projection of, so that a change to
  * one is made in sight of the other, and it is shared by the parser's tests
@@ -100,7 +100,13 @@ export const EXPECTED_DAYS = [
   { date: '2026-08-27', distanceKm: 0 },
 ]
 
-/** The attribute block both seven-day sensors publish, byte for byte. */
+/**
+ * The attribute block both seven-day sensors publish on integration v0.7.0
+ * and v0.7.1, byte for byte — which is what the card's author is running and
+ * what the great majority of installations are. There is no `energy_scope`
+ * anywhere in it, and that absence is load-bearing: it is what keeps the
+ * per-day energy off the screen for every test that renders this fixture.
+ */
 export const SEVEN_DAY_ATTRIBUTES = {
   daily_detail: DAILY_DETAIL,
   energy_complete: true,
@@ -109,6 +115,55 @@ export const SEVEN_DAY_ATTRIBUTES = {
   covered_mileage_km: 642.0,
   period_mileage_km: 642.0,
 }
+
+/**
+ * The same eight days as integration v0.7.2 sends them: every row gains a
+ * `driving_energy_kwh` beside the `energy_kwh` it always had, carrying the
+ * SAME value. The duplication is upstream's, kept for compatibility with
+ * whatever already read the old name, and it is the whole reason the card
+ * prefers one key and falls back to the other.
+ */
+const DAILY_DETAIL_V072 = DAILY_DETAIL.map(day => ({ ...day, driving_energy_kwh: day.energy_kwh }))
+
+/**
+ * The attribute block of integration v0.7.2, which changed no value and only
+ * what the values claim: the three `energy_*` attributes below are new, the
+ * seven-day energy sensor was renamed "Last 7 days driving energy (presumed)"
+ * upstream, and its documentation states these figures are not the vehicle's
+ * total energy consumption.
+ *
+ * `energy_scope_confirmed` is `false`, and stays `false` here, because that
+ * is what the integration ships: the maintainer cannot confirm the
+ * driving-only reading from his own captures. The tests that need the other
+ * answer override this one field, which is exactly the change the card has to
+ * survive without a string being edited.
+ */
+export const SEVEN_DAY_ATTRIBUTES_SCOPED = {
+  ...SEVEN_DAY_ATTRIBUTES,
+  daily_detail: DAILY_DETAIL_V072,
+  energy_source: 'accumulatedEnergyConsume',
+  energy_scope: 'presumed_driving_only',
+  energy_scope_confirmed: false,
+}
+
+/**
+ * The eight days as the card holds them from the payload right above: the
+ * distances unchanged, and the energy alongside them because this integration
+ * says what it is. Written out rather than derived from `EXPECTED_DAYS`, so
+ * that the pairing of a distance with an energy is visible to whoever reviews
+ * a change to either.
+ */
+export const EXPECTED_DAYS_WITH_ENERGY = [
+  { date: '2026-08-20', distanceKm: 60, energyKwh: 12 },
+  { date: '2026-08-21', distanceKm: 95, energyKwh: 20 },
+  { date: '2026-08-22', distanceKm: 88, energyKwh: 18 },
+  { date: '2026-08-23', distanceKm: 120, energyKwh: 25 },
+  { date: '2026-08-24', distanceKm: 47, energyKwh: 7 },
+  { date: '2026-08-25', distanceKm: 133, energyKwh: 19 },
+  { date: '2026-08-26', distanceKm: 99, energyKwh: 14 },
+  // The day in progress: zero driven and zero spent, and both are readings.
+  { date: '2026-08-27', distanceKm: 0, energyKwh: 0 },
+]
 
 export const REAL_SPECS: FakeEntitySpec[] = [
   { key: 'sensor/battery_percent', entity_id: `sensor.${P}_battery`, state: '60', unit: '%' },

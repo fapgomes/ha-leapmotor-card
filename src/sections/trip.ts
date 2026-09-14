@@ -3,11 +3,28 @@ import { customElement, property } from 'lit/decorators.js'
 import { formatCalendarDay, formatDayRange, formatNumber } from '../format'
 import { DASH, type TranslateFn } from '../localize'
 import { sharedStyles } from '../theme'
-import type { EnergySlice, TripDay, VehicleState } from '../types'
+import type { DailyEnergy, EnergyScope, EnergySlice, TripDay, VehicleState } from '../types'
 
 interface Row {
   label: string
   value: string
+}
+
+/**
+ * The catalog key for each energy scope, in both of its wordings.
+ *
+ * A table rather than a conditional expression, and a pair rather than a
+ * single key with a suffix bolted on, because the choice between them is data
+ * the integration sends: `energy_scope_confirmed` is false today and the card
+ * must stop hedging on the day it is true WITHOUT anyone editing a sentence.
+ * A scope added here without both of its labels does not compile, which is
+ * the only enforcement that survives the person who wrote this leaving.
+ */
+const SCOPE_KEYS: Record<EnergyScope, { confirmed: string; presumed: string }> = {
+  driving: {
+    confirmed: 'trip.daily_energy_driving',
+    presumed: 'trip.daily_energy_driving_presumed',
+  },
 }
 
 /**
@@ -132,31 +149,61 @@ export class LeapmotorTrip extends LitElement {
   }
 
   /**
-   * One day's distance, written on the right of its bar. A day with no
-   * distance reported gets the card's dash, which is what "not known" looks
-   * like everywhere else in this sub-view.
+   * One day's readings, written on the right of its bar: `39 km · 3 kWh`.
+   * What the car did not report is left out, and a day that reported neither
+   * gets the card's dash — which is what "not known" looks like everywhere
+   * else in this sub-view.
    *
-   * **A day's ENERGY is deliberately not here, and must not come back.** The
-   * `daily_detail` rows carry an `energy_kwh` and the card used to print it
-   * beside the distance, until a week of it was checked against a meter: 217
-   * km over 2026-09-04 to 2026-09-12 for which the attribute reported
-   * 21.0 kWh, where the charger delivered 53.56 kWh into a battery that
-   * started the window at 28.0 % and ended it at 27.3 %. That is roughly
-   * half of what the car actually used, the shortfall is not a constant
-   * fraction, and nobody knows what the field counts — the question is open
-   * upstream at
-   * https://github.com/kerniger/leapmotor-ha/issues/67. `parseDailyDetail`
-   * in `vehicle-state.ts` therefore drops it, and a `TripDay` has no energy
-   * to render even if this method wanted one.
+   * **Whether there is an energy at all is not this method's decision.**
+   * 0.4.10 took the per-day energy off the screen because it disagreed with a
+   * charger's meter by roughly a factor of two and nothing said what it
+   * counted; it is back because integration v0.7.2 declares the quantity, and
+   * `vehicle-state.ts` puts an `energyKwh` on a `TripDay` only for a scope
+   * this card knows how to label. On an integration that declares nothing
+   * there is no field here to print, exactly as there was not between 0.4.10
+   * and now, and this method needs no flag to check for that.
    *
-   * There is no kWh/100 km per day either, and there will not be, even if
-   * the energy is one day vindicated: one kilowatt-hour of rounding on an
-   * eleven-kilometer day moves the result by nine units; the number would
-   * look like a measurement and be noise. Consumption is a question this
-   * sub-view already answers over six weeks, where the rounding washes out.
+   * Whole kilowatt-hours, because whole kilowatt-hours are what the API
+   * sends: a `.0` after every one of them would be a precision the source
+   * does not have.
+   *
+   * **No kWh/100 km per day, and these figures are never summed into any
+   * consumption the card shows.** Two reasons, either of them sufficient. The
+   * energy excludes climate and accessories, so a quotient built from it
+   * would understate the car's real consumption by a margin that is known to
+   * exist and not known in size — on a measured week the driving-only figure
+   * was 40.5 kWh against a total of 53.1. And one kilowatt-hour of rounding
+   * on an eleven-kilometer day moves a kWh/100 km result by nine units, so it
+   * would look like a measurement and be noise. Consumption is a question the
+   * weekly series above already answers, over periods where both problems
+   * wash out.
    */
   private dayValue(day: TripDay): string {
-    return day.distanceKm !== undefined ? `${formatNumber(day.distanceKm)} km` : DASH
+    const parts: string[] = []
+    if (day.distanceKm !== undefined) parts.push(`${formatNumber(day.distanceKm)} km`)
+    if (day.energyKwh !== undefined) parts.push(`${formatNumber(day.energyKwh)} kWh`)
+    return this.joined(parts)
+  }
+
+  /**
+   * The one line that says what the energy on these rows counts.
+   *
+   * **Once, under the heading, and not on the rows.** It is a property of the
+   * source and not of any day, so eight repetitions of it would be noise the
+   * reader learns to skip past — and a qualification that is skipped is a
+   * qualification that is not made. It sits below the heading rather than
+   * beside it because the heading's right-hand slot already carries the
+   * period, and because this is a sentence: the `unit` slot is sized for a
+   * label and a sentence in it would not read as one.
+   *
+   * The wording comes from `SCOPE_KEYS` indexed by the scope and chosen by
+   * `confirmed`, which is the integration's own flag. While it is false the
+   * label says the scope is presumed; the day it turns true the hedge is gone
+   * with nothing edited here or in either catalog.
+   */
+  private scopeNote(energy: DailyEnergy) {
+    const keys = SCOPE_KEYS[energy.scope]
+    return html`<div class="scope muted">${this.t(energy.confirmed ? keys.confirmed : keys.presumed)}</div>`
   }
 
   /**
@@ -197,6 +244,11 @@ export class LeapmotorTrip extends LitElement {
    * one that does not go through `text-transform: uppercase`, which would
    * otherwise mangle the month's abbreviation.
    *
+   * Under the heading, and only when the rows carry an energy, comes the one
+   * line that says what that energy counts — see `scopeNote`. The rows
+   * themselves stay bare numbers; the qualification is made once, where it
+   * cannot be missed on the way down to them.
+   *
    * Rendered by hand instead of through `sections()` for the one reason its
    * `Row` cannot express: the bar. Same headings and the same spacing, so it
    * reads as another block of the same sub-view.
@@ -221,6 +273,7 @@ export class LeapmotorTrip extends LitElement {
         <span>${this.t('trip.heading_daily')}</span>
         ${period !== undefined ? html`<span class="unit">${period}</span>` : nothing}
       </div>
+      ${daily.energy !== undefined ? this.scopeNote(daily.energy) : nothing}
       ${newestFirst.map(day => this.dayRow(day, maxKm))}
     `
   }
@@ -374,6 +427,14 @@ export class LeapmotorTrip extends LitElement {
      * and this block is eight rows of numbers meant to be read down.
      */
     .day .value { text-align: end; font-variant-numeric: tabular-nums; }
+    /*
+     * The scope line under the per-day heading. Muted and below the size of a
+     * row, because it is not one of the numbers — but it is a sentence and it
+     * wraps on a phone, so it takes a line-height and a margin instead of the
+     * heading's uppercase and letter spacing, which are for labels of two or
+     * three words and turn a wrapped sentence into a ransom note.
+     */
+    .scope { font-size: 0.72rem; line-height: 1.35; margin: 0 0 4px; }
     /*
      * The same fully round ends as the battery bar in hero.ts — one bar
      * idiom in the card, not two — but NOT its --lm-chip track. That bar
