@@ -5,6 +5,33 @@ Every notable change to this project is recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.11] — 2026-09-14
+
+### Added
+
+- The per-day rows can show energy again — but only when the integration
+  declares what the number is. Integration v0.7.2 publishes `energy_scope`,
+  `energy_scope_confirmed` and a `driving_energy_kwh` on each row, in response
+  to [kerniger/leapmotor-ha#67](https://github.com/kerniger/leapmotor-ha/issues/67);
+  the card reads the scope from the same sensor that supplied the rows and
+  shows the energy only for a scope it knows how to label. On v0.7.1 and
+  earlier, which declare nothing, the rows stay exactly as 0.4.10 left them.
+
+- A single line under the block names the scope, once, rather than qualifying
+  every row: while the integration reports `energy_scope_confirmed: false` it
+  reads "Presumed driving energy only, excluding climate and accessories". If
+  upstream ever sets that flag to true, the hedge disappears on its own with no
+  string edited here.
+
+### Notes
+
+- Still no per-day consumption figure and no total, because the reading is not
+  established. One aligned Monday-to-Sunday week fits it at 94 %, but that
+  agreement rests on a single 120 km day; without it the same week gives
+  9.8 kWh/100 km, matching the 9.7 of an earlier window measured at 22.4. Short
+  trips do not reconcile in either window. The integration's author says he
+  cannot confirm the reading from his captures, and neither can we.
+
 ## [0.4.10] — 2026-09-12
 
 ### Removed
