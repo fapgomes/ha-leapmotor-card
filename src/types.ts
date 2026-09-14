@@ -121,13 +121,14 @@ export interface TripDay {
  * mapped cannot be spelled as a member of this type, so it cannot reach a
  * section, so it cannot be labeled with a claim nobody has checked.
  *
- * One member today. `driving` is traction energy alone, climate and
- * accessories excluded. Upstream measured it: over an aligned Monday-to-
- * Sunday week the daily rows summed to 38 kWh against a `driving_energy_kwh`
- * of 40.5 kWh for the same week — 94 % — while that week's TOTAL energy was
- * 53.1 kWh. It also explains what the card saw in 0.4.9, where the number
- * looked right on a long motorway day and far too small on a short city one:
- * climate and accessories draw per unit of time, not per kilometer.
+ * One member today. `driving` is the integration's `presumed_driving_only`:
+ * the reading that the figure is traction energy alone, climate and
+ * accessories excluded. **It is a hypothesis, not a finding**, and this name
+ * is what the card was TOLD, not what the card knows — which is why nothing
+ * here may be labeled without the hedge `DailyEnergy.confirmed` carries. The
+ * evidence is set out at `parseDailyDetail` in `vehicle-state.ts`: an aligned
+ * week fits it, the short-trip days in two separate windows do not, and
+ * upstream declines to confirm it from its own captures.
  */
 export type EnergyScope = 'driving'
 

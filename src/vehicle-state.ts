@@ -331,24 +331,51 @@ function nonNegative(value: unknown): number | undefined {
  * 0.4.10 removed this field: measured on the car this card is built against,
  * 2026-09-04 to 2026-09-12, `daily_detail` reported 21.0 kWh for 217 km while
  * the garage charger's meter delivered 53.56 kWh into a battery that ended
- * the window where it started, and nothing named the quantity. It has since
- * been identified as traction energy alone, excluding climate and
- * accessories: over an aligned Monday-to-Sunday week the days summed to
- * 38 kWh against a `driving_energy_kwh` of 40.5 kWh (94 %) where the total
- * for that week was 53.1 kWh — which is also why the per-day figure looked
- * plausible on long motorway days and hopeless on short city ones. What
- * changed with integration v0.7.2 is therefore not the values but the claim
- * attached to them, and the card prints them only for exactly as long as
- * `parseEnergyScope` recognizes that claim. See
+ * the window where it started — about 45–48 kWh actually used, or 22.4 per
+ * 100 km against the 9.7 the attribute implies — and nothing named the
+ * quantity. **What changed in v0.7.2 is that the integration now names it.
+ * The naming is a presumption, and it is upstream's, and the card repeats it
+ * as one.** Do not upgrade it to a finding here or anywhere else; the whole
+ * gate below exists because the last time this number went on screen with a
+ * meaning attached, the meaning was wrong.
+ *
+ * The presumption is driving energy: traction alone, climate and accessories
+ * excluded. What supports it is one aligned Monday-to-Sunday week, 2026-09-07
+ * to 2026-09-13, where the daily rows summed to 38 kWh against a
+ * `driving_energy_kwh` of 40.5 kWh (94 %) with a weekly TOTAL of 53.1 kWh.
+ * That is a comparison of the rows against the SAME integration's own
+ * seven-day sensor, both fed by the same cloud field
+ * (`energy_source: accumulatedEnergyConsume`), so it establishes that the two
+ * agree — not what either of them counts.
+ *
+ * What it does not survive is the short trips. That 94 % rests on one 120 km
+ * day worth 22 of the 38 kWh; drop it and the other 163 km come to
+ * 9.8 kWh/100 km, which is the same 9.7 the September window gave against a
+ * metered 22.4. If the field were driving-only at the 40.5/53.1 = 76 % that
+ * week implies, September should have reported some 37 kWh; it reported 21,
+ * or 57 %. So the direction is right — climate and accessories draw per unit
+ * of time, so their share is largest exactly on the short city days where the
+ * gap is widest — and the magnitude is unaccounted for. Upstream says the
+ * same: `energy_scope_confirmed` is false because its author cannot confirm
+ * the reading from his own captures either. See
  * https://github.com/kerniger/leapmotor-ha/issues/67.
  *
  * The figure is read from `driving_energy_kwh` and falls back to the older
  * `energy_kwh`, which v0.7.2 keeps beside it carrying the same numbers for
- * compatibility. Only a missing key falls back, not an unreadable one: a
+ * compatibility. Only a MISSING key falls back, not an unreadable one: a
  * `driving_energy_kwh` of `''` is that row failing to report, and the stale
  * twin of a field that failed is not a better answer than the absence.
  * Otherwise the energy follows the same rules as the distance — negative or
  * unreadable is an absence, a zero is a zero.
+ *
+ * That line is drawn by `??`, so a `null` counts as missing and falls back
+ * where `''` does not — and a Python integration writes `None` for a field it
+ * could not compute, which is arguably the same failure `''` reports. The
+ * asymmetry was noticed and kept: a key present as `null` reads as "this
+ * integration does not populate this name", which is the case the fallback is
+ * for, where `''` reads as "this name is mine and today it has no value". It
+ * decides nothing today, because v0.7.2 writes identical numbers under both
+ * keys; the day they can disagree, this is the paragraph to revisit.
  */
 export function parseDailyDetail(value: unknown, scope?: EnergyScope): TripDay[] {
   if (!Array.isArray(value)) return []

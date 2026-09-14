@@ -19,8 +19,18 @@ interface Row {
  * must stop hedging on the day it is true WITHOUT anyone editing a sentence.
  * A scope added here without both of its labels does not compile, which is
  * the only enforcement that survives the person who wrote this leaving.
+ *
+ * Exported for the tests alone, and for one specific hole: the confirmed
+ * wording is the branch that fires the day upstream flips the flag, so it is
+ * the branch nobody will notice is broken. `tsc` cannot check a catalog key,
+ * the parity test only compares the two catalogs against each other, and the
+ * section's own tests stub the translator to the identity — so a key renamed
+ * in BOTH catalogs left the whole suite green while every dashboard would
+ * have printed the literal `trip.daily_energy_driving`. The test that
+ * resolves every entry below against the real catalogs is what closes that,
+ * and it needs this table to be reachable.
  */
-const SCOPE_KEYS: Record<EnergyScope, { confirmed: string; presumed: string }> = {
+export const SCOPE_KEYS: Record<EnergyScope, { confirmed: string; presumed: string }> = {
   driving: {
     confirmed: 'trip.daily_energy_driving',
     presumed: 'trip.daily_energy_driving_presumed',
@@ -157,11 +167,12 @@ export class LeapmotorTrip extends LitElement {
    * **Whether there is an energy at all is not this method's decision.**
    * 0.4.10 took the per-day energy off the screen because it disagreed with a
    * charger's meter by roughly a factor of two and nothing said what it
-   * counted; it is back because integration v0.7.2 declares the quantity, and
-   * `vehicle-state.ts` puts an `energyKwh` on a `TripDay` only for a scope
-   * this card knows how to label. On an integration that declares nothing
-   * there is no field here to print, exactly as there was not between 0.4.10
-   * and now, and this method needs no flag to check for that.
+   * counted; it is back because integration v0.7.2 says what it presumes the
+   * number to be, and `vehicle-state.ts` puts an `energyKwh` on a `TripDay`
+   * only for a presumption this card knows how to state. On an integration
+   * that says nothing there is no field here to print, exactly as there was
+   * not between 0.4.10 and now, and this method needs no flag to check for
+   * that.
    *
    * Whole kilowatt-hours, because whole kilowatt-hours are what the API
    * sends: a `.0` after every one of them would be a precision the source
@@ -169,14 +180,15 @@ export class LeapmotorTrip extends LitElement {
    *
    * **No kWh/100 km per day, and these figures are never summed into any
    * consumption the card shows.** Two reasons, either of them sufficient. The
-   * energy excludes climate and accessories, so a quotient built from it
-   * would understate the car's real consumption by a margin that is known to
-   * exist and not known in size — on a measured week the driving-only figure
-   * was 40.5 kWh against a total of 53.1. And one kilowatt-hour of rounding
-   * on an eleven-kilometer day moves a kWh/100 km result by nine units, so it
-   * would look like a measurement and be noise. Consumption is a question the
-   * weekly series above already answers, over periods where both problems
-   * wash out.
+   * card does not know what this energy counts — the integration's own
+   * reading of it leaves out climate and accessories, and that reading is
+   * unconfirmed by upstream and unclosed by our own measurements — so a
+   * quotient built from it would be a consumption figure with no defensible
+   * meaning, low by an amount known to exist and not known in size. And one
+   * kilowatt-hour of rounding on an eleven-kilometer day moves a kWh/100 km
+   * result by nine units, so it would look like a measurement and be noise.
+   * Consumption is a question the weekly series above already answers, over
+   * periods where both problems wash out.
    */
   private dayValue(day: TripDay): string {
     const parts: string[] = []

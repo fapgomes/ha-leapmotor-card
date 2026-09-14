@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { nothing } from 'lit'
 import { resolveEntities } from '../src/resolver'
+import { createTranslator } from '../src/localize'
 import { buildVehicleState } from '../src/vehicle-state'
 import type { VehicleState } from '../src/types'
 import { fakeHass } from './helpers/fake-hass'
@@ -40,7 +41,7 @@ vi.mock('lit/decorators.js', () => ({
 }))
 
 // After the mock, so that the class it extends is the stub.
-const { LeapmotorTrip } = await import('../src/sections/trip')
+const { LeapmotorTrip, SCOPE_KEYS } = await import('../src/sections/trip')
 
 /** The nested templates the stub collects, flattened back into markup. */
 function flatten(node: unknown): string {
@@ -80,6 +81,24 @@ function render(
   panel.state = state
   panel.t = (key: string) => key
   panel.language = 'en'
+  return flatten(panel.render())
+}
+
+/**
+ * The same sub-view, rendered through the card's REAL translator instead of
+ * the identity stub. Only the tests that are about the catalogs use it: every
+ * other assertion in this file names keys on purpose.
+ */
+function renderWith(attributes: Record<string, unknown>, language: string): string {
+  const specs = REAL_SPECS.map(spec =>
+    spec.key === 'sensor/last_7_days_mileage_km' || spec.key === 'sensor/last_7_days_energy_kwh'
+      ? { ...spec, attributes }
+      : spec)
+  const hass = fakeHass(specs)
+  const panel = new LeapmotorTrip()
+  panel.state = buildVehicleState(hass, resolveEntities(hass, { type: 'custom:leapmotor-card' }).map, REAL_NOW)
+  panel.t = createTranslator(language)
+  panel.language = language
   return flatten(panel.render())
 }
 
@@ -240,6 +259,50 @@ describe('leapmotor-trip — the per-day block', () => {
     for (const row of dayRows(markup)) expect(row, row).not.toContain('trip.daily_energy')
   })
 
+  it('every scope label resolves to real text in every catalog', () => {
+    /*
+     * The one thing the rest of this file cannot see. `t` is stubbed to the
+     * identity here, so its assertions name keys and would pass just as
+     * happily if no catalog defined them; `localize.test.ts` compares en
+     * against pt, so a key renamed in BOTH is parity-clean; and `tsc` has no
+     * opinion about a string. Renaming `trip.daily_energy_driving` in both
+     * catalogs left the whole suite green — and would have printed the
+     * literal key under the Per day heading on every dashboard the day
+     * upstream sets `energy_scope_confirmed`.
+     *
+     * Every entry of the table, both wordings, both languages: the confirmed
+     * branch is checked here precisely because nothing on today's data
+     * renders it.
+     */
+    const keys = Object.values(SCOPE_KEYS).flatMap(pair => [pair.confirmed, pair.presumed])
+    expect(keys.length).toBeGreaterThan(0)
+    for (const key of keys) {
+      for (const language of ['en', 'pt']) {
+        const text = createTranslator(language)(key)
+        // `createTranslator` answers with the key itself when no catalog has
+        // the key, which is exactly the failure being guarded against.
+        expect(text, `${key} in ${language}`).not.toBe(key)
+        expect(text.trim(), `${key} in ${language}`).not.toBe('')
+      }
+    }
+  })
+
+  it('renders the scope line as text, not as a key, in both languages', () => {
+    // The same hole from the other side: the note as a reader sees it, with
+    // the card's own translator instead of the identity stub.
+    for (const language of ['en', 'pt']) {
+      for (const confirmed of [false, true]) {
+        const markup = renderWith(
+          { ...SEVEN_DAY_ATTRIBUTES_SCOPED, energy_scope_confirmed: confirmed },
+          language,
+        )
+        const note = markup.slice(markup.indexOf('<div class="scope muted">'))
+        expect(note, `${language}/${confirmed}`).not.toContain('trip.daily_energy')
+        expect(note, `${language}/${confirmed}`).toMatch(/<div class="scope muted">\s*\S/)
+      }
+    }
+  })
+
   it('drops the hedge when the integration confirms the scope', () => {
     // The one field changes and the wording follows, with no string edited
     // here, in the section or in either catalog.
@@ -357,6 +420,71 @@ describe('leapmotor-trip — the per-day block', () => {
     // With no period to write, the heading carries the label alone.
     expect(markup).toContain('trip.heading_daily')
     expect(markup).not.toContain('class="unit">undefined')
+  })
+
+  it('a scope on the sensor that supplied no rows changes nothing on screen', () => {
+    /*
+     * The render-level twin of the state-level test in
+     * `vehicle-state.test.ts`. A hand-mapped `entities:` can point the two
+     * seven-day keys at two integrations; the distance sensor answers first
+     * and declares nothing, so the energy sensor's declaration must not
+     * license its neighbor's numbers. Two differently shaped nets, because
+     * this is the property that keeps an unexplained number off the screen.
+     */
+    const markup = render(SEVEN_DAY_ATTRIBUTES, SEVEN_DAY_ATTRIBUTES_SCOPED)
+    const block = markup.slice(markup.indexOf('trip.heading_daily'))
+    expect(block).not.toContain('kWh')
+    expect(block).not.toContain('trip.daily_energy_driving')
+
+    // And the converse, which is what says the rule is about provenance and
+    // not about one sensor being special: with the roles swapped the rows and
+    // the declaration come from the same entity again, and the energy shows.
+    const swapped = render(SEVEN_DAY_ATTRIBUTES_SCOPED, SEVEN_DAY_ATTRIBUTES)
+    expect(dayRows(swapped)[1]).toBe('Aug 26 99 km \u00b7 14 kWh')
+    expect(swapped).toContain('trip.daily_energy_driving_presumed')
+  })
+
+  it('draws no scope line over a column with no energy in it', () => {
+    // The render-level twin of the empty-column guard. A declared scope whose
+    // rows all failed to report is a sentence qualifying nothing, and the
+    // distances — the block's reason to exist — are untouched by its absence.
+    const markup = render({ ...SEVEN_DAY_ATTRIBUTES_SCOPED, daily_detail: [
+      { date: '2026-08-26', mileage_km: 99.0 },
+      { date: '2026-08-27', mileage_km: 0.0, driving_energy_kwh: '' },
+    ] })
+    expect(markup).not.toContain('class="scope muted"')
+    expect(markup).not.toContain('trip.daily_energy')
+    expect(dayRows(markup)).toEqual(['Aug 27 0 km', 'Aug 26 99 km'])
+  })
+
+  it('never puts a kWh in a day row without the line that qualifies it', () => {
+    /*
+     * The invariant behind every other assertion in this file, checked as one
+     * over every payload shape the card can meet rather than one direction on
+     * one fixture: a kilowatt-hour on a row and no scope line above it is the
+     * 0.4.10 defect returning, whatever route it took to get there.
+     */
+    const payloads: Array<Record<string, unknown> | null> = [
+      null,
+      SEVEN_DAY_ATTRIBUTES,
+      SEVEN_DAY_ATTRIBUTES_SCOPED,
+      { ...SEVEN_DAY_ATTRIBUTES_SCOPED, energy_scope_confirmed: true },
+      { ...SEVEN_DAY_ATTRIBUTES_SCOPED, energy_scope: 'battery_delta' },
+      { ...SEVEN_DAY_ATTRIBUTES_SCOPED, energy_scope: '' },
+      { ...SEVEN_DAY_ATTRIBUTES_SCOPED, energy_scope: 42 },
+      { ...SEVEN_DAY_ATTRIBUTES_SCOPED, daily_detail: [{ date: '2026-08-26', mileage_km: 99.0 }] },
+      { ...SEVEN_DAY_ATTRIBUTES, energy_scope_confirmed: true },
+    ]
+    for (const payload of payloads) {
+      const markup = render(payload)
+      const label = JSON.stringify(payload?.energy_scope ?? payload)?.slice(0, 40)
+      const rowsWithEnergy = dayRows(markup).filter(row => row.includes('kWh'))
+      if (rowsWithEnergy.length > 0) {
+        expect(markup, label).toContain('class="scope muted"')
+      } else {
+        expect(markup, label).not.toContain('class="scope muted"')
+      }
+    }
   })
 
   it('the block is the last thing in the sub-view', () => {
