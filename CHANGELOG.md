@@ -5,6 +5,48 @@ Every notable change to this project is recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.12] — 2026-09-23
+
+### Changed
+
+- The per-day energy now requires the integration to declare a **unit** as well
+  as a scope. Integration v0.7.3 added `energy_unit`, and on a T03 it is `null`
+  because the cloud's magnitudes contradict the kWh contract and upstream
+  refuses to infer a factor of 1000 from magnitude alone. A unit marked
+  unverified is as unlabelable as an unknown scope, so the card withholds the
+  figure in both cases. The unit is checked per row as well as per sensor: the
+  symbol printed after a number has to be the one that arrived with it.
+
+  **This withholds energy on v0.7.2**, which names the scope but no unit. On a
+  B10 those values were in fact kWh, so this costs something for users on that
+  version; the card cannot tell a B10 from a T03 without the unit, and on
+  v0.7.2 a T03 would have been shown watt-hours labelled as kilowatt-hours.
+  Updating the integration to v0.7.3 restores the column.
+
+- When the integration states why it is withholding the energy
+  (`energy_unavailable_reason`), one line says so, quoted from the integration
+  rather than inferred. Integrations that declare nothing show no such line.
+
+### Fixed
+
+- The documentation no longer claims short trips fail to reconcile. That came
+  from the pre-fix eight-day window compared against a charger-meter estimate
+  resting on assumed charging losses and an assumed usable capacity. Two
+  completed Monday-to-Sunday weeks measured after upstream fixed the window put
+  the daily sum at 94 % and 90 % of the integration's own `driving_energy_kwh`,
+  and within the second week days of 40 km or less give 12.0 kWh/100 km against
+  12.3 for the longer ones — they agree.
+
+  That is the card's source being consistent with itself, not a measurement of
+  what the number is. The scope stays `energy_scope_confirmed: false`, the two
+  weeks had near-identical climate shares (16.4 % and 16.8 %) so they do not
+  test the variable that would separate driving-only from total, and it remains
+  one car over two weeks.
+
+- Truncation is no longer presented as this card's inference. Upstream reports
+  `energy_precision: as_reported_by_cloud`, so the rounding to whole
+  kilowatt-hours happens before the integration sees the values.
+
 ## [0.4.11] — 2026-09-14
 
 ### Added
