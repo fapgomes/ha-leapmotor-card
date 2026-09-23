@@ -78,10 +78,14 @@ const DAILY_DETAIL = [
  * had them, ON THE INTEGRATION ABOVE: the day and the distance, and nothing
  * else. `odometer_km`, `mileage_mi` and `timestamp` are dropped because the
  * card has no use for them and a structure carrying them would invite one;
- * `energy_kwh` is dropped because this payload declares no `energy_scope`,
- * which is the gate `parseDailyDetail` in `src/vehicle-state.ts` puts in
- * front of the energy. `EXPECTED_DAYS_WITH_ENERGY` below is the same eight
- * days as they come out of the integration that does declare one.
+ * `energy_kwh` is dropped because this payload declares neither an
+ * `energy_scope` nor an `energy_unit`, which together are the gate
+ * `parseDailyDetail` in `src/vehicle-state.ts` puts in front of the energy.
+ * `EXPECTED_DAYS_WITH_ENERGY` below is the same eight days as they come out
+ * of the integration that declares both.
+ *
+ * It is therefore also what the card holds on v0.7.2, which declares the
+ * scope and no unit, and on a T03, whose unit is `null`.
  *
  * It lives beside the payload it is the projection of, so that a change to
  * one is made in sight of the other, and it is shared by the parser's tests
@@ -132,11 +136,11 @@ const DAILY_DETAIL_V072 = DAILY_DETAIL.map(day => ({ ...day, driving_energy_kwh:
  * upstream, and its documentation states these figures are not the vehicle's
  * total energy consumption.
  *
- * `energy_scope_confirmed` is `false`, and stays `false` here, because that
- * is what the integration ships: the maintainer cannot confirm the
- * driving-only reading from his own captures. The tests that need the other
- * answer override this one field, which is exactly the change the card has to
- * survive without a string being edited.
+ * **It names what the figures are presumed to count and not what they are
+ * measured in, so the card prints no energy on it.** That is load-bearing and
+ * it is half the point of keeping this fixture beside the v0.7.3 one below: a
+ * scope alone stopped being enough when upstream shipped a car whose unit it
+ * could not vouch for, and this payload is what "half a label" looks like.
  */
 export const SEVEN_DAY_ATTRIBUTES_SCOPED = {
   ...SEVEN_DAY_ATTRIBUTES,
@@ -147,11 +151,98 @@ export const SEVEN_DAY_ATTRIBUTES_SCOPED = {
 }
 
 /**
- * The eight days as the card holds them from the payload right above: the
- * distances unchanged, and the energy alongside them because this integration
- * says what it is. Written out rather than derived from `EXPECTED_DAYS`, so
- * that the pairing of a distance with an energy is visible to whoever reviews
- * a change to either.
+ * The same eight days as integration v0.7.3 sends them on a B10: every row
+ * gains the cloud's untouched `energy_raw` and the `energy_unit` that says
+ * what it is in, beside the two figures v0.7.2 already carried. `energy_raw`
+ * equals the rest here because on this car the cloud's number IS kilowatt
+ * hours; the card reads none of it and takes `driving_energy_kwh`.
+ */
+const DAILY_DETAIL_V073 = DAILY_DETAIL_V072.map(day => ({
+  ...day, energy_raw: day.energy_kwh, energy_unit: 'kWh',
+}))
+
+/**
+ * The attribute block of integration v0.7.3 on a B10 — the first version that
+ * says what the per-day figures ARE and not only what they are presumed to
+ * count, and therefore the first on which this card prints them.
+ *
+ * `energy_unit` is the addition that matters: `kWh` here, `null` on the T03
+ * below. The other three are read by nothing — `energy_precision` is upstream
+ * stating that the whole-kilowatt-hour rounding happened in the cloud before
+ * the integration ever saw the values, `energy_complete_scope` names what
+ * `energy_complete` covers, and `energy_unavailable_reason` is `null` because
+ * nothing is being withheld.
+ *
+ * `energy_scope_confirmed` is `false`, and stays `false` here, because that
+ * is what the integration ships: the maintainer cannot confirm the
+ * driving-only reading from his own captures. The tests that need the other
+ * answer override this one field, which is exactly the change the card has to
+ * survive without a string being edited.
+ */
+export const SEVEN_DAY_ATTRIBUTES_LABELED = {
+  ...SEVEN_DAY_ATTRIBUTES_SCOPED,
+  daily_detail: DAILY_DETAIL_V073,
+  energy_unit: 'kWh',
+  energy_unavailable_reason: null,
+  energy_precision: 'as_reported_by_cloud',
+  energy_complete_scope: 'fields_and_mileage_coverage',
+}
+
+/**
+ * The same integration on a T03, which is the case the unit gate exists for.
+ * The cloud's magnitudes contradict the kilowatt-hour contract, upstream
+ * refuses to guess a factor of a thousand, so it publishes the bare number in
+ * `energy_raw`, leaves both kilowatt-hour fields as `None`, and says why in
+ * `energy_unavailable_reason`.
+ *
+ * Both halves matter to the card. The rows are what it looks like today —
+ * nothing usable to print, by luck rather than by rule — and the `null` unit
+ * is the rule: even if a future payload put a number back in one of those
+ * fields, an unverified unit keeps it off the screen.
+ */
+const DAILY_DETAIL_T03 = DAILY_DETAIL.map(day => ({
+  ...day,
+  energy_kwh: null,
+  driving_energy_kwh: null,
+  energy_raw: day.energy_kwh,
+  energy_unit: null,
+}))
+
+export const SEVEN_DAY_ATTRIBUTES_T03 = {
+  ...SEVEN_DAY_ATTRIBUTES_LABELED,
+  daily_detail: DAILY_DETAIL_T03,
+  energy_unit: null,
+  energy_unavailable_reason: 'unverified_unit',
+}
+
+/**
+ * A hypothetical later integration that verified the unit to be something
+ * else, and said so. It is synthetic, and it is the sharpest test of the gate
+ * there is: the compatibility keys upstream never renamed still read
+ * `..._kwh`, and they now hold watt-hours. A card that trusted the key name
+ * instead of the declared unit would print `12000 kWh` for a sixty-kilometer
+ * day.
+ */
+const DAILY_DETAIL_WH = DAILY_DETAIL.map(day => ({
+  ...day,
+  energy_kwh: day.energy_kwh * 1000,
+  driving_energy_kwh: day.energy_kwh * 1000,
+  energy_raw: day.energy_kwh * 1000,
+  energy_unit: 'Wh',
+}))
+
+export const SEVEN_DAY_ATTRIBUTES_UNKNOWN_UNIT = {
+  ...SEVEN_DAY_ATTRIBUTES_LABELED,
+  daily_detail: DAILY_DETAIL_WH,
+  energy_unit: 'Wh',
+}
+
+/**
+ * The eight days as the card holds them from `SEVEN_DAY_ATTRIBUTES_LABELED`:
+ * the distances unchanged, and the energy alongside them because that
+ * integration says both what it counts and what it is in. Written out rather
+ * than derived from `EXPECTED_DAYS`, so that the pairing of a distance with an
+ * energy is visible to whoever reviews a change to either.
  */
 export const EXPECTED_DAYS_WITH_ENERGY = [
   { date: '2026-08-20', distanceKm: 60, energyKwh: 12 },

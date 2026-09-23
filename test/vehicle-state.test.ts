@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { resolveEntities } from '../src/resolver'
 import {
-  buildVehicleState, parseDailyDetail, parseEnergyScope, parseWeeklyConsumption,
+  buildVehicleState, parseDailyDetail, parseDailyEnergy, parseEnergyUnavailable, parseEnergyUnit,
+  parseWeeklyConsumption,
 } from '../src/vehicle-state'
 import { fakeHass, type FakeEntitySpec } from './helpers/fake-hass'
 import {
   EXPECTED_DAYS, EXPECTED_DAYS_WITH_ENERGY, REAL_NOW, REAL_SPECS, SEVEN_DAY_ATTRIBUTES,
-  SEVEN_DAY_ATTRIBUTES_SCOPED, realHass,
+  SEVEN_DAY_ATTRIBUTES_LABELED, SEVEN_DAY_ATTRIBUTES_SCOPED, SEVEN_DAY_ATTRIBUTES_T03,
+  SEVEN_DAY_ATTRIBUTES_UNKNOWN_UNIT, realHass,
 } from './fixtures/real-states'
 
 const CONFIG = { type: 'custom:leapmotor-card' }
@@ -692,12 +694,12 @@ describe('parseDailyDetail', () => {
     // Not decoration: `odometer_km` comes as 0.0 on the day in progress, and
     // anything downstream that could reach it could draw a car whose
     // odometer went back to zero. The energy is absent for a reason of its
-    // own — no scope was passed — and a row that carried it anyway would be
+    // own — no unit was passed — and a row that carried it anyway would be
     // a row a section could print.
     expect(Object.keys(parseDailyDetail([ROW])[0])).toEqual(['date', 'distanceKm'])
   })
 
-  it('drops the energy of every row when no scope was declared', () => {
+  it('drops the energy of every row when no unit was declared', () => {
     // This is the integration the card's author is running, and the majority
     // case in the wild. Every row of the payload carries an `energy_kwh`, and
     // not one of them survives the parser: an energy nothing has named is
@@ -710,35 +712,77 @@ describe('parseDailyDetail', () => {
     }
   })
 
-  it('reads `driving_energy_kwh` once a scope says what it counts', () => {
-    // The v0.7.2 payload, whose rows carry both names with the same value.
-    const days = parseDailyDetail(SEVEN_DAY_ATTRIBUTES_SCOPED.daily_detail, 'driving')
+  it('drops the energy of a v0.7.2 row even under a unit, having none of its own', () => {
+    // v0.7.2 rows carry both kilowatt-hour names and no `energy_unit`. The
+    // sensor-level declaration is not evidence about a row that did not
+    // label itself, so the figure stays off — which is also why a v0.7.2
+    // payload, whose sensor declares no unit either, shows nothing at all.
+    const days = parseDailyDetail(SEVEN_DAY_ATTRIBUTES_SCOPED.daily_detail, 'kWh')
+    expect(days).toEqual(EXPECTED_DAYS)
+  })
+
+  it('reads `driving_energy_kwh` once the row and the sensor name the unit', () => {
+    // The v0.7.3 payload, whose rows carry both names with the same value and
+    // say what that value is in.
+    const days = parseDailyDetail(SEVEN_DAY_ATTRIBUTES_LABELED.daily_detail, 'kWh')
     expect(days).toEqual(EXPECTED_DAYS_WITH_ENERGY)
   })
 
+  it('drops the energy of a row whose own unit is not the declared one', () => {
+    // The sharpest case, and a synthetic one: the compatibility key still
+    // reads `..._kwh` and holds watt-hours. A parser that took the block's
+    // unit on trust would hand the section 12000 to print as kilowatt-hours.
+    const days = parseDailyDetail(SEVEN_DAY_ATTRIBUTES_UNKNOWN_UNIT.daily_detail, 'kWh')
+    expect(days).toEqual(EXPECTED_DAYS)
+    for (const unit of [null, undefined, '', 'Wh', 'kwh', 'KWH', 42, {}]) {
+      const row = { date: '2026-08-26', mileage_km: 99.0, driving_energy_kwh: 14.0, energy_unit: unit }
+      expect(parseDailyDetail([row], 'kWh'), String(unit))
+        .toEqual([{ date: '2026-08-26', distanceKm: 99 }])
+    }
+    // Padding is not a different unit, there as it is on the sensor.
+    expect(parseDailyDetail(
+      [{ date: '2026-08-26', mileage_km: 99.0, driving_energy_kwh: 14.0, energy_unit: ' kWh ' }],
+      'kWh',
+    )).toEqual([{ date: '2026-08-26', distanceKm: 99, energyKwh: 14 }])
+  })
+
+  it('never reads `energy_raw`, whatever else the row is missing', () => {
+    // The T03 shape: the cloud's bare number, and upstream declining to say
+    // what it is. A number whose unit is disputed is the thing the gate is
+    // for, so the row keeps its distance and nothing else.
+    const days = parseDailyDetail(SEVEN_DAY_ATTRIBUTES_T03.daily_detail, 'kWh')
+    expect(days).toEqual(EXPECTED_DAYS)
+    // And not even with a unit on the row, since `energy_raw` is not a key
+    // this parser knows.
+    expect(parseDailyDetail(
+      [{ date: '2026-08-26', mileage_km: 99.0, energy_raw: 14.0, energy_unit: 'kWh' }],
+      'kWh',
+    )).toEqual([{ date: '2026-08-26', distanceKm: 99 }])
+  })
+
   it('prefers `driving_energy_kwh` over the compatibility `energy_kwh`', () => {
-    // v0.7.2 keeps both keys. They agree today; if they ever stop agreeing,
+    // v0.7.3 keeps both keys. They agree today; if they ever stop agreeing,
     // the one that says what it is wins, and this test says which that is.
     expect(parseDailyDetail(
-      [{ date: '2026-08-26', mileage_km: 99.0, energy_kwh: 14.0, driving_energy_kwh: 11.0 }],
-      'driving',
+      [{ date: '2026-08-26', mileage_km: 99.0, energy_kwh: 14.0, driving_energy_kwh: 11.0, energy_unit: 'kWh' }],
+      'kWh',
     )).toEqual([{ date: '2026-08-26', distanceKm: 99, energyKwh: 11 }])
   })
 
   it('falls back to `energy_kwh` on a row without the newer key', () => {
     // The seven-day sensors gained `energy_scope` in the same release as the
     // rows gained `driving_energy_kwh`, so this pairing should not occur —
-    // but a declared scope is a claim about the energy in the block, not
+    // but a declared unit is a claim about the energy in the block, not
     // about which of two names each row happened to use.
     expect(parseDailyDetail(
-      [{ date: '2026-08-26', mileage_km: 99.0, energy_kwh: 14.0 }],
-      'driving',
+      [{ date: '2026-08-26', mileage_km: 99.0, energy_kwh: 14.0, energy_unit: 'kWh' }],
+      'kWh',
     )).toEqual([{ date: '2026-08-26', distanceKm: 99, energyKwh: 14 }])
     // `null` is a missing key too, which is how a Python integration writes
     // one it has no value for.
     expect(parseDailyDetail(
-      [{ date: '2026-08-26', mileage_km: 99.0, energy_kwh: 14.0, driving_energy_kwh: null }],
-      'driving',
+      [{ date: '2026-08-26', mileage_km: 99.0, energy_kwh: 14.0, driving_energy_kwh: null, energy_unit: 'kWh' }],
+      'kWh',
     )).toEqual([{ date: '2026-08-26', distanceKm: 99, energyKwh: 14 }])
   })
 
@@ -748,21 +792,21 @@ describe('parseDailyDetail', () => {
     // and it would be printed as though the day had reported.
     for (const broken of ['', '   ', -1, 'vinte']) {
       const days = parseDailyDetail(
-        [{ date: '2026-08-26', mileage_km: 99.0, energy_kwh: 14.0, driving_energy_kwh: broken }],
-        'driving',
+        [{ date: '2026-08-26', mileage_km: 99.0, energy_kwh: 14.0, driving_energy_kwh: broken, energy_unit: 'kWh' }],
+        'kWh',
       )
       expect(days, String(broken)).toEqual([{ date: '2026-08-26', distanceKm: 99 }])
       expect(Object.keys(days[0]), String(broken)).toEqual(['date', 'distanceKm'])
     }
   })
 
-  it('keeps a scoped zero as a zero, and a scoped absence as an absence', () => {
+  it('keeps a labeled zero as a zero, and a labeled absence as an absence', () => {
     // Same call as the distance: 0 kWh on a day the car did not move is a
     // reading, and a day that reported nothing may not be drawn as one.
     expect(parseDailyDetail([
-      { date: '2026-08-26', mileage_km: 0.0, driving_energy_kwh: 0.0 },
-      { date: '2026-08-27', mileage_km: 12.0 },
-    ], 'driving')).toEqual([
+      { date: '2026-08-26', mileage_km: 0.0, driving_energy_kwh: 0.0, energy_unit: 'kWh' },
+      { date: '2026-08-27', mileage_km: 12.0, energy_unit: 'kWh' },
+    ], 'kWh')).toEqual([
       { date: '2026-08-26', distanceKm: 0, energyKwh: 0 },
       { date: '2026-08-27', distanceKm: 12 },
     ])
@@ -870,24 +914,65 @@ describe('parseDailyDetail', () => {
   })
 })
 
-describe('parseEnergyScope', () => {
-  it('reads the declaration integration v0.7.2 publishes', () => {
-    expect(parseEnergyScope('presumed_driving_only', false)).toEqual({
-      scope: 'driving', confirmed: false,
+describe('parseEnergyUnit', () => {
+  it('reads the unit integration v0.7.3 publishes on a B10', () => {
+    expect(parseEnergyUnit('kWh')).toBe('kWh')
+    expect(parseEnergyUnit('  kWh  ')).toBe('kWh')
+  })
+
+  it('is nothing at all for the T03, whose unit upstream will not vouch for', () => {
+    // `None` over the wire. The cloud's magnitudes contradict the kilowatt
+    // hour contract and upstream refuses to guess a factor of a thousand, so
+    // there is no unit to print a number under.
+    expect(parseEnergyUnit(null)).toBeUndefined()
+    expect(parseEnergyUnit(undefined)).toBeUndefined()
+  })
+
+  it('is nothing at all for a unit this card does not know', () => {
+    // Including a spelling of the same unit: whatever comes back out of here
+    // is printed verbatim beside a number, so this is a table of symbols the
+    // card is prepared to write and not a normalizer of someone else's.
+    for (const unknown of ['', 'Wh', 'kwh', 'KWH', 'kW h', '%', 42, {}, [], true]) {
+      expect(parseEnergyUnit(unknown), String(unknown)).toBeUndefined()
+    }
+  })
+})
+
+describe('parseEnergyUnavailable', () => {
+  it('reads the reasons integration v0.7.3 publishes', () => {
+    expect(parseEnergyUnavailable('unverified_unit')).toBe('unverified_unit')
+    expect(parseEnergyUnavailable('  incomplete_data  ')).toBe('incomplete_data')
+  })
+
+  it('is nothing at all when no reason was given', () => {
+    // `null` is v0.7.3 withholding nothing; the absence is every integration
+    // older than it. Neither is a sentence the card can write.
+    for (const missing of [undefined, null, '', 'unknown', 'because', 42, {}, true]) {
+      expect(parseEnergyUnavailable(missing), String(missing)).toBeUndefined()
+    }
+  })
+})
+
+describe('parseDailyEnergy', () => {
+  it('reads the declaration integration v0.7.3 publishes', () => {
+    expect(parseDailyEnergy('presumed_driving_only', false, 'kWh')).toEqual({
+      scope: 'driving', unit: 'kWh', confirmed: false,
     })
   })
 
   it('accepts the name without the presumption, meaning the same quantity', () => {
     // Whether the scope is established is `energy_scope_confirmed`'s job, so
     // a rename that drops the word must not silently blank the energy out.
-    expect(parseEnergyScope('driving_only', true)).toEqual({ scope: 'driving', confirmed: true })
+    expect(parseDailyEnergy('driving_only', true, 'kWh')).toEqual({
+      scope: 'driving', unit: 'kWh', confirmed: true,
+    })
   })
 
   it('is nothing at all when no scope was declared', () => {
     // Every integration up to and including v0.7.1: the attribute is simply
     // not there. This is the case that keeps the energy off most screens.
     for (const missing of [undefined, null, 42, {}, [], true]) {
-      expect(parseEnergyScope(missing, true), String(missing)).toBeUndefined()
+      expect(parseDailyEnergy(missing, true, 'kWh'), String(missing)).toBeUndefined()
     }
   })
 
@@ -896,7 +981,17 @@ describe('parseEnergyScope', () => {
     // Inventing a label on the spot is the defect 0.4.10 was released to fix,
     // so an unknown scope lands exactly where a missing one does.
     for (const unknown of ['', 'total', 'driving', 'presumed_total', 'DRIVING_ONLY']) {
-      expect(parseEnergyScope(unknown, true), unknown).toBeUndefined()
+      expect(parseDailyEnergy(unknown, true, 'kWh'), unknown).toBeUndefined()
+    }
+  })
+
+  it('is nothing at all when the unit is missing, null or unknown', () => {
+    // Half a label is not a label. v0.7.2 declares the scope and stops there;
+    // a T03 on v0.7.3 declares the scope and a `null` unit. Both land where a
+    // missing scope lands, and they land there structurally: the section is
+    // never handed a figure it would have to decide not to draw.
+    for (const unit of [undefined, null, '', 'Wh', 'kwh', 42, {}]) {
+      expect(parseDailyEnergy('presumed_driving_only', false, unit), String(unit)).toBeUndefined()
     }
   })
 
@@ -904,14 +999,16 @@ describe('parseEnergyScope', () => {
     // The hedge is the safe direction to be wrong in, so everything that is
     // not the promise leaves it in place — the string 'true' included.
     for (const soft of ['true', 1, 'yes', undefined, null, false, {}]) {
-      expect(parseEnergyScope('presumed_driving_only', soft), String(soft)).toEqual({
-        scope: 'driving', confirmed: false,
+      expect(parseDailyEnergy('presumed_driving_only', soft, 'kWh'), String(soft)).toEqual({
+        scope: 'driving', unit: 'kWh', confirmed: false,
       })
     }
   })
 
   it('tolerates the padding a hand-written attribute can carry', () => {
-    expect(parseEnergyScope('  presumed_driving_only  ', false)?.scope).toBe('driving')
+    expect(parseDailyEnergy('  presumed_driving_only  ', false, ' kWh ')).toEqual({
+      scope: 'driving', unit: 'kWh', confirmed: false,
+    })
   })
 })
 
@@ -985,27 +1082,89 @@ describe('buildVehicleState — daily breakdown', () => {
     expect(daily?.end).toBe('2026-08-27')
   })
 
-  it('carries the energy and its scope on the integration that declares one', () => {
-    const daily = trip(SEVEN_DAY_ATTRIBUTES_SCOPED).dailyBreakdown
+  it('carries the energy, its scope and its unit on the integration that declares them', () => {
+    const daily = trip(SEVEN_DAY_ATTRIBUTES_LABELED).dailyBreakdown
     expect(daily?.days).toEqual(EXPECTED_DAYS_WITH_ENERGY)
-    expect(daily?.energy).toEqual({ scope: 'driving', confirmed: false })
+    expect(daily?.energy).toEqual({ scope: 'driving', unit: 'kWh', confirmed: false })
+    // Nothing is being withheld, so nothing is said about a withholding.
+    expect(daily?.energyUnavailable).toBeUndefined()
+    expect(Object.keys(daily ?? {})).toEqual(['days', 'start', 'end', 'energy'])
   })
 
   it('carries the confirmation through, the day upstream gives one', () => {
     // Nothing here decides what the label says; it decides what the label is
     // told. The wording lives in the catalogs, chosen by this flag.
-    const daily = trip({ ...SEVEN_DAY_ATTRIBUTES_SCOPED, energy_scope_confirmed: true }).dailyBreakdown
-    expect(daily?.energy).toEqual({ scope: 'driving', confirmed: true })
+    const daily = trip({ ...SEVEN_DAY_ATTRIBUTES_LABELED, energy_scope_confirmed: true }).dailyBreakdown
+    expect(daily?.energy).toEqual({ scope: 'driving', unit: 'kWh', confirmed: true })
   })
 
   it('carries no energy at all when the scope is one this card cannot name', () => {
-    // The rows still hold their `driving_energy_kwh`; the declaration is what
-    // is missing, so the numbers stop at the boundary and the block draws
-    // distances exactly as it does on v0.7.1.
-    const daily = trip({ ...SEVEN_DAY_ATTRIBUTES_SCOPED, energy_scope: 'battery_delta' }).dailyBreakdown
+    // The rows still hold their `driving_energy_kwh` and say it is in kWh;
+    // what is missing is what it COUNTS, so the numbers stop at the boundary
+    // and the block draws distances exactly as it does on v0.7.1.
+    const daily = trip({ ...SEVEN_DAY_ATTRIBUTES_LABELED, energy_scope: 'battery_delta' }).dailyBreakdown
     expect(daily?.days).toEqual(EXPECTED_DAYS)
     expect(daily?.energy).toBeUndefined()
     expect(Object.keys(daily ?? {})).toEqual(['days', 'start', 'end'])
+  })
+
+  it('carries no energy at all when the unit is one this card cannot name', () => {
+    // The mirror image, and the half that 0.4.11 did not check: the scope is
+    // the one the card knows and the figures are watt-hours under a key named
+    // for kilowatt-hours. Nothing gets through.
+    const daily = trip(SEVEN_DAY_ATTRIBUTES_UNKNOWN_UNIT).dailyBreakdown
+    expect(daily?.days).toEqual(EXPECTED_DAYS)
+    expect(daily?.energy).toBeUndefined()
+  })
+
+  it('carries no energy on a T03, and says why', () => {
+    // Upstream leaves both kilowatt-hour fields as `None` and keeps the
+    // number in `energy_raw`, which the card does not read — but the rule the
+    // card applies is the `null` unit, not that luck. And here, unlike on the
+    // older integrations, there IS something to tell the reader.
+    const daily = trip(SEVEN_DAY_ATTRIBUTES_T03).dailyBreakdown
+    expect(daily?.days).toEqual(EXPECTED_DAYS)
+    expect(daily?.energy).toBeUndefined()
+    expect(daily?.energyUnavailable).toBe('unverified_unit')
+  })
+
+  it('carries the incomplete-data reason the same way', () => {
+    const detail = SEVEN_DAY_ATTRIBUTES_LABELED.daily_detail.map(day => ({
+      date: day.date, mileage_km: day.mileage_km, energy_unit: 'kWh',
+    }))
+    const daily = trip({
+      ...SEVEN_DAY_ATTRIBUTES_LABELED,
+      daily_detail: detail,
+      energy_unavailable_reason: 'incomplete_data',
+    }).dailyBreakdown
+    expect(daily?.days).toEqual(EXPECTED_DAYS)
+    expect(daily?.energyUnavailable).toBe('incomplete_data')
+  })
+
+  it('states no reason beside an energy it is showing', () => {
+    // A reason explains an absence. Next to a column of kilowatt-hours it
+    // would contradict what the reader is looking at, so it is dropped.
+    const daily = trip({
+      ...SEVEN_DAY_ATTRIBUTES_LABELED,
+      energy_unavailable_reason: 'incomplete_data',
+    }).dailyBreakdown
+    expect(daily?.days).toEqual(EXPECTED_DAYS_WITH_ENERGY)
+    expect(daily?.energyUnavailable).toBeUndefined()
+  })
+
+  it('states no reason on an integration that gives none', () => {
+    // v0.7.2 and older declare nothing at all, and an absence is not a
+    // reason: a line written from one would appear on most dashboards in the
+    // world saying nothing.
+    for (const attributes of [SEVEN_DAY_ATTRIBUTES, SEVEN_DAY_ATTRIBUTES_SCOPED]) {
+      const daily = trip(attributes).dailyBreakdown
+      expect(daily?.energyUnavailable).toBeUndefined()
+      expect(Object.keys(daily ?? {})).toEqual(['days', 'start', 'end'])
+    }
+    // Nor for a reason this card has no wording for.
+    expect(trip({
+      ...SEVEN_DAY_ATTRIBUTES_T03, energy_unavailable_reason: 'sunspots',
+    }).dailyBreakdown?.energyUnavailable).toBeUndefined()
   })
 
   it('carries no energy when the declaration is missing, which is today\'s car', () => {
@@ -1016,39 +1175,65 @@ describe('buildVehicleState — daily breakdown', () => {
     expect(daily?.energy).toBeUndefined()
   })
 
-  it('drops a scope whose rows all failed to report an energy', () => {
-    // A sentence qualifying an empty column is an orphan. The distances are
-    // untouched by it — they are the block's reason to exist.
-    const detail = SEVEN_DAY_ATTRIBUTES_SCOPED.daily_detail.map(day => ({
-      date: day.date, mileage_km: day.mileage_km,
-    }))
-    const daily = trip({ ...SEVEN_DAY_ATTRIBUTES_SCOPED, daily_detail: detail }).dailyBreakdown
+  it('carries no energy on v0.7.2, which names the scope and no unit', () => {
+    // Half a label is not a label, and this is the payload that made the rule
+    // explicit: the card shows a number only when the integration can say
+    // what the number is.
+    const daily = trip(SEVEN_DAY_ATTRIBUTES_SCOPED).dailyBreakdown
     expect(daily?.days).toEqual(EXPECTED_DAYS)
     expect(daily?.energy).toBeUndefined()
   })
 
-  it('takes the scope from the SAME sensor the rows came from', () => {
+  it('drops a declaration whose rows all failed to report an energy', () => {
+    // A sentence qualifying an empty column is an orphan. The distances are
+    // untouched by it — they are the block's reason to exist.
+    const detail = SEVEN_DAY_ATTRIBUTES_LABELED.daily_detail.map(day => ({
+      date: day.date, mileage_km: day.mileage_km, energy_unit: 'kWh',
+    }))
+    const daily = trip({ ...SEVEN_DAY_ATTRIBUTES_LABELED, daily_detail: detail }).dailyBreakdown
+    expect(daily?.days).toEqual(EXPECTED_DAYS)
+    expect(daily?.energy).toBeUndefined()
+  })
+
+  it('takes the declaration from the SAME sensor the rows came from', () => {
     // A hand-mapped `entities:` can point the two keys at two integrations.
     // One entity's declaration must not vouch for another entity's numbers,
-    // so a scope on the sensor that supplied no rows changes nothing.
-    const daily = trip(SEVEN_DAY_ATTRIBUTES, SEVEN_DAY_ATTRIBUTES_SCOPED).dailyBreakdown
+    // so a scope and a unit on the sensor that supplied no rows change
+    // nothing.
+    const daily = trip(SEVEN_DAY_ATTRIBUTES, SEVEN_DAY_ATTRIBUTES_LABELED).dailyBreakdown
     expect(daily?.days).toEqual(EXPECTED_DAYS)
     expect(daily?.energy).toBeUndefined()
     // And the fallback carries its own declaration with it when the distance
     // sensor is the one holding nothing.
-    expect(trip(undefined, SEVEN_DAY_ATTRIBUTES_SCOPED).dailyBreakdown?.energy).toEqual({
-      scope: 'driving', confirmed: false,
+    expect(trip(undefined, SEVEN_DAY_ATTRIBUTES_LABELED).dailyBreakdown?.energy).toEqual({
+      scope: 'driving', unit: 'kWh', confirmed: false,
     })
+    // The reason travels with the rows for the same reason.
+    expect(trip(SEVEN_DAY_ATTRIBUTES, SEVEN_DAY_ATTRIBUTES_T03).dailyBreakdown?.energyUnavailable)
+      .toBeUndefined()
   })
 
-  it('ignores energy_complete on a scoped payload too', () => {
-    // Completeness is a different question from scope, and it is scope that
-    // gates the block. A day whose energy did not arrive is already an
-    // absence on its own row.
+  it('ignores energy_complete on a labeled payload too', () => {
+    // Completeness is a different question from what the numbers are, and it
+    // is the second that gates the block. A day whose energy did not arrive
+    // is already an absence on its own row.
     for (const flag of [false, 'true', undefined]) {
-      const daily = trip({ ...SEVEN_DAY_ATTRIBUTES_SCOPED, energy_complete: flag }).dailyBreakdown
+      const daily = trip({ ...SEVEN_DAY_ATTRIBUTES_LABELED, energy_complete: flag }).dailyBreakdown
       expect(daily?.days, String(flag)).toEqual(EXPECTED_DAYS_WITH_ENERGY)
-      expect(daily?.energy, String(flag)).toEqual({ scope: 'driving', confirmed: false })
+      expect(daily?.energy, String(flag)).toEqual({ scope: 'driving', unit: 'kWh', confirmed: false })
+    }
+  })
+
+  it('ignores energy_precision and energy_complete_scope, whatever they say', () => {
+    // Neither is read. The precision is the cloud's own rounding, which the
+    // card quotes in its documentation and does not act on; the completeness
+    // scope qualifies a flag the card already ignores.
+    for (const value of ['rounded_by_integration', null, 42, undefined]) {
+      const daily = trip({
+        ...SEVEN_DAY_ATTRIBUTES_LABELED, energy_precision: value, energy_complete_scope: value,
+      }).dailyBreakdown
+      expect(daily?.days, String(value)).toEqual(EXPECTED_DAYS_WITH_ENERGY)
+      expect(daily?.energy, String(value)).toEqual({ scope: 'driving', unit: 'kWh', confirmed: false })
     }
   })
 })

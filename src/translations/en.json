@@ -108,6 +108,8 @@
   "trip.heading_daily": "Per day",
   "trip.daily_energy_driving": "Driving energy only, excluding climate and accessories",
   "trip.daily_energy_driving_presumed": "Presumed driving energy only, excluding climate and accessories",
+  "trip.daily_energy_no_unit": "Energy not shown: the integration cannot verify the unit the cloud reports",
+  "trip.daily_energy_incomplete": "Energy not shown: the integration reports the readings as incomplete",
   "trip.odometer": "Odometer",
   "trip.recent_days": "Recent days",
   "trip.consumption": "6 week average",

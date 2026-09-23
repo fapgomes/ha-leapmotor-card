@@ -2,8 +2,8 @@ import { isWindowOpen } from './format'
 import type { HassEntity, HomeAssistant } from './ha-types'
 import type { LogicalKey } from './keys'
 import type {
-  Activity, ChargingPhase, DailyBreakdown, DailyEnergy, EnergyScope, EntityMap, TripDay,
-  VehicleState, WeekEnergy, WeeklyConsumption,
+  Activity, ChargingPhase, DailyBreakdown, DailyEnergy, EnergyScope, EnergyUnavailableReason,
+  EnergyUnit, EntityMap, TripDay, VehicleState, WeekEnergy, WeeklyConsumption,
 } from './types'
 
 const INVALID = new Set(['unknown', 'unavailable', 'none', ''])
@@ -322,49 +322,62 @@ function nonNegative(value: unknown): number | undefined {
  * not; because it displays no total, a missing row corrupts no figure on
  * screen. Surfacing the count would add a warning with no remedy.
  *
- * **The rows also carry an energy, and `scope` is the only thing that lets
- * it through.** Called without one — which is the default, and which is
- * every integration up to and including v0.7.1 — the rows come out with no
- * energy at all, so nothing downstream has one to print. That default is the
- * conservative direction on purpose.
+ * **The rows also carry an energy, and the `unit` is what lets it through.**
+ * Called without one — which is the default, and which is every integration
+ * up to and including v0.7.2 — the rows come out with no energy at all, so
+ * nothing downstream has one to print. That default is the conservative
+ * direction on purpose. The caller passes a unit only when the sensor
+ * declared BOTH a scope and a unit this card can name; see
+ * `buildDailyBreakdown` below.
  *
- * 0.4.10 removed this field: measured on the car this card is built against,
- * 2026-09-04 to 2026-09-12, `daily_detail` reported 21.0 kWh for 217 km while
- * the garage charger's meter delivered 53.56 kWh into a battery that ended
- * the window where it started — about 45–48 kWh actually used, or 22.4 per
- * 100 km against the 9.7 the attribute implies — and nothing named the
- * quantity. **What changed in v0.7.2 is that the integration now names it.
- * The naming is a presumption, and it is upstream's, and the card repeats it
- * as one.** Do not upgrade it to a finding here or anywhere else; the whole
- * gate below exists because the last time this number went on screen with a
- * meaning attached, the meaning was wrong.
+ * And the unit is checked AGAIN against each row's own `energy_unit`, which
+ * v0.7.3 publishes beside the figure. A row whose unit is missing, unreadable
+ * or simply different keeps its distance and loses its energy: the symbol
+ * printed after a number has to be the one that arrived with that number, and
+ * a sensor-level declaration is not evidence about a row that contradicts it.
+ *
+ * 0.4.10 removed this field: over 2026-09-04 to 2026-09-12 `daily_detail`
+ * reported 21.0 kWh for 217 km while the garage charger's meter delivered
+ * 53.56 kWh into a battery that ended the window where it started — and
+ * nothing in the payload named the quantity. That window was eight days of a
+ * period bug since fixed upstream, and the meter figure was an estimate that
+ * assumed a charging loss and a usable capacity, so what it established was
+ * not a factor but the absence of a label. **What changed in v0.7.2 and
+ * v0.7.3 is that the integration supplies the label: a presumed scope, then a
+ * unit. Both are upstream's, and the card repeats them as such.** Do not
+ * upgrade either to a finding here or anywhere else; the gates below exist
+ * because the last time this number went on screen with a meaning attached,
+ * the meaning was wrong.
  *
  * The presumption is driving energy: traction alone, climate and accessories
- * excluded. What supports it is one aligned Monday-to-Sunday week, 2026-09-07
- * to 2026-09-13, where the daily rows summed to 38 kWh against a
- * `driving_energy_kwh` of 40.5 kWh (94 %) with a weekly TOTAL of 53.1 kWh.
- * That is a comparison of the rows against the SAME integration's own
- * seven-day sensor, both fed by the same cloud field
- * (`energy_source: accumulatedEnergyConsume`), so it establishes that the two
- * agree — not what either of them counts.
+ * excluded. Two aligned Monday-to-Sunday weeks, measured after the window fix,
+ * are consistent with the rows being whatever `driving_energy_kwh` is:
+ * 2026-09-07 to 09-13 summed to 38 kWh against 40.5 (94 %), and 2026-09-14 to
+ * 09-20 to 33 against 36.7 (90 %). The 2.5 and 3.7 kWh missing are about
+ * 0.4–0.5 kWh a day, which is what truncating seven values to whole
+ * kilowatt-hours costs — and that truncation is the cloud's, not this card's
+ * and not the integration's: the values arrive as integers and v0.7.3 marks
+ * them `energy_precision: as_reported_by_cloud`. Inside the second week, days
+ * of 40 km or less give 12.0 kWh/100 km and days over 40 give 12.3, so the
+ * trip-length effect an earlier version of this comment described does not
+ * appear in an aligned week.
  *
- * What it does not survive is the short trips. That 94 % rests on one 120 km
- * day worth 22 of the 38 kWh; drop it and the other 163 km come to
- * 9.8 kWh/100 km, which is the same 9.7 the September window gave against a
- * metered 22.4. If the field were driving-only at the 40.5/53.1 = 76 % that
- * week implies, September should have reported some 37 kWh; it reported 21,
- * or 57 %. So the direction is right — climate and accessories draw per unit
- * of time, so their share is largest exactly on the short city days where the
- * gap is widest — and the magnitude is unaccounted for. Upstream says the
- * same: `energy_scope_confirmed` is false because its author cannot confirm
- * the reading from his own captures either. See
+ * **None of which says what the rows count.** Both weeks compare the rows
+ * against another attribute of the SAME integration fed by the same cloud
+ * field (`energy_source: accumulatedEnergyConsume`), so they show internal
+ * consistency and not external truth; the climate share was 16.4 % and 16.8 %,
+ * essentially unchanged, so neither week moves the variable that would
+ * separate a driving-only reading from a total one; and it is one car, one
+ * driver, two weeks. Upstream says the same in its own way:
+ * `energy_scope_confirmed` is false because its author cannot confirm the
+ * reading from his own captures either. See
  * https://github.com/kerniger/leapmotor-ha/issues/67.
  *
  * The figure is read from `driving_energy_kwh` and falls back to the older
- * `energy_kwh`, which v0.7.2 keeps beside it carrying the same numbers for
- * compatibility. Only a MISSING key falls back, not an unreadable one: a
- * `driving_energy_kwh` of `''` is that row failing to report, and the stale
- * twin of a field that failed is not a better answer than the absence.
+ * `energy_kwh`, which v0.7.2 and v0.7.3 keep beside it carrying the same
+ * numbers for compatibility. Only a MISSING key falls back, not an unreadable
+ * one: a `driving_energy_kwh` of `''` is that row failing to report, and the
+ * stale twin of a field that failed is not a better answer than the absence.
  * Otherwise the energy follows the same rules as the distance — negative or
  * unreadable is an absence, a zero is a zero.
  *
@@ -374,10 +387,14 @@ function nonNegative(value: unknown): number | undefined {
  * asymmetry was noticed and kept: a key present as `null` reads as "this
  * integration does not populate this name", which is the case the fallback is
  * for, where `''` reads as "this name is mine and today it has no value". It
- * decides nothing today, because v0.7.2 writes identical numbers under both
- * keys; the day they can disagree, this is the paragraph to revisit.
+ * decides nothing today, because both names carry identical numbers; the day
+ * they can disagree, this is the paragraph to revisit.
+ *
+ * **`energy_raw` is never read.** v0.7.3 puts the cloud's bare number there
+ * on the cars whose unit it could not verify, and a bare number whose unit is
+ * disputed is the exact thing this whole gate refuses to print.
  */
-export function parseDailyDetail(value: unknown, scope?: EnergyScope): TripDay[] {
+export function parseDailyDetail(value: unknown, unit?: EnergyUnit): TripDay[] {
   if (!Array.isArray(value)) return []
 
   const days: TripDay[] = []
@@ -389,7 +406,7 @@ export function parseDailyDetail(value: unknown, scope?: EnergyScope): TripDay[]
     if (!isCalendarDay(day) || seen.has(day)) continue
     seen.add(day)
 
-    const kwh = scope === undefined
+    const kwh = unit === undefined || parseEnergyUnit(row.energy_unit) !== unit
       ? undefined
       : nonNegative(row.driving_energy_kwh ?? row.energy_kwh)
     days.push({
@@ -423,7 +440,56 @@ const KNOWN_ENERGY_SCOPES = new Map<string, EnergyScope>([
 ])
 
 /**
- * The scope declaration that travels with the daily rows, or nothing at all.
+ * The integration's spellings for the unit, mapped onto the symbols this card
+ * is prepared to print. A `Map` for the same reason as the scopes above: a
+ * lookup miss has to be typed as a miss.
+ *
+ * `kWh` and nothing else, and the spelling is exact after trimming. The
+ * mapping is not a normalizer: whatever comes back is printed verbatim beside
+ * a number, so a payload that spells the symbol its own way is a payload
+ * written by someone whose contract this card has not read. On the T03 this
+ * attribute is `null` — upstream will not claim kilowatt-hours for magnitudes
+ * that contradict them — and `null` lands where every unknown lands.
+ */
+const KNOWN_ENERGY_UNITS = new Map<string, EnergyUnit>([
+  ['kWh', 'kWh'],
+])
+
+/**
+ * The integration's reasons for publishing no usable energy, mapped onto the
+ * card's own. v0.7.3 publishes `unverified_unit` and `incomplete_data`, or
+ * `null` when it is withholding nothing.
+ */
+const KNOWN_UNAVAILABLE_REASONS = new Map<string, EnergyUnavailableReason>([
+  ['unverified_unit', 'unverified_unit'],
+  ['incomplete_data', 'incomplete_data'],
+])
+
+/**
+ * The unit the sensor or a single row declares, or nothing at all — the same
+ * posture as the scope: silence, `null`, a non-string and a spelling this card
+ * has never seen all land in the same place, and that place is no energy.
+ */
+export function parseEnergyUnit(unit: unknown): EnergyUnit | undefined {
+  if (typeof unit !== 'string') return undefined
+  return KNOWN_ENERGY_UNITS.get(unit.trim())
+}
+
+/**
+ * What the integration said it was withholding the energy for, or nothing.
+ * A reason this card cannot name is no reason it can write down, so it is
+ * silent rather than approximate — and silence is also every integration
+ * older than v0.7.3, which is why the line this feeds appears only when there
+ * is something to say.
+ */
+export function parseEnergyUnavailable(reason: unknown): EnergyUnavailableReason | undefined {
+  if (typeof reason !== 'string') return undefined
+  return KNOWN_UNAVAILABLE_REASONS.get(reason.trim())
+}
+
+/**
+ * The declaration that travels with the daily rows — what the energy counts
+ * and what it is measured in — or nothing at all.
  *
  * **Nothing is the answer to both silence and novelty**, and they deliberately
  * land in the same place. An integration that declares no `energy_scope` is
@@ -433,16 +499,31 @@ const KNOWN_ENERGY_SCOPES = new Map<string, EnergyScope>([
  * the spot is what 0.4.10 exists to prevent, and guessing at an unknown name
  * would be that with extra steps.
  *
+ * **The unit is required on exactly the same terms**, and it is the second
+ * half of the same rule: this card shows a number only when the integration
+ * can say what the number is. v0.7.2 says what it is presumed to count and
+ * stops there, so it gets no energy; v0.7.3 adds `energy_unit`, which is
+ * `kWh` on a B10 and `null` on a T03 whose magnitudes contradict the kWh
+ * contract. A unit upstream marks unverified is as unlabelable as an unknown
+ * scope, and the refusal is structural — the section is never handed a figure
+ * it would have to decide not to draw.
+ *
  * `confirmed` is true only for a literal boolean `true`. The string `'true'`
  * is not a promise — the same rule the charge flags follow — and everything
  * that is not the promise leaves the hedge in the label, which is the safe
- * direction to be wrong in.
+ * direction to be wrong in. It qualifies the scope alone: the unit is either
+ * recognized or absent, and there is no hedged wording for a half-known one.
  */
-export function parseEnergyScope(scope: unknown, confirmed: unknown): DailyEnergy | undefined {
+export function parseDailyEnergy(
+  scope: unknown,
+  confirmed: unknown,
+  unit: unknown,
+): DailyEnergy | undefined {
   if (typeof scope !== 'string') return undefined
   const known = KNOWN_ENERGY_SCOPES.get(scope.trim())
-  if (known === undefined) return undefined
-  return { scope: known, confirmed: confirmed === true }
+  const symbol = parseEnergyUnit(unit)
+  if (known === undefined || symbol === undefined) return undefined
+  return { scope: known, unit: symbol, confirmed: confirmed === true }
 }
 
 /**
@@ -468,38 +549,51 @@ const DAILY_DETAIL_KEYS: readonly LogicalKey[] = ['last7DaysKm', 'last7DaysEnerg
  * read — rows, and the declaration of what their energy counts, taken
  * together from that one sensor.
  *
- * The `energy_complete` attribute that travels with them is still not read.
- * It answers whether the period's readings are all in, which is a different
- * question from what they count, and it is the second that gates this block:
- * a complete set of unexplained numbers is exactly what 0.4.10 removed. A day
- * whose energy did not arrive is already an absence on its own row, written
- * as one.
+ * The `energy_complete` attribute that travels with them is still not read,
+ * and neither are `energy_complete_scope` or `energy_precision`. They answer
+ * whether the period's readings are all in and how precise they were, which
+ * are different questions from what the numbers are, and it is that one which
+ * gates this block: a complete set of unexplained numbers is exactly what
+ * 0.4.10 removed. A day whose energy did not arrive is already an absence on
+ * its own row, written as one.
  */
 function buildDailyBreakdown(hass: HomeAssistant, map: EntityMap): DailyBreakdown | undefined {
   for (const key of DAILY_DETAIL_KEYS) {
     /*
-     * The scope is read from the SAME entity as the rows, and before them,
-     * because it decides whether they are parsed with an energy at all.
+     * The declaration is read from the SAME entity as the rows, and before
+     * them, because it decides whether they are parsed with an energy at all.
      * Reading it from the other sensor would let one entity's declaration
      * vouch for another entity's numbers — which on a hand-mapped
      * `entities:` need not even be the same integration.
      */
-    const declared = parseEnergyScope(
+    const declared = parseDailyEnergy(
       attr<unknown>(hass, map, key, 'energy_scope'),
       attr<unknown>(hass, map, key, 'energy_scope_confirmed'),
+      attr<unknown>(hass, map, key, 'energy_unit'),
     )
-    const days = parseDailyDetail(attr<unknown>(hass, map, key, 'daily_detail'), declared?.scope)
+    const days = parseDailyDetail(attr<unknown>(hass, map, key, 'daily_detail'), declared?.unit)
     if (days.length === 0) continue
-    // A declared scope over rows that all failed to report their energy is a
+    // A declaration over rows that all failed to report their energy is a
     // sentence qualifying an empty column, so it goes where they went.
     const energy = declared !== undefined && days.some(day => day.energyKwh !== undefined)
       ? declared
+      : undefined
+    /*
+     * The stated reason, from that same entity, and only when there is no
+     * energy on screen: it explains an absence, so beside a column of
+     * kilowatt-hours it would contradict what the reader is looking at. On
+     * everything older than v0.7.3 it is undefined, which is why the absence
+     * of a reason never becomes a sentence of its own.
+     */
+    const energyUnavailable = energy === undefined
+      ? parseEnergyUnavailable(attr<unknown>(hass, map, key, 'energy_unavailable_reason'))
       : undefined
     return {
       days,
       start: days[0].date,
       end: days[days.length - 1].date,
       ...(energy !== undefined ? { energy } : {}),
+      ...(energyUnavailable !== undefined ? { energyUnavailable } : {}),
     }
   }
   return undefined

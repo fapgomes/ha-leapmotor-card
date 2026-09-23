@@ -3,7 +3,9 @@ import { customElement, property } from 'lit/decorators.js'
 import { formatCalendarDay, formatDayRange, formatNumber } from '../format'
 import { DASH, type TranslateFn } from '../localize'
 import { sharedStyles } from '../theme'
-import type { DailyEnergy, EnergyScope, EnergySlice, TripDay, VehicleState } from '../types'
+import type {
+  DailyEnergy, EnergyScope, EnergySlice, EnergyUnavailableReason, EnergyUnit, TripDay, VehicleState,
+} from '../types'
 
 interface Row {
   label: string
@@ -35,6 +37,19 @@ export const SCOPE_KEYS: Record<EnergyScope, { confirmed: string; presumed: stri
     confirmed: 'trip.daily_energy_driving',
     presumed: 'trip.daily_energy_driving_presumed',
   },
+}
+
+/**
+ * The catalog key for each reason the integration gives for publishing no
+ * usable energy. A total table like the one above, for the same reason: a
+ * reason added to `EnergyUnavailableReason` without a label here does not
+ * compile, and it is exported so the test that resolves every key against the
+ * real catalogs can reach it — these lines appear on payloads no fixture of
+ * the card's own car produces, so nothing else would notice a key rotting.
+ */
+export const UNAVAILABLE_KEYS: Record<EnergyUnavailableReason, string> = {
+  unverified_unit: 'trip.daily_energy_no_unit',
+  incomplete_data: 'trip.daily_energy_incomplete',
 }
 
 /**
@@ -165,35 +180,44 @@ export class LeapmotorTrip extends LitElement {
    * else in this sub-view.
    *
    * **Whether there is an energy at all is not this method's decision.**
-   * 0.4.10 took the per-day energy off the screen because it disagreed with a
-   * charger's meter by roughly a factor of two and nothing said what it
-   * counted; it is back because integration v0.7.2 says what it presumes the
-   * number to be, and `vehicle-state.ts` puts an `energyKwh` on a `TripDay`
-   * only for a presumption this card knows how to state. On an integration
-   * that says nothing there is no field here to print, exactly as there was
-   * not between 0.4.10 and now, and this method needs no flag to check for
-   * that.
+   * 0.4.10 took the per-day energy off the screen because nothing in the
+   * payload said what the number was; it is back because integration v0.7.3
+   * says both halves of that — what it presumes the figure to count and what
+   * unit it is in — and `vehicle-state.ts` puts an `energyKwh` on a `TripDay`
+   * only when it can name both. On an integration that says either nothing
+   * or half of it there is no field here to print, exactly as there was not
+   * between 0.4.10 and now.
    *
-   * Whole kilowatt-hours, because whole kilowatt-hours are what the API
-   * sends: a `.0` after every one of them would be a precision the source
-   * does not have.
+   * The `unit` is the symbol that arrived with the figure, passed down from
+   * the block rather than written here, so that a number can never be printed
+   * under a unit the integration did not declare. Absent it, the energy is
+   * not written at all — which is belt and braces, since without it there is
+   * no `energyKwh` on the day either.
+   *
+   * Whole kilowatt-hours, because whole kilowatt-hours are what the cloud
+   * sends — v0.7.3 states as much in `energy_precision: as_reported_by_cloud`
+   * — so a `.0` after every one of them would be a precision the source does
+   * not have.
    *
    * **No kWh/100 km per day, and these figures are never summed into any
    * consumption the card shows.** Two reasons, either of them sufficient. The
-   * card does not know what this energy counts — the integration's own
-   * reading of it leaves out climate and accessories, and that reading is
-   * unconfirmed by upstream and unclosed by our own measurements — so a
-   * quotient built from it would be a consumption figure with no defensible
-   * meaning, low by an amount known to exist and not known in size. And one
-   * kilowatt-hour of rounding on an eleven-kilometer day moves a kWh/100 km
-   * result by nine units, so it would look like a measurement and be noise.
-   * Consumption is a question the weekly series above already answers, over
-   * periods where both problems wash out.
+   * card does not know what this energy counts: on the integration's own
+   * reading it leaves out climate and accessories, and that reading is
+   * unconfirmed — the car's driving energy came to 12.2 kWh/100 km over the
+   * two weeks in which its overall consumption was 18.0, so a quotient built
+   * from these rows would need a label the data does not yet support. And the
+   * cloud's own rounding is half a kilowatt-hour a day, which on an
+   * eleven-kilometer day moves a kWh/100 km result by several units: it would
+   * look like a measurement and be quantization. Consumption is a question
+   * the weekly series above already answers, over periods where both problems
+   * wash out.
    */
-  private dayValue(day: TripDay): string {
+  private dayValue(day: TripDay, unit: EnergyUnit | undefined): string {
     const parts: string[] = []
     if (day.distanceKm !== undefined) parts.push(`${formatNumber(day.distanceKm)} km`)
-    if (day.energyKwh !== undefined) parts.push(`${formatNumber(day.energyKwh)} kWh`)
+    if (day.energyKwh !== undefined && unit !== undefined) {
+      parts.push(`${formatNumber(day.energyKwh)} ${unit}`)
+    }
     return this.joined(parts)
   }
 
@@ -219,6 +243,27 @@ export class LeapmotorTrip extends LitElement {
   }
 
   /**
+   * The line that takes the scope note's place when there is no energy to
+   * qualify and the integration said why there is none.
+   *
+   * It is deliberately not a warning and deliberately not always there. A
+   * reader on a T03 sees a column of distances and no kilowatt-hours, and the
+   * honest thing is to say that the integration is withholding them and what
+   * for — but only the integration can say that, and only v0.7.3 and later do.
+   * Everything older declares nothing at all, so a line written from an
+   * absence would appear on most dashboards in the world saying nothing, which
+   * is the definition of noise. Hence `energyUnavailable`, which exists only
+   * when a reason this card can name actually arrived.
+   *
+   * Never both lines: `vehicle-state.ts` leaves the reason undefined whenever
+   * the energy is on screen, so this one explains an absence the reader can
+   * see and never contradicts a column of numbers beside it.
+   */
+  private unavailableNote(reason: EnergyUnavailableReason) {
+    return html`<div class="withheld muted">${this.t(UNAVAILABLE_KEYS[reason])}</div>`
+  }
+
+  /**
    * A day's row: the date, a bar, and the distance.
    *
    * The bar is scaled to the LARGEST distance in the period and not to a
@@ -229,7 +274,7 @@ export class LeapmotorTrip extends LitElement {
    * text next to it is what says so — the bar never speaks on its own, which
    * is also why it is hidden from assistive technology.
    */
-  private dayRow(day: TripDay, maxKm: number) {
+  private dayRow(day: TripDay, maxKm: number, unit: EnergyUnit | undefined) {
     const km = day.distanceKm
     // One decimal is plenty for a width in percent, and it keeps a
     // 93.33333333333333% out of the DOM of every row.
@@ -237,7 +282,7 @@ export class LeapmotorTrip extends LitElement {
     return html`<div class="day">
       <span class="muted">${formatCalendarDay(day.date, this.language) ?? DASH}</span>
       <span class="bar" aria-hidden="true"><span class="fill" style="width:${width}%"></span></span>
-      <span class="value">${this.dayValue(day)}</span>
+      <span class="value">${this.dayValue(day, unit)}</span>
     </div>`
   }
 
@@ -256,10 +301,16 @@ export class LeapmotorTrip extends LitElement {
    * one that does not go through `text-transform: uppercase`, which would
    * otherwise mangle the month's abbreviation.
    *
-   * Under the heading, and only when the rows carry an energy, comes the one
-   * line that says what that energy counts — see `scopeNote`. The rows
-   * themselves stay bare numbers; the qualification is made once, where it
-   * cannot be missed on the way down to them.
+   * Under the heading comes at most one sentence, and which one depends on
+   * what arrived: when the rows carry an energy, the line that says what that
+   * energy counts (`scopeNote`); when they do not and the integration said
+   * why, the line that says so (`unavailableNote`); otherwise nothing, which
+   * is every integration older than v0.7.3. The rows themselves stay bare
+   * numbers, so the qualification is made once, where it cannot be missed on
+   * the way down to them.
+   *
+   * The unit travels from the block to each row, and is the only thing that
+   * lets a row print a kilowatt-hour at all.
    *
    * Rendered by hand instead of through `sections()` for the one reason its
    * `Row` cannot express: the bar. Same headings and the same spacing, so it
@@ -286,7 +337,8 @@ export class LeapmotorTrip extends LitElement {
         ${period !== undefined ? html`<span class="unit">${period}</span>` : nothing}
       </div>
       ${daily.energy !== undefined ? this.scopeNote(daily.energy) : nothing}
-      ${newestFirst.map(day => this.dayRow(day, maxKm))}
+      ${daily.energyUnavailable !== undefined ? this.unavailableNote(daily.energyUnavailable) : nothing}
+      ${newestFirst.map(day => this.dayRow(day, maxKm, daily.energy?.unit))}
     `
   }
 
@@ -440,13 +492,21 @@ export class LeapmotorTrip extends LitElement {
      */
     .day .value { text-align: end; font-variant-numeric: tabular-nums; }
     /*
-     * The scope line under the per-day heading. Muted and below the size of a
-     * row, because it is not one of the numbers — but it is a sentence and it
-     * wraps on a phone, so it takes a line-height and a margin instead of the
-     * heading's uppercase and letter spacing, which are for labels of two or
-     * three words and turn a wrapped sentence into a ransom note.
+     * The sentence under the per-day heading — the scope line, or the one
+     * that takes its place when the integration says why there is no energy.
+     * Muted and below the size of a row, because it is not one of the
+     * numbers — but it is a sentence and it wraps on a phone, so it takes a
+     * line-height and a margin instead of the heading's uppercase and letter
+     * spacing, which are for labels of two or three words and turn a wrapped
+     * sentence into a ransom note.
+     *
+     * Two class names for one rule, and not one name for both lines: they say
+     * opposite things — here is what the number means, and here is why there
+     * is no number — and the markup has to tell them apart for anyone
+     * theming, or reading it, or testing that only one of them is ever
+     * written.
      */
-    .scope { font-size: 0.72rem; line-height: 1.35; margin: 0 0 4px; }
+    .scope, .withheld { font-size: 0.72rem; line-height: 1.35; margin: 0 0 4px; }
     /*
      * The same fully round ends as the battery bar in hero.ts — one bar
      * idiom in the card, not two — but NOT its --lm-chip track. That bar

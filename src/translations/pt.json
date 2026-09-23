@@ -108,6 +108,8 @@
   "trip.heading_daily": "Por dia",
   "trip.daily_energy_driving": "Apenas energia de condução, excluindo climatização e acessórios",
   "trip.daily_energy_driving_presumed": "Presumivelmente apenas energia de condução, excluindo climatização e acessórios",
+  "trip.daily_energy_no_unit": "Energia não apresentada: a integração não consegue verificar a unidade que a nuvem reporta",
+  "trip.daily_energy_incomplete": "Energia não apresentada: a integração reporta as leituras como incompletas",
   "trip.odometer": "Conta-quilómetros",
   "trip.recent_days": "Dias recentes",
   "trip.consumption": "Média 6 semanas",

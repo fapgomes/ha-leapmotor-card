@@ -226,7 +226,8 @@ lock, never to open the car. This behaviour is fixed and has no option.
 
 The Trip sub-view ends with one line per day: the date, a bar scaled to the
 longest day of the period, and the distance driven — with the day's energy
-beside it on integrations that say what they presume that energy to be. It is
+beside it on integrations that say what that energy is: what they presume it
+to count, and what unit it is measured in. It is
 the only block of that sub-view whose rows are the data itself rather than a
 fixed set of questions.
 
@@ -249,20 +250,23 @@ total beside it covers whatever period the API decided to send. The upstream
 issue is
 [kerniger/leapmotor-ha#67](https://github.com/kerniger/leapmotor-ha/issues/67).
 
-**The per-day energy appears only when the integration says what it presumes
-the number to be, and that needs v0.7.2 or later.** Version 0.4.9 printed the
-`energy_kwh` that comes with each row, as `40 km · 5 kWh`, and 0.4.10 took it
-away again: checked against a meter over 2026-09-04 to 2026-09-12, the car
-drove 217 km for which `daily_detail` reported 21.0 kWh while the garage
-charger delivered 53.56 kWh — and the battery began that window at 28.0 % and
-ended it at 27.3 %, so no stored energy was hiding in the difference. That is
-roughly 45–48 kWh actually used, or 22.4 kWh/100 km against the 9.7 the
-attribute implies, and nothing in the payload said what the number was.
+**The per-day energy appears only when the integration says what the number
+is — both what it presumes it to count and what unit it is in — and that
+needs v0.7.3 or later.** Version 0.4.9 printed the `energy_kwh` that comes
+with each row, as `40 km · 5 kWh`, and 0.4.10 took it away again: over
+2026-09-04 to 2026-09-12 the car drove 217 km for which `daily_detail`
+reported 21.0 kWh while the garage charger delivered 53.56 kWh, with the
+battery beginning that window at 28.0 % and ending it at 27.3 %, and nothing
+in the payload said what the number was. That window was eight days of the
+period bug since fixed upstream, and the meter figure was an estimate that
+assumed both a charging loss and a usable capacity — so what it established
+was not a factor but the absence of a label. That absence is what 0.4.10
+acted on, and it is still the rule.
 
-**What the number is remains unconfirmed — by upstream, and by this card.**
-The reading on the table is driving energy: traction only, with climate and
-accessories excluded. Integration v0.7.2 publishes it as a presumption and not
-as a finding, in
+**What the number counts remains unconfirmed — by upstream, and by this
+card.** The reading on the table is driving energy: traction only, with
+climate and accessories excluded. Integration v0.7.2 publishes it as a
+presumption and not as a finding, in
 [kerniger/leapmotor-ha#67](https://github.com/kerniger/leapmotor-ha/issues/67):
 no value changes, each row gains a `driving_energy_kwh` beside the `energy_kwh`
 kept for compatibility, both seven-day sensors gain `energy_source`,
@@ -272,30 +276,54 @@ kept for compatibility, both seven-day sensors gain `energy_source`,
 total energy consumption. Its author says he cannot confirm the reading from
 his own captures.
 
-Neither can we, and our own data is where it comes apart. One aligned
-Monday-to-Sunday week fits: 2026-09-07 to 2026-09-13, where the daily rows
-summed to 38 kWh against the integration's `driving_energy_kwh` of 40.5 kWh
-for the same week — 94 % — with a weekly total of 53.1 kWh. But that compares
-the rows against the *same integration's* sensor, both fed by the same cloud
-field, so it shows the two agree and not what either counts. And the 94 %
-rests on a single 120 km day worth 22 of those 38 kWh: drop it, and the
-remaining 163 km come to 9.8 kWh/100 km — the same 9.7 the September window
-gave against a metered 22.4. If the field were driving-only at the
-40.5 / 53.1 = 76 % that week implies, September should have reported some
-37 kWh; it reported 21, which is 57 %. The direction is right, since climate
-and accessories draw per unit of time and so weigh most on short city days,
-but the size of the gap is not accounted for. **So: an aggregate that fits, and
-short trips in two separate windows that do not.**
+**v0.7.3 adds the other half of the label, and one car where it cannot be
+given.** The sensors gain `energy_unit` — `kWh` on a B10, and `null` on a
+T03, whose cloud magnitudes contradict the kilowatt-hour contract and where
+upstream refuses to guess a factor of a thousand — together with
+`energy_unavailable_reason` (`unverified_unit`, `incomplete_data` or `null`),
+`energy_precision` (`as_reported_by_cloud`) and `energy_complete_scope`. Each
+row also gains the cloud's untouched `energy_raw` and an `energy_unit` of its
+own.
+
+Our own measurements, taken after the window was fixed, no longer come apart —
+which is less than it sounds. Two complete Monday-to-Sunday weeks: 2026-09-07
+to 09-13, where the daily rows summed to 38 kWh against the integration's
+`driving_energy_kwh` of 40.5 for the same week (94 %), and 2026-09-14 to
+09-20, 33 against 36.7 (90 %). The 2.5 and 3.7 kWh missing are about 0.4–0.5
+kWh a day, which is what truncating seven values to whole kilowatt-hours
+costs — and the truncation is the cloud's, not this card's and not the
+integration's: the values arrive as integers and v0.7.3 marks them
+`energy_precision: as_reported_by_cloud`. The trip-length effect these notes
+used to describe does not survive an aligned week either: in the second week,
+days of 40 km or less come to 12.0 kWh/100 km and days over 40 km to 12.3.
+The "roughly 50 % on short trips" of 0.4.10 and 0.4.11 came from the pre-fix
+eight-day window set against that charger-meter estimate; both aligned weeks
+put the car's own total at 18.0–18.8 kWh/100 km where the estimate said 22.4.
+
+None of which says what the rows count. Both weeks compare them against
+another attribute of the *same* integration, fed by the same upstream data, so
+they show internal consistency and not external truth; `energy_scope_confirmed`
+is still `false`; the climate share was 16.4 % and 16.8 %, essentially
+unchanged, so neither week moves the variable that would separate a
+driving-only reading from a total one; and it is one car, one driver, two
+weeks. **So: two aligned weeks agreeing with the integration's own weekly
+figure to within the cloud's own rounding — which is the card's source being
+consistent with itself, and not a measurement of what the number is.**
 
 The card takes no side in this. It reads `driving_energy_kwh`, falls back to
 `energy_kwh` on a row that lacks it, **and shows nothing at all unless
-`energy_scope` names a scope it understands**. On every integration up to and
-including v0.7.1 that attribute does not exist, so the rows stay as they have
-been since 0.4.10 — `99 km` and no more. A scope the card has never heard of
-is treated the same way: an unlabeled energy is exactly what 0.4.10 was
-released to remove, and guessing at a name would be that with extra steps.
+`energy_scope` names a scope it understands AND `energy_unit` names a unit it
+can print**. On every integration up to and including v0.7.1 neither attribute
+exists; v0.7.2 has the scope and not the unit; a T03 on v0.7.3 has the scope
+and a `null` unit. In all three the rows stay as they have been since 0.4.10 —
+`99 km` and no more. A scope or a unit the card has never heard of is treated
+the same way, and the check is made twice: the row's own `energy_unit` has to
+be the one the sensor declared, or that row loses its figure, because the
+symbol printed after a number has to be the one that arrived with it. The
+card never reads `energy_raw`: a bare number whose unit is disputed is
+precisely the thing it is refusing to print.
 
-When the scope is there, the rows read `99 km · 14 kWh` and one line under the
+When both are there, the rows read `99 km · 14 kWh` and one line under the
 *Per day* heading says what the second number is presumed to be: *Presumed
 driving energy only, excluding climate and accessories*. It is written once,
 above the rows rather than on each of them, so that it cannot be skipped and
@@ -305,15 +333,23 @@ in the integration's own terms and adds no confidence of its own**: while
 ever sets it to `true` the same line drops the word with nothing edited in the
 card. The card did not establish the reading and will not overrule it.
 
+When there is no energy and the integration said why, that line is replaced by
+one that says so — *Energy not shown: the integration cannot verify the unit
+the cloud reports*, or the same for an incomplete period. It appears only when
+a reason actually arrived, which is v0.7.3 and later: every older version
+declares nothing, and a sentence written from that silence would show up on
+most dashboards in the world saying nothing at all.
+
 **There is no per-day consumption figure, and these energies are never summed
 into one.** Two reasons, either sufficient. Nobody can yet say what they
-count — on the reading above they leave out climate and accessories, and even
-that reading does not close the gap against the meter — so any kWh/100 km
-built from them would be a consumption figure with no defensible meaning, low
-by an amount known to exist and not known in size. And they arrive in whole
-kilowatt-hours, so one kilowatt-hour of rounding on an eleven-kilometer day
-moves a kWh/100 km result by nine units: it would look like a measurement and
-be quantization noise. **Overall consumption is the weekly rate's question**,
+count: on the reading above they leave out climate and accessories, and that
+is not a detail — over the two aligned weeks the rows come to 12.2 kWh/100 km
+while the car's own consumption was 18.0, so the column would need a label
+the data does not yet support even if the reading holds. And the figures are
+truncated to whole kilowatt-hours before the integration ever sees them, so
+half a kilowatt-hour of the cloud's rounding on an eleven-kilometer day moves
+a kWh/100 km result by several units: it would look like a measurement and be
+quantization noise. **Overall consumption is the weekly rate's question**,
 which matches the Leapmotor app, and the six-week average, the lifetime
 average and the driving/climate/other split all remain what they were.
 
